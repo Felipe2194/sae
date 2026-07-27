@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SAE — Sistema de Gestión de Actividades para Secretarías
+
+Panel operativo diario para la Secretaría de Asuntos Estudiantiles (SAE) de UTN FRVM: tareas, responsables, cronograma y calendario en un solo lugar. Multi-organización desde el diseño, para poder replicarse en otras secretarías.
+
+La especificación completa y el plan de construcción viven en [`docs/`](docs/):
+
+- [`docs/contexto.md`](docs/contexto.md) — especificación del producto.
+- [`docs/planes_extraidos/plan-de-construccion.md`](docs/planes_extraidos/plan-de-construccion.md) — plan de trabajo por etapas/módulos/pasos.
+
+## Stack
+
+Next.js (App Router) + TypeScript, Tailwind CSS + shadcn/ui, Supabase (Postgres + Auth + Storage + RLS), dnd-kit, deploy en Vercel.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrí [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Otros scripts:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint          # ESLint
+npm run format        # Prettier (escribe)
+npm run format:check  # Prettier (solo chequea)
+npm run build          # build de producción
+```
 
-## Learn More
+## Estructura de carpetas
 
-To learn more about Next.js, take a look at the following resources:
+```
+/app
+  /(auth)          login, registro, pendiente-de-aprobacion
+  /(app)           rutas protegidas
+    /hoy           panel del día
+    /tablero       kanban
+    /calendario
+    /cronograma
+    /areas
+    /coordinacion
+    /admin
+  /api
+/components
+  /ui              shadcn/ui
+  /features        componentes por dominio (tareas, areas, turnos...)
+/lib
+  /supabase        clientes y queries
+  /google          integración calendar
+  utils.ts
+/types
+/docs              especificación y plan de construcción
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Convenciones
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Componentes base de UI van en `components/ui` (generados con `npx shadcn@latest add <componente>`); componentes de dominio en `components/features`.
+- La lógica de negocio vive en la app (no en Edge Functions propietarias de Supabase), para que una eventual migración a self-hosted sea trivial.
+- Modelo de datos y políticas de RLS: ver sección 5 y el módulo M0.3 en `docs/`.

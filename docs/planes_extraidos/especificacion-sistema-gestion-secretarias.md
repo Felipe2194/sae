@@ -12,7 +12,7 @@ La Secretaría de Asuntos Estudiantiles (SAE) de UTN FRVM trabaja con:
 - **Un equipo rotativo**: las personas entran y salen con el paso del tiempo, y cada una cubre rangos horarios distintos.
 - **Sin sistema de gestión propio**: las herramientas comerciales son costosas y muchas no se integran con lo que ya se usa (Google Workspace, Drive, Calendar).
 
-El resultado es que no hay un lugar único donde ver *qué hay que hacer hoy, quién lo hace y qué quedó pendiente*.
+El resultado es que no hay un lugar único donde ver _qué hay que hacer hoy, quién lo hace y qué quedó pendiente_.
 
 ### Objetivo
 
@@ -40,11 +40,11 @@ Estos principios son la guía para resolver cualquier duda de producto durante e
 
 Tres roles, sin más:
 
-| Rol | Quién es | Qué puede hacer |
-|---|---|---|
-| **Miembro** | Cualquier persona del equipo | Ver su panel, ver el tablero, cambiar el estado de sus tareas, cargar su bitácora diaria, comentar |
-| **Coordinador** | Secretario y quien él designe | Todo lo del miembro + crear/asignar tareas a cualquiera, gestionar áreas, definir el cronograma semanal, ver reportes |
-| **Administrador** | Responsable técnico | Todo lo anterior + gestionar usuarios, aprobar registros, configurar la organización e integraciones |
+| Rol               | Quién es                      | Qué puede hacer                                                                                                       |
+| ----------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Miembro**       | Cualquier persona del equipo  | Ver su panel, ver el tablero, cambiar el estado de sus tareas, cargar su bitácora diaria, comentar                    |
+| **Coordinador**   | Secretario y quien él designe | Todo lo del miembro + crear/asignar tareas a cualquiera, gestionar áreas, definir el cronograma semanal, ver reportes |
+| **Administrador** | Responsable técnico           | Todo lo anterior + gestionar usuarios, aprobar registros, configurar la organización e integraciones                  |
 
 ### Registro
 
@@ -119,7 +119,7 @@ Los campos `vigente_desde` / `vigente_hasta` son la respuesta directa a que **el
 
 ## 6. Módulos
 
-### 6.1 Panel del día *(pantalla de inicio)*
+### 6.1 Panel del día _(pantalla de inicio)_
 
 Lo primero que ve cualquier persona al entrar:
 
@@ -191,14 +191,14 @@ Para el MVP, **enlaces, no integración**. Los accesos rápidos y los adjuntos s
 
 ## 8. Stack técnico
 
-| Capa | Elección | Por qué |
-|---|---|---|
-| Frontend | **Next.js** (App Router) + TypeScript | Ya está en tu stack |
-| Estilos | Tailwind + shadcn/ui | Componentes listos, se ve prolijo sin diseñar desde cero |
-| Backend / DB | **Supabase** (Postgres + Auth + Storage + RLS) | Auth y multi-tenancy resueltos de fábrica |
-| Kanban | dnd-kit | Liviano y mantenido |
-| Calendario | FullCalendar o react-big-calendar | — |
-| Deploy | Vercel (app) + Supabase (datos) | Gratis en la escala inicial |
+| Capa         | Elección                                       | Por qué                                                  |
+| ------------ | ---------------------------------------------- | -------------------------------------------------------- |
+| Frontend     | **Next.js** (App Router) + TypeScript          | Ya está en tu stack                                      |
+| Estilos      | Tailwind + shadcn/ui                           | Componentes listos, se ve prolijo sin diseñar desde cero |
+| Backend / DB | **Supabase** (Postgres + Auth + Storage + RLS) | Auth y multi-tenancy resueltos de fábrica                |
+| Kanban       | dnd-kit                                        | Liviano y mantenido                                      |
+| Calendario   | FullCalendar o react-big-calendar              | —                                                        |
+| Deploy       | Vercel (app) + Supabase (datos)                | Gratis en la escala inicial                              |
 
 ### Sobre la migración futura a servidores de la facultad
 
@@ -208,7 +208,7 @@ Supabase es Postgres estándar y su stack es open source y auto-hospedable. Si m
 
 ## 9. Fases de desarrollo
 
-### Fase 1 — Núcleo *(objetivo: usarlo de verdad en la secretaría)*
+### Fase 1 — Núcleo _(objetivo: usarlo de verdad en la secretaría)_
 
 1. Setup del proyecto, Supabase, esquema y RLS
 2. Auth: registro, login, aprobación de usuarios, roles
@@ -254,9 +254,9 @@ Al terminar esta fase el sistema ya reemplaza al setup de Jira + Notion.
 
 ## 11. Riesgos
 
-| Riesgo | Mitigación |
-|---|---|
+| Riesgo                                                 | Mitigación                                                                                                                                               |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | El equipo no adopta la herramienta y vuelve a WhatsApp | La app tiene que ser más rápida que WhatsApp para lo cotidiano. El panel del día debe cargar en menos de un segundo y marcar una tarea debe ser un clic. |
-| Sobre-ingeniería por pensar en las otras regionales | Multi-tenancy sí desde el día uno (es barato). Todo lo demás, resolverlo para SAE FRVM y generalizar después con casos reales. |
-| Continuidad del proyecto | Documentar en el repositorio desde el principio y evitar dependencias exóticas. |
-| Datos personales del equipo | Definir qué se guarda y por cuánto tiempo antes de escalar a otras secretarías. |
+| Sobre-ingeniería por pensar en las otras regionales    | Multi-tenancy sí desde el día uno (es barato). Todo lo demás, resolverlo para SAE FRVM y generalizar después con casos reales.                           |
+| Continuidad del proyecto                               | Documentar en el repositorio desde el principio y evitar dependencias exóticas.                                                                          |
+| Datos personales del equipo                            | Definir qué se guarda y por cuánto tiempo antes de escalar a otras secretarías.                                                                          |

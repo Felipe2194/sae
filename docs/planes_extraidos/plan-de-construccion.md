@@ -22,7 +22,7 @@ Cada módulo tiene un **Listo cuando** — la condición concreta que define que
 
 # ETAPA 0 — Cimientos
 
-*No produce nada visible. Es la base sobre la que se apoya todo lo demás.*
+_No produce nada visible. Es la base sobre la que se apoya todo lo demás._
 
 ## M0.1 — Repositorio y proyecto base
 
@@ -108,7 +108,7 @@ Este módulo es corto pero es **el más importante de la Etapa 0**. Si queda mal
 
 # ETAPA 1 — Núcleo utilizable
 
-*Al terminar esta etapa el sistema reemplaza a Jira y Notion. Este es el hito que importa.*
+_Al terminar esta etapa el sistema reemplaza a Jira y Notion. Este es el hito que importa._
 
 ## M1.1 — Autenticación y usuarios
 
@@ -234,7 +234,7 @@ Antes de seguir a la Etapa 2:
 
 # ETAPA 2 — Operación diaria
 
-*Lo que convierte al sistema en el lugar donde el equipo realmente trabaja.*
+_Lo que convierte al sistema en el lugar donde el equipo realmente trabaja._
 
 ## M2.1 — Cronograma semanal
 
@@ -339,24 +339,28 @@ Antes de seguir a la Etapa 2:
 
 # ETAPA 4 — Producto
 
-*Solo tiene sentido con la Etapa 1 funcionando de verdad en SAE.*
+_Solo tiene sentido con la Etapa 1 funcionando de verdad en SAE._
 
 ## M4.1 — Alta autogestionada de organizaciones
+
 - [ ] 4.1.1 Flujo de creación de organización
 - [ ] 4.1.2 Asistente inicial: datos, áreas sugeridas, primer usuario administrador
 - [ ] 4.1.3 Invitación de miembros por enlace
 
 ## M4.2 — Personalización
+
 - [ ] 4.2.1 Logo y color principal por organización
 - [ ] 4.2.2 Zona horaria
 - [ ] 4.2.3 Plantillas de áreas según tipo de secretaría
 
 ## M4.3 — Integración con Drive
+
 - [ ] 4.3.1 Buscador de archivos de Drive dentro de la app
 - [ ] 4.3.2 Adjuntar desde el explorador de Drive
 - [ ] 4.3.3 Vista previa embebida
 
 ## M4.4 — Documentación
+
 - [ ] 4.4.1 Guía de instalación para otras regionales
 - [ ] 4.4.2 Manual de usuario breve
 - [ ] 4.4.3 Documentación técnica del repositorio
