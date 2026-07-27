@@ -6,10 +6,11 @@ La especificación completa y el plan de construcción viven en [`docs/`](docs/)
 
 - [`docs/contexto.md`](docs/contexto.md) — especificación del producto.
 - [`docs/planes_extraidos/plan-de-construccion.md`](docs/planes_extraidos/plan-de-construccion.md) — plan de trabajo por etapas/módulos/pasos.
+- [`docs/estado-del-proyecto.md`](docs/estado-del-proyecto.md) — **empezar por acá para retomar el trabajo**: decisiones tomadas, estado actual y cómo levantar todo local.
 
 ## Stack
 
-Next.js (App Router) + TypeScript, Tailwind CSS + shadcn/ui, Supabase (Postgres + Auth + Storage + RLS), dnd-kit, deploy en Vercel.
+Next.js (App Router) + TypeScript, Tailwind CSS + shadcn/ui, Supabase (Postgres + Auth + Storage local en Docker, sin proyecto en la nube), dnd-kit, deploy en Vercel (a definir).
 
 ## Getting Started
 
