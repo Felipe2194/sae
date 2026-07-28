@@ -21,3 +21,7 @@ export async function login(
     throw error; // re-lanzar el NEXT_REDIRECT de signIn
   }
 }
+
+export async function loginWithGoogle(): Promise<void> {
+  await signIn('google', { redirectTo: '/hoy' });
+}

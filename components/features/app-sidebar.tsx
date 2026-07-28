@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Sun,
@@ -47,13 +48,20 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="bg-primary text-primary-foreground flex size-7 shrink-0 items-center justify-center rounded-md text-sm font-semibold">
-            S
+        <div className="flex items-center gap-2.5 px-2 py-2">
+          <div className="size-8 shrink-0 rounded-lg bg-[oklch(0.62_0.19_42)] flex items-center justify-center overflow-hidden">
+            <Image
+              src="/LogoUTN.png"
+              alt="UTN"
+              width={28}
+              height={28}
+              className="object-contain brightness-0 invert"
+            />
           </div>
-          <span className="font-semibold group-data-[collapsible=icon]:hidden">
-            SAE FRVM
-          </span>
+          <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="font-semibold text-sm">SAE · FRVM</span>
+            <span className="text-muted-foreground text-xs">UTN Villa María</span>
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -66,8 +74,10 @@ export function AppSidebar() {
                     render={<Link href={item.href} />}
                     isActive={pathname.startsWith(item.href)}
                     tooltip={item.label}
+                    size="lg"
+                    className="text-base"
                   >
-                    <item.icon />
+                    <item.icon className="size-5" />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
