@@ -11,6 +11,8 @@ export type Usuario = {
   email: string;
   rol: RolUsuario;
   iniciales: string;
+  apodo?: string;
+  color?: string;
 };
 
 export type Area = {
@@ -42,6 +44,8 @@ export const usuarioActual: Usuario = {
   email: "coordinador@sae.test",
   rol: "coordinador",
   iniciales: "CC",
+  apodo: "Carlos",
+  color: "#E05B22",
 };
 
 export const usuarios: Usuario[] = [

@@ -4,13 +4,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  Sun,
-  Kanban,
-  CalendarDays,
-  Clock,
-  Layers,
-  Users,
-  Settings,
+  Sparkles,
+  LayoutDashboard,
+  Calendar,
+  CalendarRange,
+  Layers3,
+  UsersRound,
+  ShieldCheck,
+  CircleUser,
+  LogOut,
 } from "lucide-react";
 import {
   Sidebar,
@@ -27,19 +29,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { usuarioActual } from "@/lib/mock-data";
 
 const items = [
-  { href: "/hoy", label: "Hoy", icon: Sun },
-  { href: "/tablero", label: "Tablero", icon: Kanban },
-  { href: "/calendario", label: "Calendario", icon: CalendarDays },
-  { href: "/cronograma", label: "Cronograma", icon: Clock },
-  { href: "/areas", label: "Áreas", icon: Layers },
-  { href: "/coordinacion", label: "Coordinación", icon: Users },
-  { href: "/admin", label: "Admin", icon: Settings },
+  { href: "/hoy", label: "Hoy", icon: Sparkles },
+  { href: "/tablero", label: "Tablero", icon: LayoutDashboard },
+  { href: "/calendario", label: "Calendario", icon: Calendar },
+  { href: "/cronograma", label: "Cronograma", icon: CalendarRange },
+  { href: "/areas", label: "Áreas", icon: Layers3 },
+  { href: "/coordinacion", label: "Coordinación", icon: UsersRound },
+  { href: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
 export function AppSidebar() {
@@ -64,6 +67,7 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
@@ -86,32 +90,65 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
-            <Avatar className="size-6">
-              <AvatarFallback>{usuarioActual.iniciales}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="truncate font-medium">
-                {usuarioActual.nombre}
-              </span>
-              <span className="text-muted-foreground truncate text-xs">
-                {usuarioActual.email}
-              </span>
+          <DropdownMenuTrigger render={<SidebarMenuButton size="lg" className="h-auto py-2" />}>
+            {/* Logo UTN encima del nombre — visible cuando sidebar está expandido */}
+            <div className="flex flex-col gap-1.5 group-data-[collapsible=icon]:hidden w-full">
+              <div className="flex items-center gap-1.5 opacity-60">
+                <Image
+                  src="/LogoUTN.png"
+                  alt="UTN"
+                  width={14}
+                  height={14}
+                  className="object-contain"
+                />
+                <span className="text-[10px] font-medium tracking-wide uppercase">UTN FRVM</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Avatar className="size-7" style={{ backgroundColor: usuarioActual.color ?? "#E05B22" }}>
+                  <AvatarFallback
+                    className="text-xs font-semibold text-white"
+                    style={{ backgroundColor: usuarioActual.color ?? "#E05B22" }}
+                  >
+                    {usuarioActual.iniciales}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col text-left text-sm leading-tight">
+                  <span className="truncate font-medium">
+                    {usuarioActual.apodo ?? usuarioActual.nombre.split(" ")[0]}
+                  </span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    {usuarioActual.email}
+                  </span>
+                </div>
+              </div>
             </div>
+            {/* Solo avatar cuando está colapsado */}
+            <Avatar className="size-6 group-data-[collapsible=icon]:flex hidden" style={{ backgroundColor: usuarioActual.color ?? "#E05B22" }}>
+              <AvatarFallback
+                className="text-[10px] font-semibold text-white"
+                style={{ backgroundColor: usuarioActual.color ?? "#E05B22" }}
+              >
+                {usuarioActual.iniciales}
+              </AvatarFallback>
+            </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-56">
             <DropdownMenuItem
               nativeButton={false}
               render={<Link href="/perfil" />}
             >
+              <CircleUser className="size-4" />
               Mi perfil
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               nativeButton={false}
               render={<Link href="/login" />}
             >
+              <LogOut className="size-4" />
               Cerrar sesión
             </DropdownMenuItem>
           </DropdownMenuContent>
