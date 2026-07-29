@@ -13,6 +13,16 @@ async function requireAdmin() {
   return session;
 }
 
+async function requireCoord() {
+  const session = await auth();
+  if (!session?.user) throw new Error('No autenticado');
+  const rol = (session.user as { rol: string }).rol;
+  if (rol !== 'coordinador' && rol !== 'administrador') {
+    throw new Error('Se requiere rol coordinador o administrador');
+  }
+  return session;
+}
+
 // ── Tareas ────────────────────────────────────────────────────────────────────
 
 export async function asignarTarea(tareaId: string, usuarioId: string | null) {
@@ -32,7 +42,7 @@ export async function asignarTarea(tareaId: string, usuarioId: string | null) {
 // ── Accesos rápidos ───────────────────────────────────────────────────────────
 
 export async function crearAcceso(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireCoord();
   const etiqueta = (formData.get('etiqueta') as string).trim();
   const url = (formData.get('url') as string).trim();
   if (!etiqueta || !url) return;
@@ -53,7 +63,7 @@ export async function crearAcceso(formData: FormData) {
 }
 
 export async function eliminarAcceso(accesoId: string) {
-  const session = await requireAdmin();
+  const session = await requireCoord();
   await withUser(session.user.id, async (tx) => {
     await tx`
       delete from acceso_rapido
