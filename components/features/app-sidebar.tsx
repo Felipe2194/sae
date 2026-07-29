@@ -119,14 +119,6 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
             {/* Expandido: logo + nombre */}
             <div className="flex flex-col gap-1.5 group-data-[collapsible=icon]:hidden w-full">
               <div className="flex items-center gap-1.5 opacity-60">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/LogoUTN.png"
-                  alt="UTN"
-                  width={14}
-                  height={14}
-                  style={{ objectFit: "contain" }}
-                />
                 <span className="text-[10px] font-medium tracking-wide uppercase">UTN FRVM</span>
               </div>
               <div className="flex items-center gap-2">
