@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AreaDetalleCliente } from "./area-detalle-cliente";
+import { AreaNotas, type NotaRow } from "./area-notas";
 
 type AreaRow = {
   id: string;
@@ -77,7 +78,7 @@ export default async function AreaDetallePage({
   const rol = (session.user as { rol: string }).rol;
   const canManage = rol === "coordinador" || rol === "administrador";
 
-  const { area, tareas, usuarios } = await withUser(session.user.id, async (tx) => {
+  const { area, tareas, usuarios, notas } = await withUser(session.user.id, async (tx) => {
     const [area] = await tx<AreaRow[]>`
       select
         a.id, a.nombre, a.color, a.descripcion, a.responsable_id,
@@ -95,7 +96,7 @@ export default async function AreaDetallePage({
       limit 1
     `;
 
-    if (!area) return { area: null, tareas: [], usuarios: [] };
+    if (!area) return { area: null, tareas: [], usuarios: [], notas: [] };
 
     const tareas = await tx<TareaRow[]>`
       select
@@ -123,7 +124,22 @@ export default async function AreaDetallePage({
         `
       : [];
 
-    return { area, tareas: [...tareas], usuarios: [...usuarios] };
+    const notas = await tx<NotaRow[]>`
+      select
+        n.id,
+        n.contenido,
+        n.tipo::text   as tipo,
+        n.creada_en::text,
+        n.autor_id,
+        u.nombre       as autor_nombre
+      from nota_area n
+      join usuario u on u.id = n.autor_id
+      where n.area_id = ${areaId}
+      order by n.creada_en desc
+      limit 100
+    `;
+
+    return { area, tareas: [...tareas], usuarios: [...usuarios], notas: [...notas] };
   });
 
   if (!area) notFound();
@@ -314,6 +330,16 @@ export default async function AreaDetallePage({
             </Button>
           </div>
         )}
+      </div>
+
+      {/* ── Bitácora ────────────────────────────────────────────────────────── */}
+      <div className="border-t pt-6">
+        <AreaNotas
+          areaId={area.id}
+          notasIniciales={notas}
+          usuarioActualId={session.user.id}
+          canDelete={canManage}
+        />
       </div>
     </div>
   );

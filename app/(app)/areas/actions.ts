@@ -4,6 +4,12 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { withUser } from '@/lib/db';
 
+async function requireAuth() {
+  const session = await auth();
+  if (!session?.user) throw new Error('No autenticado');
+  return session;
+}
+
 async function requireCoord() {
   const session = await auth();
   if (!session?.user) throw new Error('No autenticado');
@@ -29,6 +35,36 @@ export async function crearArea(data: {
   });
   revalidatePath('/areas');
   revalidatePath('/coordinacion');
+}
+
+// ── Notas de área ─────────────────────────────────────────────────────────────
+
+export async function crearNota(
+  areaId: string,
+  contenido: string,
+  tipo: 'nota' | 'idea' | 'actividad' | 'progreso',
+) {
+  const session = await requireAuth();
+  const texto = contenido.trim();
+  if (!texto) return;
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      insert into nota_area (area_id, autor_id, contenido, tipo)
+      values (${areaId}, mi_usuario_id(), ${texto}, ${tipo}::tipo_nota_area)
+    `;
+  });
+  revalidatePath(`/areas/${areaId}`);
+}
+
+export async function eliminarNota(notaId: string, areaId: string) {
+  const session = await requireAuth();
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      delete from nota_area
+      where id = ${notaId}
+    `;
+  });
+  revalidatePath(`/areas/${areaId}`);
 }
 
 export async function actualizarArea(
