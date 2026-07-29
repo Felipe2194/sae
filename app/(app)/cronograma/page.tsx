@@ -4,6 +4,7 @@ import { withUser } from "@/lib/db";
 import { CronogramaCliente } from "./cronograma-cliente";
 
 export type TurnoData = {
+  usuario_id: string;
   usuario_nombre: string;
   dia_semana: number; // 0=Lun … 4=Vie
   hora_inicio: string; // "08:00"
@@ -17,10 +18,11 @@ export default async function CronogramaPage() {
   const turnos = await withUser(session.user.id, async (tx) => {
     return tx<TurnoData[]>`
       select
-        u.nombre                                    as usuario_nombre,
-        t.dia_semana::int                           as dia_semana,
-        substring(t.hora_inicio::text, 1, 5)       as hora_inicio,
-        substring(t.hora_fin::text, 1, 5)           as hora_fin
+        t.usuario_id,
+        u.nombre                              as usuario_nombre,
+        t.dia_semana::int                     as dia_semana,
+        substring(t.hora_inicio::text, 1, 5) as hora_inicio,
+        substring(t.hora_fin::text, 1, 5)    as hora_fin
       from turno t
       join usuario u on u.id = t.usuario_id
       where t.vigente_desde <= current_date
@@ -29,5 +31,10 @@ export default async function CronogramaPage() {
     `;
   });
 
-  return <CronogramaCliente turnos={turnos} />;
+  return (
+    <CronogramaCliente
+      turnos={turnos}
+      sesionUsuarioId={session.user.id}
+    />
+  );
 }

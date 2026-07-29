@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { TurnoData } from "./page";
 
-// ── Estructura de la semana ─────────────────────────────────────────────────
+// ── Constantes ────────────────────────────────────────────────────────────────
 
 const DIAS = [
   { dia: 0, label: "Lunes",     abrev: "Lun" },
@@ -16,50 +16,26 @@ const DIAS = [
   { dia: 4, label: "Viernes",   abrev: "Vie" },
 ];
 
-const SECCIONES = [
-  {
-    nombre: "Mañana",
-    bg: "bg-amber-50 dark:bg-amber-950/20",
-    slots: [{ inicio: "08:00", fin: "12:00" }],
-  },
-  {
-    nombre: "Tarde",
-    bg: "bg-orange-50 dark:bg-orange-950/20",
-    slots: [
-      { inicio: "14:00", fin: "15:00" },
-      { inicio: "15:00", fin: "16:00" },
-      { inicio: "16:00", fin: "17:00" },
-      { inicio: "17:00", fin: "18:00" },
-    ],
-  },
-  {
-    nombre: "Noche",
-    bg: "bg-blue-50 dark:bg-blue-950/20",
-    slots: [
-      { inicio: "18:00", fin: "19:00" },
-      { inicio: "19:00", fin: "20:00" },
-      { inicio: "20:00", fin: "21:00" },
-    ],
-  },
-];
-
-// ── Paleta por usuario (orden alfabético) ───────────────────────────────────
+const HORA_MIN = 7;   // 07:00
+const HORA_MAX = 22;  // 22:00
+const TOTAL_HORAS = HORA_MAX - HORA_MIN;
+const PX_POR_HORA = 56;
 
 const PALETTE = [
   "#ef4444", "#f97316", "#eab308", "#22c55e",
   "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6",
 ];
 
+// ── Utilidades ────────────────────────────────────────────────────────────────
+
 function buildColorMap(turnos: TurnoData[]): Map<string, string> {
   const nombres = [...new Set(turnos.map((t) => t.usuario_nombre))].sort();
   return new Map(nombres.map((n, i) => [n, PALETTE[i % PALETTE.length]]));
 }
 
-// ── Utilidades de semana ─────────────────────────────────────────────────────
-
 function lunesDe(fecha: Date): Date {
   const d = new Date(fecha);
-  const dow = d.getDay(); // 0=dom
+  const dow = d.getDay();
   d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
   d.setHours(0, 0, 0, 0);
   return d;
@@ -78,30 +54,81 @@ function fechaDia(lunes: Date, offsetDia: number): Date {
   return d;
 }
 
-// ── Lógica de overlap ───────────────────────────────────────────────────────
-
-/** Devuelve los nombres de quienes tienen turno en ese día+slot. */
-function usuariosEnSlot(
-  turnos: TurnoData[],
-  dia: number,
-  slotInicio: string,
-  slotFin: string,
-): string[] {
-  return turnos
-    .filter(
-      (t) =>
-        t.dia_semana === dia &&
-        t.hora_inicio <= slotInicio &&
-        t.hora_fin >= slotFin,
-    )
-    .map((t) => t.usuario_nombre);
+function horaANum(h: string): number {
+  const [hh, mm] = h.split(":").map(Number);
+  return hh + (mm ?? 0) / 60;
 }
 
-// ── Componente ───────────────────────────────────────────────────────────────
+function iniciales(nombre: string): string {
+  const p = nombre.trim().split(/\s+/);
+  if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+  return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+}
 
-export function CronogramaCliente({ turnos }: { turnos: TurnoData[] }) {
+// ── Overlap: asigna lanes a turnos que se solapan ─────────────────────────────
+
+type TurnoConLane = TurnoData & { lane: number; totalLanes: number };
+
+function asignarLanes(turnos: TurnoData[]): TurnoConLane[] {
+  const sorted = [...turnos].sort((a, b) =>
+    a.hora_inicio.localeCompare(b.hora_inicio),
+  );
+  const lanes: string[] = []; // last fin de cada lane
+  const asignados: (TurnoData & { lane: number })[] = [];
+
+  for (const t of sorted) {
+    let lane = lanes.findIndex((fin) => fin <= t.hora_inicio);
+    if (lane === -1) {
+      lane = lanes.length;
+      lanes.push(t.hora_fin);
+    } else {
+      lanes[lane] = t.hora_fin;
+    }
+    asignados.push({ ...t, lane });
+  }
+
+  const totalLanes = Math.max(1, lanes.length);
+  return asignados.map((t) => ({ ...t, totalLanes }));
+}
+
+// ── Componente ────────────────────────────────────────────────────────────────
+
+type Props = {
+  turnos: TurnoData[];
+  sesionUsuarioId: string;
+};
+
+export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
   const [lunes, setLunes] = useState(() => lunesDe(new Date()));
   const colorMap = buildColorMap(turnos);
+
+  const ahora = new Date();
+  const hoyISO = ahora.toISOString().slice(0, 10);
+  const horaActual = ahora.getHours() + ahora.getMinutes() / 60;
+  const diaHoy = (ahora.getDay() + 6) % 7; // 0=Lun…4=Vie
+
+  const esSemanaActual =
+    lunesDe(ahora).toISOString().slice(0, 10) === lunes.toISOString().slice(0, 10);
+
+  // Quién está en la oficina ahora mismo
+  const presentesAhora =
+    esSemanaActual && diaHoy < 5
+      ? turnos.filter(
+          (t) =>
+            t.dia_semana === diaHoy &&
+            horaANum(t.hora_inicio) <= horaActual &&
+            horaANum(t.hora_fin) > horaActual,
+        )
+      : [];
+
+  // Posición de la línea "ahora" (solo en columna de hoy)
+  const nowPx =
+    esSemanaActual &&
+    diaHoy < 5 &&
+    horaActual >= HORA_MIN &&
+    horaActual <= HORA_MAX
+      ? (horaActual - HORA_MIN) * PX_POR_HORA
+      : null;
 
   const semanaAnterior = () => {
     const d = new Date(lunes);
@@ -115,16 +142,18 @@ export function CronogramaCliente({ turnos }: { turnos: TurnoData[] }) {
   };
   const irAHoy = () => setLunes(lunesDe(new Date()));
 
-  const hoyISO = new Date().toISOString().slice(0, 10);
+  const horaLabels = Array.from(
+    { length: TOTAL_HORAS + 1 },
+    (_, i) => HORA_MIN + i,
+  );
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      {/* Encabezado */}
+    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+
+      {/* ── Encabezado ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Cronograma semanal
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Cronograma</h1>
           <p className="text-muted-foreground text-sm">{formatSemana(lunes)}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -140,128 +169,228 @@ export function CronogramaCliente({ turnos }: { turnos: TurnoData[] }) {
         </div>
       </div>
 
-      {/* Leyenda de colores */}
-      <div className="flex flex-wrap gap-3">
-        {[...colorMap.entries()].map(([nombre, color]) => (
-          <div key={nombre} className="flex items-center gap-1.5 text-sm">
-            <span
-              className="size-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: color }}
-            />
-            {nombre}
-          </div>
-        ))}
-      </div>
+      {/* ── En la oficina ahora ──────────────────────────────────────────────── */}
+      {esSemanaActual && (
+        <div className={[
+          "flex items-center gap-3 rounded-xl border px-4 py-3",
+          presentesAhora.length > 0
+            ? "border-primary/20 bg-primary/5"
+            : "border-dashed bg-muted/30",
+        ].join(" ")}>
+          {presentesAhora.length > 0 ? (
+            <>
+              <Clock className="size-4 text-primary shrink-0" />
+              <span className="text-sm font-medium shrink-0">Ahora en la oficina</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {presentesAhora.map((t) => {
+                  const color = colorMap.get(t.usuario_nombre) ?? "#94a3b8";
+                  const esMio = t.usuario_id === sesionUsuarioId;
+                  return (
+                    <div key={t.usuario_nombre} className="flex items-center gap-1.5">
+                      <span
+                        className="size-2 rounded-full shrink-0"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className={`text-sm ${esMio ? "font-semibold" : ""}`}>
+                        {esMio ? "Vos" : t.usuario_nombre}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        hasta {t.hora_fin}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              <Users className="size-4 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground">
+                {diaHoy < 5
+                  ? "Nadie en la oficina en este momento"
+                  : "Fin de semana — sin turnos"}
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
-      {/* Grilla */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr>
-                  {/* Columna turno */}
-                  <th className="text-muted-foreground w-20 border-b px-3 py-3 text-left text-xs font-medium">
-                    Turno
-                  </th>
-                  {/* Columna horario */}
-                  <th className="text-muted-foreground w-24 border-b px-3 py-3 text-left text-xs font-medium">
-                    Horario
-                  </th>
-                  {/* Columnas de días */}
-                  {DIAS.map(({ dia, label, abrev }) => {
-                    const fecha = fechaDia(lunes, dia);
-                    const fechaISO = fecha.toISOString().slice(0, 10);
-                    const esHoy = fechaISO === hoyISO;
-                    return (
-                      <th
-                        key={dia}
-                        className={`border-b px-2 py-3 text-center text-xs font-medium ${
-                          esHoy ? "text-primary" : "text-muted-foreground"
-                        }`}
-                      >
-                        <span className="hidden sm:block">{label}</span>
+      {/* ── Timeline ────────────────────────────────────────────────────────── */}
+      {turnos.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-20 text-center rounded-xl border border-dashed">
+          <Users className="size-8 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">
+            No hay turnos cargados para esta semana.
+          </p>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            <div className="min-w-[580px]">
+
+              {/* Cabecera días */}
+              <div className="grid border-b" style={{ gridTemplateColumns: "3.5rem repeat(5, 1fr)" }}>
+                <div className="border-r" /> {/* espacio horas */}
+                {DIAS.map(({ dia, label, abrev }) => {
+                  const fecha = fechaDia(lunes, dia);
+                  const esHoy = fecha.toISOString().slice(0, 10) === hoyISO;
+                  return (
+                    <div
+                      key={dia}
+                      className={`py-3 text-center border-r last:border-r-0 ${esHoy ? "bg-primary/5" : ""}`}
+                    >
+                      <p className={`text-xs font-semibold ${esHoy ? "text-primary" : "text-muted-foreground"}`}>
+                        <span className="hidden sm:inline">{label}</span>
                         <span className="sm:hidden">{abrev}</span>
-                        <div className="text-[10px] font-normal mt-0.5">
-                          {fecha.toLocaleDateString("es-AR", {
-                            day: "numeric",
-                            month: "numeric",
-                          })}
-                        </div>
-                        {esHoy && (
-                          <div className="bg-primary mx-auto mt-0.5 h-1 w-5 rounded-full" />
-                        )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {SECCIONES.map((seccion) =>
-                  seccion.slots.map((slot, si) => (
-                    <tr key={`${seccion.nombre}-${slot.inicio}`}>
-                      {/* Etiqueta de sección (solo en el primer slot) */}
-                      {si === 0 ? (
-                        <td
-                          rowSpan={seccion.slots.length}
-                          className={`border-b px-3 py-2 text-xs font-semibold align-top pt-3 ${seccion.bg}`}
+                      </p>
+                      <p className={`text-xs mt-0.5 ${esHoy ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                        {fecha.toLocaleDateString("es-AR", { day: "numeric", month: "numeric" })}
+                      </p>
+                      {esHoy && (
+                        <div className="mx-auto mt-1 h-0.5 w-6 rounded-full bg-primary" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Cuerpo: horas + columnas de días */}
+              <div
+                className="grid relative"
+                style={{
+                  gridTemplateColumns: "3.5rem repeat(5, 1fr)",
+                  height: `${TOTAL_HORAS * PX_POR_HORA}px`,
+                }}
+              >
+                {/* Columna de horas */}
+                <div className="relative border-r">
+                  {horaLabels.map((h) => (
+                    <div
+                      key={h}
+                      className="absolute right-2 text-[10px] text-muted-foreground leading-none"
+                      style={{ top: `${(h - HORA_MIN) * PX_POR_HORA - 6}px` }}
+                    >
+                      {String(h).padStart(2, "0")}:00
+                    </div>
+                  ))}
+                </div>
+
+                {/* Columnas de días */}
+                {DIAS.map(({ dia }) => {
+                  const fecha = fechaDia(lunes, dia);
+                  const esHoy = fecha.toISOString().slice(0, 10) === hoyISO;
+                  const turnosDia = turnos.filter((t) => t.dia_semana === dia);
+                  const conLanes = asignarLanes(turnosDia);
+
+                  return (
+                    <div
+                      key={dia}
+                      className={`relative border-r last:border-r-0 ${esHoy ? "bg-primary/[0.03]" : ""}`}
+                    >
+                      {/* Guías horizontales por hora */}
+                      {horaLabels.map((h) => (
+                        <div
+                          key={h}
+                          className="absolute left-0 right-0 border-t border-border/30"
+                          style={{ top: `${(h - HORA_MIN) * PX_POR_HORA}px` }}
+                        />
+                      ))}
+
+                      {/* Línea "ahora" */}
+                      {esHoy && nowPx !== null && (
+                        <div
+                          className="absolute left-0 right-0 z-20 flex items-center"
+                          style={{ top: `${nowPx}px` }}
                         >
-                          {seccion.nombre}
-                        </td>
-                      ) : null}
+                          <div className="size-2 rounded-full bg-red-500 -ml-1 shrink-0" />
+                          <div className="flex-1 border-t-2 border-red-500" />
+                        </div>
+                      )}
 
-                      {/* Horario */}
-                      <td
-                        className={`border-b px-3 py-2 text-xs text-muted-foreground whitespace-nowrap ${seccion.bg}`}
-                      >
-                        {slot.inicio} – {slot.fin}
-                      </td>
+                      {/* Bloques de turno */}
+                      {conLanes.map((t) => {
+                        const inicio = horaANum(t.hora_inicio);
+                        const fin = horaANum(t.hora_fin);
+                        if (inicio >= HORA_MAX || fin <= HORA_MIN) return null;
 
-                      {/* Celdas por día */}
-                      {DIAS.map(({ dia }) => {
-                        const nombres = usuariosEnSlot(
-                          turnos,
-                          dia,
-                          slot.inicio,
-                          slot.fin,
-                        );
+                        const top = (Math.max(inicio, HORA_MIN) - HORA_MIN) * PX_POR_HORA;
+                        const height = (Math.min(fin, HORA_MAX) - Math.max(inicio, HORA_MIN)) * PX_POR_HORA;
+                        const color = colorMap.get(t.usuario_nombre) ?? "#94a3b8";
+                        const esMio = t.usuario_id === sesionUsuarioId;
+
+                        const laneW = 100 / t.totalLanes;
+                        const left = `calc(${t.lane * laneW}% + 3px)`;
+                        const width = `calc(${laneW}% - 6px)`;
+
                         return (
-                          <td
-                            key={dia}
-                            className="border-b px-2 py-1.5 text-center"
+                          <div
+                            key={`${t.usuario_nombre}-${t.dia_semana}-${t.hora_inicio}`}
+                            className="absolute rounded-md overflow-hidden transition-opacity"
+                            style={{
+                              top: `${top + 2}px`,
+                              height: `${height - 4}px`,
+                              left,
+                              width,
+                              backgroundColor: `${color}20`,
+                              borderLeft: `3px solid ${color}`,
+                              boxShadow: esMio ? `0 0 0 1px ${color}40` : undefined,
+                            }}
+                            title={`${t.usuario_nombre} · ${t.hora_inicio}–${t.hora_fin}`}
                           >
-                            {nombres.length > 0 ? (
-                              <div className="flex flex-wrap justify-center gap-1">
-                                {nombres.map((nombre) => (
+                            <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden">
+                              <div className="flex items-center gap-1">
+                                {esMio && (
                                   <span
-                                    key={nombre}
-                                    className="inline-block rounded px-1.5 py-0.5 text-[11px] font-medium text-white"
-                                    style={{
-                                      backgroundColor:
-                                        colorMap.get(nombre) ?? "#94a3b8",
-                                    }}
+                                    className="size-3.5 shrink-0 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                                    style={{ backgroundColor: color }}
                                   >
-                                    {nombre}
+                                    {iniciales(t.usuario_nombre).slice(0, 1)}
                                   </span>
-                                ))}
+                                )}
+                                <p
+                                  className="text-[11px] font-semibold truncate leading-tight"
+                                  style={{ color }}
+                                >
+                                  {esMio ? "Vos" : iniciales(t.usuario_nombre)}
+                                </p>
                               </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">
-                                —
-                              </span>
-                            )}
-                          </td>
+                              {height >= PX_POR_HORA && (
+                                <p className="text-[10px] leading-tight mt-0.5 truncate opacity-70" style={{ color }}>
+                                  {t.hora_inicio}–{t.hora_fin}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         );
                       })}
-                    </tr>
-                  )),
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
+      {/* ── Leyenda ─────────────────────────────────────────────────────────── */}
+      {turnos.length > 0 && (
+        <div className="flex flex-wrap gap-x-5 gap-y-2">
+          {[...colorMap.entries()].map(([nombre, color]) => {
+            const esMio = turnos.find((t) => t.usuario_nombre === nombre)?.usuario_id === sesionUsuarioId;
+            return (
+              <div key={nombre} className="flex items-center gap-2 text-sm">
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+                <span className={esMio ? "font-semibold" : ""}>
+                  {esMio ? `${nombre} (vos)` : nombre}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
