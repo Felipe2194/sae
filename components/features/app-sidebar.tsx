@@ -77,11 +77,15 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
             Sistema de Actividades Estudiantiles
           </span>
         </div>
-        {/* Sidebar colapsado: ícono compacto */}
+        {/* Sidebar colapsado: símbolo UTN */}
         <div className="hidden group-data-[collapsible=icon]:flex items-center justify-center py-3">
-          <div className="size-8 rounded-lg bg-[oklch(0.62_0.19_42)] flex items-center justify-center">
-            <span className="text-white text-[10px] font-black tracking-tight">UTN</span>
-          </div>
+          <Image
+            src="/icon.jpg"
+            alt="UTN"
+            width={32}
+            height={32}
+            className="rounded-lg"
+          />
         </div>
       </SidebarHeader>
 
