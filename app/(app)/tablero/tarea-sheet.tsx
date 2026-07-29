@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { Trash2, Plus, X, Send, Loader2 } from "lucide-react";
+import { Trash2, Plus, X, Send, Loader2, History, Paperclip, ExternalLink } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -27,18 +27,22 @@ import {
   actualizarTarea,
   eliminarTarea,
   fetchTareaDetalle,
+  fetchTareaLog,
   crearSubtarea,
   toggleSubtarea,
   eliminarSubtarea,
   crearComentario,
   eliminarComentario,
+  crearAdjunto,
+  eliminarAdjunto,
+  fetchAdjuntos,
 } from "./actions";
 import type {
   TareaCard,
   AreaOption,
   UsuarioOption,
 } from "./page";
-import type { SubtareaRow, ComentarioRow } from "./actions";
+import type { SubtareaRow, ComentarioRow, LogRow, AdjuntoRow } from "./actions";
 
 const TIPO_OPTS = [
   { value: "tarea", label: "Tarea" },
@@ -114,10 +118,18 @@ export function TareaSheet({
   );
   const [estado, setEstado] = useState(tarea.estado);
 
-  // ── Detalle (subtareas + comentarios) ───────────────────────────────────────
+  // ── Detalle (subtareas + comentarios + adjuntos + log) ──────────────────────
   const [subtareas, setSubtareas] = useState<SubtareaRow[]>([]);
   const [comentarios, setComentarios] = useState<ComentarioRow[]>([]);
+  const [adjuntos, setAdjuntos] = useState<AdjuntoRow[]>([]);
+  const [log, setLog] = useState<LogRow[]>([]);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
+
+  // ── Adjunto nuevo ───────────────────────────────────────────────────────────
+  const [nuevoAdjNombre, setNuevoAdjNombre] = useState("");
+  const [nuevoAdjUrl, setNuevoAdjUrl] = useState("");
+  const [showAdjForm, setShowAdjForm] = useState(false);
+  const [isPendingAdj, startAdj] = useTransition();
 
   // ── Acciones ─────────────────────────────────────────────────────────────
   const [isPendingSave, startSave] = useTransition();
@@ -136,26 +148,66 @@ export function TareaSheet({
   useEffect(() => {
     if (!open) return;
     setLoadingDetalle(true);
-    fetchTareaDetalle(tarea.id)
-      .then(({ subtareas, comentarios }) => {
+    Promise.all([
+      fetchTareaDetalle(tarea.id),
+      fetchAdjuntos(tarea.id),
+      fetchTareaLog(tarea.id),
+    ])
+      .then(([{ subtareas, comentarios }, adjRows, logRows]) => {
         setSubtareas(subtareas);
         setComentarios(comentarios);
+        setAdjuntos(adjRows);
+        setLog(logRows);
       })
       .finally(() => setLoadingDetalle(false));
   }, [open, tarea.id]);
 
+  function handleAddAdjunto(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nuevoAdjNombre.trim() || !nuevoAdjUrl.trim()) return;
+    startAdj(async () => {
+      await crearAdjunto(tarea.id, { nombre: nuevoAdjNombre.trim(), url: nuevoAdjUrl.trim() });
+      const updated = await fetchAdjuntos(tarea.id);
+      setAdjuntos(updated);
+      setNuevoAdjNombre("");
+      setNuevoAdjUrl("");
+      setShowAdjForm(false);
+    });
+  }
+
+  function handleDeleteAdjunto(adjId: string) {
+    startAdj(async () => {
+      await eliminarAdjunto(adjId);
+      setAdjuntos((prev) => prev.filter((a) => a.id !== adjId));
+    });
+  }
+
   function handleSave() {
     startSave(async () => {
-      await actualizarTarea(tarea.id, {
-        titulo: titulo.trim() || tarea.titulo,
-        descripcion: descripcion.trim() || null,
-        tipo,
-        prioridad,
-        area_id: areaId,
-        responsable_id: responsableId || null,
-        fecha_vencimiento: fechaVencimiento || null,
-        estado,
-      });
+      const prev = {
+        titulo: tarea.titulo,
+        descripcion: tarea.descripcion ?? null,
+        tipo: tarea.tipo,
+        prioridad: tarea.prioridad,
+        area_id: tarea.area_id,
+        responsable_id: tarea.responsable_id ?? null,
+        fecha_vencimiento: tarea.fecha_vencimiento ?? null,
+        estado: tarea.estado,
+      };
+      await actualizarTarea(
+        tarea.id,
+        {
+          titulo: titulo.trim() || tarea.titulo,
+          descripcion: descripcion.trim() || null,
+          tipo,
+          prioridad,
+          area_id: areaId,
+          responsable_id: responsableId || null,
+          fecha_vencimiento: fechaVencimiento || null,
+          estado,
+        },
+        prev,
+      );
       onOpenChange(false);
     });
   }
@@ -492,6 +544,76 @@ export function TareaSheet({
 
           <Separator />
 
+          {/* Adjuntos */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium flex items-center gap-1.5">
+                <Paperclip className="size-3.5 text-muted-foreground" />
+                Adjuntos
+                {adjuntos.length > 0 && (
+                  <span className="text-muted-foreground font-normal ml-0.5">{adjuntos.length}</span>
+                )}
+              </h3>
+              <button
+                onClick={() => setShowAdjForm((v) => !v)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              >
+                <Plus className="size-3" />
+                Enlace
+              </button>
+            </div>
+
+            {showAdjForm && (
+              <form onSubmit={handleAddAdjunto} className="flex flex-col gap-2">
+                <input
+                  value={nuevoAdjNombre}
+                  onChange={(e) => setNuevoAdjNombre(e.target.value)}
+                  placeholder="Nombre del enlace"
+                  className="h-8 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                  required
+                />
+                <input
+                  value={nuevoAdjUrl}
+                  onChange={(e) => setNuevoAdjUrl(e.target.value)}
+                  placeholder="https://..."
+                  type="url"
+                  className="h-8 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                  required
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowAdjForm(false)}>Cancelar</Button>
+                  <Button type="submit" size="sm" disabled={isPendingAdj}>Agregar</Button>
+                </div>
+              </form>
+            )}
+
+            {adjuntos.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                {adjuntos.map((a) => (
+                  <div key={a.id} className="group flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-muted/50 transition-colors">
+                    <ExternalLink className="size-3.5 text-muted-foreground shrink-0" />
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 text-sm truncate hover:underline"
+                    >
+                      {a.nombre}
+                    </a>
+                    <button
+                      onClick={() => handleDeleteAdjunto(a.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
           {/* Comentarios */}
           <div className="flex flex-col gap-3">
             <h3 className="text-sm font-medium">
@@ -564,6 +686,38 @@ export function TareaSheet({
               </Button>
             </form>
           </div>
+        </div>
+
+          {/* Historial */}
+          {log.length > 0 && (
+            <>
+              <Separator />
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-medium flex items-center gap-1.5">
+                  <History className="size-3.5 text-muted-foreground" />
+                  Historial
+                </h3>
+                <div className="flex flex-col gap-1.5">
+                  {log.map((entry) => (
+                    <div key={entry.id} className="flex gap-2 text-xs text-muted-foreground">
+                      <span className="shrink-0">{formatRelativo(entry.creado_en)}</span>
+                      <span className="shrink-0 font-medium text-foreground/70">{entry.autor_nombre ?? "Sistema"}</span>
+                      <span>cambió <span className="font-medium">{entry.campo}</span></span>
+                      {entry.valor_antes && (
+                        <span className="truncate">
+                          de <span className="line-through opacity-60">{entry.valor_antes}</span>
+                          {" "}a <span className="font-medium text-foreground/80">{entry.valor_despues}</span>
+                        </span>
+                      )}
+                      {!entry.valor_antes && entry.valor_despues && (
+                        <span>→ <span className="font-medium text-foreground/80">{entry.valor_despues}</span></span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer with delete */}

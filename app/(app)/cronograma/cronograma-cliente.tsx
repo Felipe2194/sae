@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Clock, Users } from "lucide-react";
+import { useState, useTransition } from "react";
+import { ChevronLeft, ChevronRight, Clock, Users, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { TurnoData } from "./page";
+import { TurnoDialog } from "./turno-dialog";
+import { eliminarTurno } from "./actions";
+import type { TurnoData, UsuarioOpt } from "./page";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -92,11 +94,30 @@ function asignarLanes(turnos: TurnoData[]): TurnoConLane[] {
 
 type Props = {
   turnos: TurnoData[];
+  usuarios: UsuarioOpt[];
   sesionUsuarioId: string;
+  canManage: boolean;
 };
 
-export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
+export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage }: Props) {
   const [lunes, setLunes] = useState(() => lunesDe(new Date()));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [turnoEditar, setTurnoEditar] = useState<TurnoData | null>(null);
+  const [deletingId, startDeleteTransition] = useTransition();
+
+  function abrirNuevo() {
+    setTurnoEditar(null);
+    setDialogOpen(true);
+  }
+
+  function abrirEditar(t: TurnoData) {
+    setTurnoEditar(t);
+    setDialogOpen(true);
+  }
+
+  function handleEliminar(turnoId: string) {
+    startDeleteTransition(() => eliminarTurno(turnoId));
+  }
   const colorMap = buildColorMap(turnos);
 
   // Rango de horas dinámico: se ajusta a los turnos reales ± 1 h de margen
@@ -197,6 +218,12 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
           <Button variant="outline" size="sm" onClick={semanaSiguiente}>
             <ChevronRight className="size-4" />
           </Button>
+          {canManage && (
+            <Button size="sm" onClick={abrirNuevo} className="gap-1.5">
+              <Plus className="size-4" />
+              Nuevo turno
+            </Button>
+          )}
         </div>
       </div>
 
@@ -207,6 +234,12 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
           <p className="text-sm text-muted-foreground">
             No hay turnos cargados para esta semana.
           </p>
+          {canManage && (
+            <Button size="sm" variant="outline" onClick={abrirNuevo} className="mt-1 gap-1.5">
+              <Plus className="size-4" />
+              Agregar turno
+            </Button>
+          )}
         </div>
       ) : (
         <Card>
@@ -322,7 +355,7 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
                             }}
                             title={`${t.usuario_nombre} · ${t.hora_inicio}–${t.hora_fin}`}
                           >
-                            <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden">
+                            <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden group/bloque">
                               <div className="flex items-center gap-1">
                                 {esMio && (
                                   <span
@@ -333,11 +366,29 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
                                   </span>
                                 )}
                                 <p
-                                  className="text-[11px] font-semibold truncate leading-tight"
+                                  className="text-[11px] font-semibold truncate leading-tight flex-1"
                                   style={{ color }}
                                 >
                                   {esMio ? "Vos" : iniciales(t.usuario_nombre)}
                                 </p>
+                                {canManage && (
+                                  <div className="hidden group-hover/bloque:flex items-center gap-0.5 shrink-0">
+                                    <button
+                                      onClick={() => abrirEditar(t)}
+                                      className="rounded p-0.5 hover:bg-black/10 transition-colors"
+                                      title="Editar turno"
+                                    >
+                                      <Pencil className="size-2.5" style={{ color }} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleEliminar(t.id)}
+                                      className="rounded p-0.5 hover:bg-black/10 transition-colors"
+                                      title="Eliminar turno"
+                                    >
+                                      <Trash2 className="size-2.5" style={{ color }} />
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                               {height >= PX_POR_HORA && (
                                 <p className="text-[10px] leading-tight mt-0.5 truncate opacity-70" style={{ color }}>
@@ -372,6 +423,15 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
             );
           })}
         </div>
+      )}
+
+      {canManage && (
+        <TurnoDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          turno={turnoEditar}
+          usuarios={usuarios}
+        />
       )}
     </div>
   );
