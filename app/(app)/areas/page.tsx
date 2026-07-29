@@ -1,67 +1,67 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { Plus } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AreasCliente } from "./areas-cliente";
 
 type AreaRow = {
   id: string;
   nombre: string;
   color: string;
+  descripcion: string | null;
+  responsable_id: string | null;
   responsable_nombre: string | null;
-  tareas_abiertas: string; // bigint viene como string en postgres.js
+  tareas_total: number;
+  tareas_hechas: number;
+  tareas_abiertas: number;
 };
+
+type UsuarioRow = { id: string; nombre: string };
 
 export default async function AreasPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const areas = await withUser(session.user.id, async (tx) => {
-    return tx<AreaRow[]>`
+  const rol = (session.user as { rol: string }).rol;
+  const canManage = rol === "coordinador" || rol === "administrador";
+
+  const { areas, usuarios } = await withUser(session.user.id, async (tx) => {
+    const areas = await tx<AreaRow[]>`
       select
         a.id,
         a.nombre,
         a.color,
-        u.nombre as responsable_nombre,
-        count(t.id) filter (where t.estado != 'hecha') as tareas_abiertas
+        a.descripcion,
+        a.responsable_id,
+        u.nombre  as responsable_nombre,
+        count(t.id)::int                                  as tareas_total,
+        count(t.id) filter (where t.estado = 'hecha')::int  as tareas_hechas,
+        count(t.id) filter (where t.estado != 'hecha')::int as tareas_abiertas
       from area a
       left join usuario u on u.id = a.responsable_id
       left join tarea   t on t.area_id = a.id
-      where a.activa = true
-      group by a.id, a.nombre, a.color, u.nombre
+      where a.organizacion_id = mi_organizacion_id()
+        and a.activa = true
+      group by a.id, a.nombre, a.color, a.descripcion, a.responsable_id, u.nombre
       order by a.nombre asc
     `;
+
+    const usuarios = canManage
+      ? await tx<UsuarioRow[]>`
+          select id, nombre from usuario
+          where organizacion_id = mi_organizacion_id() and estado = 'activo'
+          order by nombre asc
+        `
+      : [];
+
+    return { areas: [...areas], usuarios: [...usuarios] };
   });
 
   return (
-    <div>
-      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Áreas</h1>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {areas.map((area) => {
-          const abiertas = Number(area.tareas_abiertas);
-          return (
-            <Link key={area.id} href={`/areas/${area.id}`}>
-              <Card className="hover:bg-accent/50 h-full transition-colors">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="size-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: area.color }}
-                    />
-                    <CardTitle className="text-base">{area.nombre}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="text-muted-foreground flex items-center justify-between text-sm">
-                  <span>
-                    {abiertas} tarea{abiertas === 1 ? "" : "s"} abierta{abiertas === 1 ? "" : "s"}
-                  </span>
-                  <span>{area.responsable_nombre ?? "Sin responsable"}</span>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
+    <AreasCliente
+      areas={areas}
+      usuarios={usuarios}
+      canManage={canManage}
+    />
   );
 }
