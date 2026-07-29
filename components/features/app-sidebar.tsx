@@ -63,19 +63,24 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2.5 px-2 py-2">
-          <div className="size-8 shrink-0 rounded-lg bg-[oklch(0.62_0.19_42)] flex items-center justify-center overflow-hidden">
-            <Image
-              src="/LogoUTN.png"
-              alt="UTN"
-              width={28}
-              height={28}
-              className="object-contain brightness-0 invert"
-            />
-          </div>
-          <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="font-semibold text-sm">SAE · FRVM</span>
-            <span className="text-muted-foreground text-xs">UTN Villa María</span>
+        {/* Sidebar expandido: logo completo */}
+        <div className="group-data-[collapsible=icon]:hidden px-3 py-3 flex flex-col gap-1">
+          <Image
+            src="/LogoUTN.png"
+            alt="UTN Villa María"
+            width={148}
+            height={37}
+            className="object-contain object-left"
+            priority
+          />
+          <span className="text-muted-foreground text-[11px] font-medium tracking-wide">
+            Sistema de Actividades Estudiantiles
+          </span>
+        </div>
+        {/* Sidebar colapsado: ícono compacto */}
+        <div className="hidden group-data-[collapsible=icon]:flex items-center justify-center py-3">
+          <div className="size-8 rounded-lg bg-[oklch(0.62_0.19_42)] flex items-center justify-center">
+            <span className="text-white text-[10px] font-black tracking-tight">UTN</span>
           </div>
         </div>
       </SidebarHeader>

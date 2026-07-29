@@ -4,7 +4,6 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import type { TurnoData } from "./page";
 
 // ── Estructura de la semana ─────────────────────────────────────────────────
@@ -98,22 +97,6 @@ function usuariosEnSlot(
     .map((t) => t.usuario_nombre);
 }
 
-// ── Resumen semanal ──────────────────────────────────────────────────────────
-
-function horasPorUsuario(
-  turnos: TurnoData[],
-): { nombre: string; horas: number }[] {
-  const map = new Map<string, number>();
-  for (const t of turnos) {
-    const [hi] = t.hora_inicio.split(":").map(Number);
-    const [hf] = t.hora_fin.split(":").map(Number);
-    map.set(t.usuario_nombre, (map.get(t.usuario_nombre) ?? 0) + (hf - hi));
-  }
-  return [...map.entries()]
-    .map(([nombre, horas]) => ({ nombre, horas }))
-    .sort((a, b) => b.horas - a.horas);
-}
-
 // ── Componente ───────────────────────────────────────────────────────────────
 
 export function CronogramaCliente({ turnos }: { turnos: TurnoData[] }) {
@@ -133,7 +116,6 @@ export function CronogramaCliente({ turnos }: { turnos: TurnoData[] }) {
   const irAHoy = () => setLunes(lunesDe(new Date()));
 
   const hoyISO = new Date().toISOString().slice(0, 10);
-  const resumen = horasPorUsuario(turnos);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -280,29 +262,6 @@ export function CronogramaCliente({ turnos }: { turnos: TurnoData[] }) {
         </CardContent>
       </Card>
 
-      {/* Resumen semanal */}
-      <div>
-        <h2 className="mb-3 text-sm font-medium">Horas semanales</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {resumen.map(({ nombre, horas }) => (
-            <Card key={nombre} className="py-3">
-              <CardContent className="px-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: colorMap.get(nombre) ?? "#94a3b8" }}
-                  />
-                  <span className="text-sm font-medium">{nombre}</span>
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">{horas}</span>
-                  <span className="text-muted-foreground text-xs">hs</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
