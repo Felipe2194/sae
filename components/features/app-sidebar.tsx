@@ -103,8 +103,8 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
                     size="lg"
                     className="text-base"
                   >
-                    <item.icon className="size-5" />
-                    <span>{item.label}</span>
+                    <item.icon className="size-5 shrink-0" />
+                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
