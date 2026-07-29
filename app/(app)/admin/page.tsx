@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Link2, Trash2, Calendar, CheckSquare, ExternalLink } from "lucide-react";
+import { Link2, Trash2, Calendar, CheckSquare, ExternalLink, Users } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AsignarSelect } from "./asignar-select";
 import { crearAcceso, eliminarAcceso } from "./actions";
+import { UsuariosTable, type UsuarioFila } from "./usuarios-table";
+
+type UsuarioRow = UsuarioFila;
 
 type TareaRow = {
   id: string;
@@ -19,10 +22,6 @@ type TareaRow = {
   responsable_id: string | null;
 };
 
-type UsuarioRow = {
-  id: string;
-  nombre: string;
-};
 
 type AccesoRow = {
   id: string;
@@ -47,7 +46,7 @@ export default async function AdminPage() {
   const rol = (session.user as { rol: string }).rol;
   if (rol !== "administrador") redirect("/hoy");
 
-  const { tareas, usuarios, accesos } = await withUser(session.user.id, async (tx) => {
+  const { tareas, usuarios, todosUsuarios, accesos } = await withUser(session.user.id, async (tx) => {
     const tareas = await tx<TareaRow[]>`
       select
         t.id,
@@ -62,11 +61,19 @@ export default async function AdminPage() {
       order by t.estado desc, a.nombre asc, t.orden asc
     `;
 
-    const usuarios = await tx<UsuarioRow[]>`
+    const usuarios = await tx<{ id: string; nombre: string }[]>`
       select id, nombre
       from usuario
       where estado = 'activo'
       order by nombre asc
+    `;
+
+    const todosUsuarios = await tx<UsuarioRow[]>`
+      select id, nombre, email, rol::text as rol, estado::text as estado, creada_en::text as creada_en
+      from usuario
+      order by
+        case estado when 'pendiente' then 0 when 'activo' then 1 else 2 end,
+        nombre asc
     `;
 
     const accesos = await tx<AccesoRow[]>`
@@ -75,7 +82,7 @@ export default async function AdminPage() {
       order by orden asc
     `;
 
-    return { tareas, usuarios, accesos };
+    return { tareas, usuarios, todosUsuarios, accesos };
   });
 
   const tieneCalendar =
@@ -89,6 +96,25 @@ export default async function AdminPage() {
           Configuración del sistema y gestión de recursos.
         </p>
       </div>
+
+      {/* ── Gestión de usuarios ──────────────────────────────────────────── */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <Users className="text-muted-foreground size-4" />
+          <h2 className="font-semibold">Usuarios</h2>
+          {todosUsuarios.filter((u) => u.estado === "pendiente").length > 0 && (
+            <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+              {todosUsuarios.filter((u) => u.estado === "pendiente").length} pendiente
+              {todosUsuarios.filter((u) => u.estado === "pendiente").length > 1 ? "s" : ""}
+            </Badge>
+          )}
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <UsuariosTable usuarios={todosUsuarios} selfId={session.user.id} />
+          </CardContent>
+        </Card>
+      </section>
 
       {/* ── Asignación de tareas ─────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">

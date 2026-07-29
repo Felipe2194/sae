@@ -23,6 +23,36 @@ async function requireCoord() {
   return session;
 }
 
+// ── Usuarios ──────────────────────────────────────────────────────────────────
+
+export async function cambiarEstadoUsuario(userId: string, estado: 'activo' | 'inactivo') {
+  const session = await requireAdmin();
+  if (userId === session.user.id) throw new Error('No podés cambiar tu propio estado');
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      update usuario
+      set estado = ${estado}::estado_usuario
+      where id = ${userId}
+        and organizacion_id = mi_organizacion_id()
+    `;
+  });
+  revalidatePath('/admin');
+}
+
+export async function cambiarRolUsuario(userId: string, rol: string) {
+  const session = await requireAdmin();
+  if (userId === session.user.id) throw new Error('No podés cambiar tu propio rol');
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      update usuario
+      set rol = ${rol}::rol_usuario
+      where id = ${userId}
+        and organizacion_id = mi_organizacion_id()
+    `;
+  });
+  revalidatePath('/admin');
+}
+
 // ── Tareas ────────────────────────────────────────────────────────────────────
 
 export async function asignarTarea(tareaId: string, usuarioId: string | null) {
