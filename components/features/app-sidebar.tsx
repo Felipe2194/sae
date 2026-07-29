@@ -70,8 +70,8 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
           <Image
             src="/LogoUTN.png"
             alt="UTN Villa María"
-            width={148}
-            height={37}
+            width={170}
+            height={43}
             className="object-contain object-left"
             priority
           />
