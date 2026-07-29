@@ -1,0 +1,605 @@
+"use client";
+
+import { useState, useTransition, useEffect } from "react";
+import { Trash2, Plus, X, Send, Loader2 } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  actualizarTarea,
+  eliminarTarea,
+  fetchTareaDetalle,
+  crearSubtarea,
+  toggleSubtarea,
+  eliminarSubtarea,
+  crearComentario,
+  eliminarComentario,
+} from "./actions";
+import type {
+  TareaCard,
+  AreaOption,
+  UsuarioOption,
+} from "./page";
+import type { SubtareaRow, ComentarioRow } from "./actions";
+
+const TIPO_OPTS = [
+  { value: "tarea", label: "Tarea" },
+  { value: "evento", label: "Evento" },
+  { value: "entrega", label: "Entrega" },
+  { value: "reunion", label: "Reunión" },
+];
+
+const PRIORIDAD_OPTS = [
+  { value: "baja", label: "Baja" },
+  { value: "media", label: "Media" },
+  { value: "alta", label: "Alta" },
+];
+
+const ESTADO_OPTS = [
+  { value: "por_hacer", label: "Por hacer" },
+  { value: "en_progreso", label: "En progreso" },
+  { value: "hecha", label: "Hecha" },
+];
+
+const PRIORIDAD_COLOR: Record<string, string> = {
+  baja: "bg-slate-300",
+  media: "bg-amber-400",
+  alta: "bg-red-500",
+};
+
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+function formatRelativo(fechaISO: string): string {
+  const ahora = new Date();
+  const fecha = new Date(fechaISO);
+  const diffMs = ahora.getTime() - fecha.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "ahora";
+  if (diffMin < 60) return `hace ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `hace ${diffH}h`;
+  const diffD = Math.floor(diffH / 24);
+  return `hace ${diffD}d`;
+}
+
+type Props = {
+  tarea: TareaCard;
+  areas: AreaOption[];
+  usuarios: UsuarioOption[];
+  currentUserId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export function TareaSheet({
+  tarea,
+  areas,
+  usuarios,
+  open,
+  onOpenChange,
+}: Props) {
+  // ── Form state ──────────────────────────────────────────────────────────────
+  const [titulo, setTitulo] = useState(tarea.titulo);
+  const [descripcion, setDescripcion] = useState(tarea.descripcion ?? "");
+  const [tipo, setTipo] = useState(tarea.tipo);
+  const [prioridad, setPrioridad] = useState(tarea.prioridad);
+  const [areaId, setAreaId] = useState(tarea.area_id);
+  const [responsableId, setResponsableId] = useState(
+    tarea.responsable_id ?? "",
+  );
+  const [fechaVencimiento, setFechaVencimiento] = useState(
+    tarea.fecha_vencimiento ?? "",
+  );
+  const [estado, setEstado] = useState(tarea.estado);
+
+  // ── Detalle (subtareas + comentarios) ───────────────────────────────────────
+  const [subtareas, setSubtareas] = useState<SubtareaRow[]>([]);
+  const [comentarios, setComentarios] = useState<ComentarioRow[]>([]);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+
+  // ── Acciones ─────────────────────────────────────────────────────────────
+  const [isPendingSave, startSave] = useTransition();
+  const [isPendingDelete, startDelete] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // ── Subtarea nueva ──────────────────────────────────────────────────────────
+  const [nuevaSubtarea, setNuevaSubtarea] = useState("");
+  const [isPendingSubtarea, startSubtarea] = useTransition();
+
+  // ── Comentario nuevo ────────────────────────────────────────────────────────
+  const [nuevoComentario, setNuevoComentario] = useState("");
+  const [isPendingComentario, startComentario] = useTransition();
+
+  // Fetch detalle on open
+  useEffect(() => {
+    if (!open) return;
+    setLoadingDetalle(true);
+    fetchTareaDetalle(tarea.id)
+      .then(({ subtareas, comentarios }) => {
+        setSubtareas(subtareas);
+        setComentarios(comentarios);
+      })
+      .finally(() => setLoadingDetalle(false));
+  }, [open, tarea.id]);
+
+  function handleSave() {
+    startSave(async () => {
+      await actualizarTarea(tarea.id, {
+        titulo: titulo.trim() || tarea.titulo,
+        descripcion: descripcion.trim() || null,
+        tipo,
+        prioridad,
+        area_id: areaId,
+        responsable_id: responsableId || null,
+        fecha_vencimiento: fechaVencimiento || null,
+        estado,
+      });
+      onOpenChange(false);
+    });
+  }
+
+  function handleDelete() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    startDelete(async () => {
+      await eliminarTarea(tarea.id);
+      onOpenChange(false);
+    });
+  }
+
+  function handleAddSubtarea(e: React.FormEvent) {
+    e.preventDefault();
+    const t = nuevaSubtarea.trim();
+    if (!t) return;
+    const optimista: SubtareaRow = { id: crypto.randomUUID(), titulo: t, hecha: false, orden: subtareas.length };
+    setSubtareas((prev) => [...prev, optimista]);
+    setNuevaSubtarea("");
+    startSubtarea(async () => {
+      await crearSubtarea(tarea.id, t);
+      // Refresh real data
+      fetchTareaDetalle(tarea.id).then(({ subtareas }) => setSubtareas(subtareas));
+    });
+  }
+
+  function handleToggleSubtarea(s: SubtareaRow) {
+    setSubtareas((prev) =>
+      prev.map((x) => (x.id === s.id ? { ...x, hecha: !x.hecha } : x)),
+    );
+    startSubtarea(() => toggleSubtarea(s.id, !s.hecha));
+  }
+
+  function handleDeleteSubtarea(id: string) {
+    setSubtareas((prev) => prev.filter((x) => x.id !== id));
+    startSubtarea(() => eliminarSubtarea(id));
+  }
+
+  function handleAddComentario(e: React.FormEvent) {
+    e.preventDefault();
+    const c = nuevoComentario.trim();
+    if (!c) return;
+    const optimista: ComentarioRow = {
+      id: crypto.randomUUID(),
+      contenido: c,
+      autor_nombre: "Vos",
+      creado_en: new Date().toISOString(),
+      es_propio: true,
+    };
+    setComentarios((prev) => [...prev, optimista]);
+    setNuevoComentario("");
+    startComentario(async () => {
+      await crearComentario(tarea.id, c);
+      fetchTareaDetalle(tarea.id).then(({ comentarios }) =>
+        setComentarios(comentarios),
+      );
+    });
+  }
+
+  function handleDeleteComentario(id: string) {
+    setComentarios((prev) => prev.filter((x) => x.id !== id));
+    startComentario(() => eliminarComentario(id));
+  }
+
+  const hechas = subtareas.filter((s) => s.hecha).length;
+  const area = areas.find((a) => a.id === areaId);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="sm:max-w-xl flex flex-col gap-0 p-0"
+        showCloseButton={false}
+      >
+        {/* Header */}
+        <SheetHeader className="px-5 pt-5 pb-3 border-b gap-2">
+          <div className="flex items-start justify-between gap-3 pr-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className={`size-2.5 shrink-0 rounded-full mt-0.5 ${PRIORIDAD_COLOR[prioridad]}`}
+              />
+              {area && (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="size-2 rounded-full" style={{ backgroundColor: area.color }} />
+                  {area.nombre}
+                </span>
+              )}
+              <Badge variant="secondary" className="text-xs">
+                {TIPO_OPTS.find((t) => t.value === tipo)?.label ?? tipo}
+              </Badge>
+              <Badge
+                variant={estado === "hecha" ? "default" : "outline"}
+                className="text-xs"
+              >
+                {ESTADO_OPTS.find((e) => e.value === estado)?.label ?? estado}
+              </Badge>
+            </div>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="shrink-0 rounded-md p-1 hover:bg-muted transition-colors"
+              aria-label="Cerrar"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <SheetTitle className="text-left text-base font-semibold leading-snug">
+            {tarea.titulo}
+          </SheetTitle>
+        </SheetHeader>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
+
+          {/* Campos editables */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Título</Label>
+              <Input
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Descripción</Label>
+              <Textarea
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder="Agregá más contexto..."
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Tipo</Label>
+                <Select value={tipo} onValueChange={setTipo}>
+                  <SelectTrigger className="w-full h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPO_OPTS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Prioridad</Label>
+                <Select value={prioridad} onValueChange={setPrioridad}>
+                  <SelectTrigger className="w-full h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORIDAD_OPTS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        <span className="flex items-center gap-2">
+                          <span className={`size-2 rounded-full ${PRIORIDAD_COLOR[o.value]}`} />
+                          {o.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Área</Label>
+                <Select value={areaId} onValueChange={setAreaId}>
+                  <SelectTrigger className="w-full h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {areas.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        <span className="flex items-center gap-1.5">
+                          <span className="size-2 rounded-full" style={{ backgroundColor: a.color }} />
+                          {a.nombre}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Responsable</Label>
+                <Select
+                  value={responsableId || "_none"}
+                  onValueChange={(v) =>
+                    setResponsableId(v === "_none" ? "" : v)
+                  }
+                >
+                  <SelectTrigger className="w-full h-8">
+                    <SelectValue placeholder="Sin asignar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">Sin asignar</SelectItem>
+                    {usuarios.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Estado</Label>
+                <Select value={estado} onValueChange={setEstado}>
+                  <SelectTrigger className="w-full h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ESTADO_OPTS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Fecha de vencimiento</Label>
+                <Input
+                  type="date"
+                  value={fechaVencimiento}
+                  onChange={(e) => setFechaVencimiento(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={handleSave}
+              disabled={isPendingSave}
+              size="sm"
+              className="self-start"
+            >
+              {isPendingSave ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Guardando...
+                </span>
+              ) : (
+                "Guardar cambios"
+              )}
+            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Subtareas */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">
+                Subtareas
+                {subtareas.length > 0 && (
+                  <span className="text-muted-foreground font-normal ml-1.5">
+                    {hechas}/{subtareas.length}
+                  </span>
+                )}
+              </h3>
+            </div>
+
+            {loadingDetalle ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Loader2 className="size-3.5 animate-spin" />
+                Cargando...
+              </div>
+            ) : (
+              <>
+                {subtareas.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {subtareas.map((s) => (
+                      <div
+                        key={s.id}
+                        className="flex items-center gap-2.5 group rounded-md px-1 py-1 hover:bg-muted/50"
+                      >
+                        <Checkbox
+                          checked={s.hecha}
+                          onCheckedChange={() => handleToggleSubtarea(s)}
+                          className="shrink-0"
+                        />
+                        <span
+                          className={`flex-1 text-sm leading-snug ${s.hecha ? "line-through text-muted-foreground" : ""}`}
+                        >
+                          {s.titulo}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteSubtarea(s.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          aria-label="Eliminar subtarea"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <form
+                  onSubmit={handleAddSubtarea}
+                  className="flex items-center gap-2"
+                >
+                  <Input
+                    value={nuevaSubtarea}
+                    onChange={(e) => setNuevaSubtarea(e.target.value)}
+                    placeholder="Agregar subtarea..."
+                    className="h-8 text-sm flex-1"
+                    disabled={isPendingSubtarea}
+                  />
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={!nuevaSubtarea.trim() || isPendingSubtarea}
+                  >
+                    <Plus className="size-3.5" />
+                  </Button>
+                </form>
+              </>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Comentarios */}
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-medium">
+              Comentarios
+              {comentarios.length > 0 && (
+                <span className="text-muted-foreground font-normal ml-1.5">
+                  {comentarios.length}
+                </span>
+              )}
+            </h3>
+
+            {!loadingDetalle && comentarios.length > 0 && (
+              <div className="flex flex-col gap-3">
+                {comentarios.map((c) => (
+                  <div key={c.id} className="flex gap-2.5 group">
+                    <Avatar className="size-6 shrink-0 mt-0.5">
+                      <AvatarFallback className="text-[9px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
+                        {iniciales(c.autor_nombre)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-xs font-medium">{c.autor_nombre}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatRelativo(c.creado_en)}
+                        </span>
+                        {c.es_propio && (
+                          <button
+                            onClick={() => handleDeleteComentario(c.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive ml-auto"
+                            aria-label="Eliminar comentario"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm text-foreground/90 leading-snug mt-0.5 whitespace-pre-wrap">
+                        {c.contenido}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={handleAddComentario} className="flex gap-2">
+              <Textarea
+                value={nuevoComentario}
+                onChange={(e) => setNuevoComentario(e.target.value)}
+                placeholder="Escribí un comentario..."
+                rows={2}
+                className="flex-1 text-sm min-h-0"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleAddComentario(e as unknown as React.FormEvent);
+                  }
+                }}
+                disabled={isPendingComentario}
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                size="icon-sm"
+                className="self-end"
+                disabled={!nuevoComentario.trim() || isPendingComentario}
+                aria-label="Enviar comentario"
+              >
+                <Send className="size-3.5" />
+              </Button>
+            </form>
+          </div>
+        </div>
+
+        {/* Footer with delete */}
+        <div className="px-5 py-3 border-t flex items-center justify-end">
+          {confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">¿Confirmar eliminación?</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmDelete(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDelete}
+                disabled={isPendingDelete}
+              >
+                {isPendingDelete ? "Eliminando..." : "Eliminar"}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={handleDelete}
+            >
+              <Trash2 className="size-3.5" />
+              Eliminar tarea
+            </Button>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
