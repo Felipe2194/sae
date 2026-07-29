@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -35,14 +36,14 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { signOut } from "@/app/(app)/actions";
 
-const items = [
-  { href: "/hoy", label: "Hoy", icon: Sparkles },
-  { href: "/tablero", label: "Tablero", icon: LayoutDashboard },
-  { href: "/calendario", label: "Calendario", icon: Calendar },
-  { href: "/cronograma", label: "Cronograma", icon: CalendarRange },
-  { href: "/areas", label: "Áreas", icon: Layers3 },
-  { href: "/coordinacion", label: "Coordinación", icon: UsersRound },
-  { href: "/admin", label: "Admin", icon: ShieldCheck },
+const ITEMS_BASE: { href: string; label: string; icon: React.ElementType; roles: string[] | null }[] = [
+  { href: "/hoy", label: "Hoy", icon: Sparkles, roles: null },
+  { href: "/tablero", label: "Tablero", icon: LayoutDashboard, roles: null },
+  { href: "/calendario", label: "Calendario", icon: Calendar, roles: null },
+  { href: "/cronograma", label: "Cronograma", icon: CalendarRange, roles: null },
+  { href: "/areas", label: "Áreas", icon: Layers3, roles: null },
+  { href: "/coordinacion", label: "Coordinación", icon: UsersRound, roles: ["coordinador", "administrador"] },
+  { href: "/admin", label: "Admin", icon: ShieldCheck, roles: ["administrador"] },
 ];
 
 function iniciales(nombre: string): string {
@@ -56,9 +57,10 @@ type SidebarUser = {
   email: string;
 };
 
-export function AppSidebar({ user }: { user: SidebarUser }) {
+export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
   const pathname = usePathname();
   const inits = iniciales(user.name);
+  const items = ITEMS_BASE.filter((item) => item.roles === null || item.roles.includes(rol));
 
   return (
     <Sidebar collapsible="icon">

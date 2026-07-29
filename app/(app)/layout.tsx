@@ -14,7 +14,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SidebarProvider>
-      <AppSidebar user={{ name: session.user.name, email: session.user.email }} />
+      <AppSidebar
+        user={{ name: session.user.name, email: session.user.email }}
+        rol={(session.user as { rol: string }).rol}
+      />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/80 backdrop-blur-sm px-4">
           <SidebarTrigger className="size-9" />
