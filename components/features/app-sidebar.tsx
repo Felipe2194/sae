@@ -2,7 +2,6 @@
 
 import type React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Sparkles,
@@ -67,13 +66,12 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
       <SidebarHeader>
         {/* Sidebar expandido: logo completo */}
         <div className="group-data-[collapsible=icon]:hidden px-3 py-3 flex flex-col gap-1">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/LogoUTN.png"
             alt="UTN Villa María"
             width={170}
-            height={43}
-            className="object-contain object-left"
-            priority
+            style={{ objectFit: "contain", objectPosition: "left", display: "block" }}
           />
           <span className="text-muted-foreground text-[11px] font-medium tracking-wide">
             Sistema de Actividades Estudiantiles
@@ -81,7 +79,8 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
         </div>
         {/* Sidebar colapsado: símbolo UTN */}
         <div className="hidden group-data-[collapsible=icon]:flex items-center justify-center py-3">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/icon.jpg"
             alt="UTN"
             width={32}

@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 export default function AuthLayout({
   children,
 }: {
@@ -11,13 +9,13 @@ export default function AuthLayout({
       <div className="hidden lg:flex lg:w-2/5 flex-col items-center justify-center bg-[oklch(0.62_0.19_42)] text-white p-12 gap-8">
         <div className="flex flex-col items-center gap-8 text-center">
           <div className="bg-white rounded-2xl px-8 py-5 shadow-lg">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/LogoUTN.png"
               alt="UTN Villa María"
               width={220}
               height={56}
-              className="object-contain"
-              priority
+              style={{ objectFit: "contain", display: "block" }}
             />
           </div>
           <div className="border-t border-white/30 pt-6 w-full">
@@ -33,13 +31,12 @@ export default function AuthLayout({
       <div className="flex flex-1 flex-col items-center justify-center p-6">
         {/* Logo visible solo en mobile */}
         <div className="flex flex-col items-center gap-2 mb-8 lg:hidden">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/LogoUTN.png"
             alt="UTN Villa María"
             width={180}
-            height={46}
-            className="object-contain"
-            priority
+            style={{ objectFit: "contain", display: "block" }}
           />
           <p className="text-muted-foreground text-sm mt-1">Sistema de Administración Estudiantil</p>
         </div>
