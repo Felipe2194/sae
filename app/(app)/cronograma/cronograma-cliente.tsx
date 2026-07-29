@@ -16,10 +16,7 @@ const DIAS = [
   { dia: 4, label: "Viernes",   abrev: "Vie" },
 ];
 
-const HORA_MIN = 7;   // 07:00
-const HORA_MAX = 22;  // 22:00
-const TOTAL_HORAS = HORA_MAX - HORA_MIN;
-const PX_POR_HORA = 56;
+const PX_POR_HORA = 40;
 
 const PALETTE = [
   "#ef4444", "#f97316", "#eab308", "#22c55e",
@@ -102,6 +99,15 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
   const [lunes, setLunes] = useState(() => lunesDe(new Date()));
   const colorMap = buildColorMap(turnos);
 
+  // Rango de horas dinámico: se ajusta a los turnos reales ± 1 h de margen
+  const horaMin = turnos.length
+    ? Math.max(0, Math.floor(Math.min(...turnos.map((t) => horaANum(t.hora_inicio)))) - 1)
+    : 7;
+  const horaMax = turnos.length
+    ? Math.min(24, Math.ceil(Math.max(...turnos.map((t) => horaANum(t.hora_fin)))) + 1)
+    : 22;
+  const totalHoras = horaMax - horaMin;
+
   const ahora = new Date();
   const hoyISO = ahora.toISOString().slice(0, 10);
   const horaActual = ahora.getHours() + ahora.getMinutes() / 60;
@@ -125,9 +131,9 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
   const nowPx =
     esSemanaActual &&
     diaHoy < 5 &&
-    horaActual >= HORA_MIN &&
-    horaActual <= HORA_MAX
-      ? (horaActual - HORA_MIN) * PX_POR_HORA
+    horaActual >= horaMin &&
+    horaActual <= horaMax
+      ? (horaActual - horaMin) * PX_POR_HORA
       : null;
 
   const semanaAnterior = () => {
@@ -143,19 +149,44 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
   const irAHoy = () => setLunes(lunesDe(new Date()));
 
   const horaLabels = Array.from(
-    { length: TOTAL_HORAS + 1 },
-    (_, i) => HORA_MIN + i,
+    { length: totalHoras + 1 },
+    (_, i) => horaMin + i,
   );
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+    <div className="mx-auto flex max-w-5xl flex-col gap-3">
 
-      {/* ── Encabezado ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Cronograma</h1>
-          <p className="text-muted-foreground text-sm">{formatSemana(lunes)}</p>
+      {/* ── Encabezado + ahora en línea ─────────────────────────────────────── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight leading-tight">Cronograma</h1>
+            <p className="text-muted-foreground text-xs">{formatSemana(lunes)}</p>
+          </div>
+
+          {/* Ahora: inline junto al título */}
+          {esSemanaActual && presentesAhora.length > 0 && (
+            <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1">
+              <Clock className="size-3 text-primary shrink-0" />
+              <span className="text-xs font-medium text-primary shrink-0">Ahora:</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                {presentesAhora.map((t) => {
+                  const color = colorMap.get(t.usuario_nombre) ?? "#94a3b8";
+                  const esMio = t.usuario_id === sesionUsuarioId;
+                  return (
+                    <div key={t.usuario_nombre} className="flex items-center gap-1">
+                      <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                      <span className={`text-xs ${esMio ? "font-semibold" : ""}`}>
+                        {esMio ? "Vos" : t.usuario_nombre.split(" ")[0]}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
+
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={semanaAnterior}>
             <ChevronLeft className="size-4" />
@@ -168,52 +199,6 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
           </Button>
         </div>
       </div>
-
-      {/* ── En la oficina ahora ──────────────────────────────────────────────── */}
-      {esSemanaActual && (
-        <div className={[
-          "flex items-center gap-3 rounded-xl border px-4 py-3",
-          presentesAhora.length > 0
-            ? "border-primary/20 bg-primary/5"
-            : "border-dashed bg-muted/30",
-        ].join(" ")}>
-          {presentesAhora.length > 0 ? (
-            <>
-              <Clock className="size-4 text-primary shrink-0" />
-              <span className="text-sm font-medium shrink-0">Ahora en la oficina</span>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {presentesAhora.map((t) => {
-                  const color = colorMap.get(t.usuario_nombre) ?? "#94a3b8";
-                  const esMio = t.usuario_id === sesionUsuarioId;
-                  return (
-                    <div key={t.usuario_nombre} className="flex items-center gap-1.5">
-                      <span
-                        className="size-2 rounded-full shrink-0"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className={`text-sm ${esMio ? "font-semibold" : ""}`}>
-                        {esMio ? "Vos" : t.usuario_nombre}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        hasta {t.hora_fin}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <>
-              <Users className="size-4 text-muted-foreground shrink-0" />
-              <span className="text-sm text-muted-foreground">
-                {diaHoy < 5
-                  ? "Nadie en la oficina en este momento"
-                  : "Fin de semana — sin turnos"}
-              </span>
-            </>
-          )}
-        </div>
-      )}
 
       {/* ── Timeline ────────────────────────────────────────────────────────── */}
       {turnos.length === 0 ? (
@@ -237,17 +222,17 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
                   return (
                     <div
                       key={dia}
-                      className={`py-3 text-center border-r last:border-r-0 ${esHoy ? "bg-primary/5" : ""}`}
+                      className={`py-2 text-center border-r last:border-r-0 ${esHoy ? "bg-primary/5" : ""}`}
                     >
-                      <p className={`text-xs font-semibold ${esHoy ? "text-primary" : "text-muted-foreground"}`}>
+                      <p className={`text-[11px] font-semibold ${esHoy ? "text-primary" : "text-muted-foreground"}`}>
                         <span className="hidden sm:inline">{label}</span>
                         <span className="sm:hidden">{abrev}</span>
                       </p>
-                      <p className={`text-xs mt-0.5 ${esHoy ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                      <p className={`text-[11px] ${esHoy ? "text-primary font-medium" : "text-muted-foreground"}`}>
                         {fecha.toLocaleDateString("es-AR", { day: "numeric", month: "numeric" })}
                       </p>
                       {esHoy && (
-                        <div className="mx-auto mt-1 h-0.5 w-6 rounded-full bg-primary" />
+                        <div className="mx-auto mt-0.5 h-0.5 w-4 rounded-full bg-primary" />
                       )}
                     </div>
                   );
@@ -259,7 +244,7 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
                 className="grid relative"
                 style={{
                   gridTemplateColumns: "3.5rem repeat(5, 1fr)",
-                  height: `${TOTAL_HORAS * PX_POR_HORA}px`,
+                  height: `${totalHoras * PX_POR_HORA}px`,
                 }}
               >
                 {/* Columna de horas */}
@@ -268,7 +253,7 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
                     <div
                       key={h}
                       className="absolute right-2 text-[10px] text-muted-foreground leading-none"
-                      style={{ top: `${(h - HORA_MIN) * PX_POR_HORA - 6}px` }}
+                      style={{ top: `${(h - horaMin) * PX_POR_HORA - 6}px` }}
                     >
                       {String(h).padStart(2, "0")}:00
                     </div>
@@ -292,7 +277,7 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
                         <div
                           key={h}
                           className="absolute left-0 right-0 border-t border-border/30"
-                          style={{ top: `${(h - HORA_MIN) * PX_POR_HORA}px` }}
+                          style={{ top: `${(h - horaMin) * PX_POR_HORA}px` }}
                         />
                       ))}
 
@@ -311,10 +296,10 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
                       {conLanes.map((t) => {
                         const inicio = horaANum(t.hora_inicio);
                         const fin = horaANum(t.hora_fin);
-                        if (inicio >= HORA_MAX || fin <= HORA_MIN) return null;
+                        if (inicio >= horaMax || fin <= horaMin) return null;
 
-                        const top = (Math.max(inicio, HORA_MIN) - HORA_MIN) * PX_POR_HORA;
-                        const height = (Math.min(fin, HORA_MAX) - Math.max(inicio, HORA_MIN)) * PX_POR_HORA;
+                        const top = (Math.max(inicio, horaMin) - horaMin) * PX_POR_HORA;
+                        const height = (Math.min(fin, horaMax) - Math.max(inicio, horaMin)) * PX_POR_HORA;
                         const color = colorMap.get(t.usuario_nombre) ?? "#94a3b8";
                         const esMio = t.usuario_id === sesionUsuarioId;
 
@@ -374,15 +359,12 @@ export function CronogramaCliente({ turnos, sesionUsuarioId }: Props) {
 
       {/* ── Leyenda ─────────────────────────────────────────────────────────── */}
       {turnos.length > 0 && (
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5">
           {[...colorMap.entries()].map(([nombre, color]) => {
             const esMio = turnos.find((t) => t.usuario_nombre === nombre)?.usuario_id === sesionUsuarioId;
             return (
-              <div key={nombre} className="flex items-center gap-2 text-sm">
-                <span
-                  className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: color }}
-                />
+              <div key={nombre} className="flex items-center gap-1.5 text-xs">
+                <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                 <span className={esMio ? "font-semibold" : ""}>
                   {esMio ? `${nombre} (vos)` : nombre}
                 </span>
