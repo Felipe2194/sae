@@ -1,51 +1,101 @@
 "use client";
 
 import { useTransition } from "react";
+import { CalendarDays } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toggleTarea } from "./actions";
+
+const TIPO_LABEL: Record<string, string> = {
+  evento: "Evento",
+  entrega: "Entrega",
+  reunion: "Reunión",
+};
+
+const PRIORIDAD_COLOR: Record<string, string> = {
+  baja: "bg-slate-300",
+  media: "bg-amber-400",
+  alta: "bg-red-500",
+};
 
 type TareaFilaProps = {
   id: string;
   titulo: string;
   estado: string;
+  prioridad: string;
+  tipo: string;
   areaColor: string | null;
+  areaNombre: string | null;
+  fecha: string | null;
+  fechaRelativa: string | null;
   vencida: boolean;
 };
 
-export function TareaFila({ id, titulo, estado, areaColor, vencida }: TareaFilaProps) {
+export function TareaFila({
+  id,
+  titulo,
+  estado,
+  prioridad,
+  tipo,
+  areaColor,
+  areaNombre,
+  fechaRelativa,
+  vencida,
+}: TareaFilaProps) {
   const [isPending, startTransition] = useTransition();
 
   function handleToggle() {
     startTransition(() => toggleTarea(id, estado));
   }
 
+  const hecha = estado === "hecha";
+
   return (
-    <div className={`flex items-center gap-3 py-2 ${isPending ? "opacity-60" : ""}`}>
+    <div
+      className={`flex items-start gap-3 py-2.5 transition-opacity ${isPending ? "opacity-50" : ""}`}
+    >
       <Checkbox
-        checked={estado === "hecha"}
+        checked={hecha}
         onCheckedChange={handleToggle}
         disabled={isPending}
+        className="mt-0.5 shrink-0"
       />
-      <span
-        className="size-2 shrink-0 rounded-full"
-        style={{ backgroundColor: areaColor ?? "#94a3b8" }}
-      />
-      <span
-        className={`flex-1 text-sm ${estado === "hecha" ? "text-muted-foreground line-through" : ""}`}
-      >
-        {titulo}
-      </span>
-      {vencida && (
-        <Badge variant="destructive" className="shrink-0">
-          Vencida
-        </Badge>
-      )}
-      {estado === "en_progreso" && (
-        <Badge variant="secondary" className="shrink-0">
-          En progreso
-        </Badge>
-      )}
+
+      <div className="flex-1 min-w-0">
+        <p
+          className={`text-sm leading-snug ${hecha ? "text-muted-foreground line-through" : "font-medium"}`}
+        >
+          {titulo}
+        </p>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span
+            className={`size-1.5 rounded-full shrink-0 ${PRIORIDAD_COLOR[prioridad] ?? "bg-slate-300"}`}
+          />
+          {areaNombre && (
+            <span className="text-xs text-muted-foreground truncate">
+              {areaNombre}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        {TIPO_LABEL[tipo] && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+            {TIPO_LABEL[tipo]}
+          </Badge>
+        )}
+        {fechaRelativa && (
+          <span
+            className={`flex items-center gap-1 text-[11px] ${
+              vencida ? "text-destructive font-medium" : "text-muted-foreground"
+            }`}
+          >
+            <CalendarDays className="size-3" />
+            {fechaRelativa}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
