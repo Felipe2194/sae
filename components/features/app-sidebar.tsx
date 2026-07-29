@@ -157,7 +157,7 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
               Mi perfil
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem nativeButton={false} render={<button form="signout-form" type="submit" />}>
+            <DropdownMenuItem onClick={() => (document.getElementById("signout-form") as HTMLFormElement)?.requestSubmit()}>
               <LogOut className="size-4" />
               Cerrar sesión
             </DropdownMenuItem>

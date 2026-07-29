@@ -423,26 +423,6 @@ export default async function HoyPage() {
           {/* Accesos rápidos */}
           <AccesosCard accesos={accesos} canManage={canManage} />
 
-          {/* Navegación rápida */}
-          <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm font-semibold">
-                Ir a
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 flex flex-col gap-1">
-              {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="flex items-center gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-muted transition-colors group"
-                >
-                  <Icon className="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  <span>{label}</span>
-                </Link>
-              ))}
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

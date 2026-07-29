@@ -95,6 +95,10 @@ export function AreaNotas({ areaId, notasIniciales, usuarioActualId, canDelete }
   function handleEliminar(notaId: string) {
     setDeletingId(notaId);
     setNotas((prev) => prev.filter((n) => n.id !== notaId));
+    if (notaId.startsWith("temp-")) {
+      setDeletingId(null);
+      return;
+    }
     startTransition(async () => {
       await eliminarNota(notaId, areaId);
       setDeletingId(null);
