@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
-  ExternalLink,
   LayoutDashboard,
   CalendarRange,
   Layers3,
@@ -29,6 +28,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TareaFila } from "./tarea-fila";
+import { AccesosCard } from "./accesos-card";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -120,6 +120,8 @@ export default async function HoyPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
+  const rol = (session.user as { rol: string }).rol;
+  const canManage = rol === "coordinador" || rol === "administrador";
   const hoyISO = new Date().toISOString().slice(0, 10);
 
   const { tareas, stats, enOficina, accesos } = await withUser(
@@ -419,29 +421,7 @@ export default async function HoyPage() {
           </Card>
 
           {/* Accesos rápidos */}
-          {accesos.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold">
-                  Accesos rápidos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 flex flex-col gap-1">
-                {accesos.map((ar) => (
-                  <a
-                    key={ar.id}
-                    href={ar.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-muted transition-colors group"
-                  >
-                    <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-                    <span className="truncate">{ar.etiqueta}</span>
-                  </a>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          <AccesosCard accesos={accesos} canManage={canManage} />
 
           {/* Navegación rápida */}
           <Card>
