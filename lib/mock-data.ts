@@ -314,3 +314,83 @@ export function usuarioPorId(id: string | null): Usuario | undefined {
   if (!id) return undefined;
   return usuarios.find((u) => u.id === id);
 }
+
+// --- Cronograma semanal ---
+
+export type Franja = {
+  id: string;
+  inicio: string; // "08:00"
+  fin: string; // "10:00"
+};
+
+/** 0=Lunes … 4=Viernes */
+export type DiaSemana = 0 | 1 | 2 | 3 | 4;
+
+export type Turno = {
+  dia: DiaSemana;
+  franjaId: string;
+  usuarioId: string | null;
+};
+
+export const DIAS_SEMANA: { dia: DiaSemana; label: string; abrev: string }[] =
+  [
+    { dia: 0, label: "Lunes", abrev: "Lun" },
+    { dia: 1, label: "Martes", abrev: "Mar" },
+    { dia: 2, label: "Miércoles", abrev: "Mié" },
+    { dia: 3, label: "Jueves", abrev: "Jue" },
+    { dia: 4, label: "Viernes", abrev: "Vie" },
+  ];
+
+export const franjas: Franja[] = [
+  { id: "f1", inicio: "08:00", fin: "10:00" },
+  { id: "f2", inicio: "10:00", fin: "12:00" },
+  { id: "f3", inicio: "12:00", fin: "14:00" },
+  { id: "f4", inicio: "14:00", fin: "16:00" },
+  { id: "f5", inicio: "16:00", fin: "18:00" },
+  { id: "f6", inicio: "18:00", fin: "20:00" },
+];
+
+export const turnos: Turno[] = [
+  // Lunes
+  { dia: 0, franjaId: "f1", usuarioId: "u-miembro" },
+  { dia: 0, franjaId: "f2", usuarioId: "u-coord" },
+  { dia: 0, franjaId: "f3", usuarioId: "u-coord" },
+  { dia: 0, franjaId: "f4", usuarioId: "u-admin" },
+  { dia: 0, franjaId: "f5", usuarioId: "u-miembro" },
+  { dia: 0, franjaId: "f6", usuarioId: null },
+  // Martes
+  { dia: 1, franjaId: "f1", usuarioId: "u-coord" },
+  { dia: 1, franjaId: "f2", usuarioId: "u-miembro" },
+  { dia: 1, franjaId: "f3", usuarioId: "u-admin" },
+  { dia: 1, franjaId: "f4", usuarioId: "u-miembro" },
+  { dia: 1, franjaId: "f5", usuarioId: "u-coord" },
+  { dia: 1, franjaId: "f6", usuarioId: "u-miembro" },
+  // Miércoles
+  { dia: 2, franjaId: "f1", usuarioId: "u-admin" },
+  { dia: 2, franjaId: "f2", usuarioId: "u-admin" },
+  { dia: 2, franjaId: "f3", usuarioId: "u-coord" },
+  { dia: 2, franjaId: "f4", usuarioId: null },
+  { dia: 2, franjaId: "f5", usuarioId: "u-miembro" },
+  { dia: 2, franjaId: "f6", usuarioId: "u-coord" },
+  // Jueves
+  { dia: 3, franjaId: "f1", usuarioId: "u-miembro" },
+  { dia: 3, franjaId: "f2", usuarioId: "u-coord" },
+  { dia: 3, franjaId: "f3", usuarioId: "u-miembro" },
+  { dia: 3, franjaId: "f4", usuarioId: "u-admin" },
+  { dia: 3, franjaId: "f5", usuarioId: null },
+  { dia: 3, franjaId: "f6", usuarioId: "u-coord" },
+  // Viernes
+  { dia: 4, franjaId: "f1", usuarioId: "u-coord" },
+  { dia: 4, franjaId: "f2", usuarioId: "u-miembro" },
+  { dia: 4, franjaId: "f3", usuarioId: "u-admin" },
+  { dia: 4, franjaId: "f4", usuarioId: "u-coord" },
+  { dia: 4, franjaId: "f5", usuarioId: "u-miembro" },
+  { dia: 4, franjaId: "f6", usuarioId: null },
+];
+
+export function turnoPorDiaYFranja(
+  dia: DiaSemana,
+  franjaId: string,
+): Turno | undefined {
+  return turnos.find((t) => t.dia === dia && t.franjaId === franjaId);
+}
