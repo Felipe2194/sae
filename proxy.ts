@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 const RUTAS_PUBLICAS = ['/login', '/registro', '/pendiente-de-aprobacion'];
 
-export default auth((req) => {
+export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
   const isPublica = RUTAS_PUBLICAS.some((r) => pathname.startsWith(r));
