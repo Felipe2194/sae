@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
 import {
   SidebarInset,
   SidebarProvider,
@@ -6,10 +8,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/features/app-sidebar";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+  if (!session?.user) redirect('/login');
+
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar user={{ name: session.user.name, email: session.user.email }} />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/80 backdrop-blur-sm px-4">
           <SidebarTrigger className="size-9" />

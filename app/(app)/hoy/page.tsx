@@ -1,25 +1,16 @@
-"use client";
-
-import { useMemo, useState } from "react";
+import { redirect } from "next/navigation";
 import { Link2 } from "lucide-react";
+import { auth } from "@/auth";
+import { withUser } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Button } from "@/components/ui/button";
-import {
-  usuarioActual,
-  tareas as tareasIniciales,
-  accesosRapidos,
-  areaPorId,
-  type Tarea,
-} from "@/lib/mock-data";
-
-const hoyISO = new Date().toISOString().slice(0, 10);
+import { Badge } from "@/components/ui/badge";
+import { TareaFila } from "./tarea-fila";
 
 function saludo(): string {
   const hora = new Date().getHours();
@@ -38,82 +29,57 @@ function fechaLarga(): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
-function TareaFila({
-  tarea,
-  onToggle,
-}: {
-  tarea: Tarea;
-  onToggle: (id: string) => void;
-}) {
-  const area = areaPorId(tarea.areaId);
-  const vencida =
-    tarea.fechaVencimiento !== null &&
-    tarea.fechaVencimiento < hoyISO &&
-    tarea.estado !== "hecha";
+type TareaRow = {
+  id: string;
+  titulo: string;
+  estado: string;
+  fecha_vencimiento: string | null;
+  area_color: string | null;
+};
 
-  return (
-    <div className="flex items-center gap-3 py-2">
-      <Checkbox
-        checked={tarea.estado === "hecha"}
-        onCheckedChange={() => onToggle(tarea.id)}
-      />
-      <span
-        className="size-2 shrink-0 rounded-full"
-        style={{ backgroundColor: area?.color }}
-      />
-      <span
-        className={`flex-1 text-sm ${tarea.estado === "hecha" ? "text-muted-foreground line-through" : ""}`}
-      >
-        {tarea.titulo}
-      </span>
-      {vencida && (
-        <Badge variant="destructive" className="shrink-0">
-          Vencida
-        </Badge>
-      )}
-      {tarea.estado === "en_progreso" && (
-        <Badge variant="secondary" className="shrink-0">
-          En progreso
-        </Badge>
-      )}
-    </div>
-  );
-}
+type AccesoRow = {
+  id: string;
+  etiqueta: string;
+  url: string;
+};
 
-export default function HoyPage() {
-  const [tareas, setTareas] = useState(tareasIniciales);
+export default async function HoyPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
 
-  function toggleTarea(id: string) {
-    setTareas((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? { ...t, estado: t.estado === "hecha" ? "por_hacer" : "hecha" }
-          : t,
-      ),
-    );
-  }
+  const hoyISO = new Date().toISOString().slice(0, 10);
 
-  const misTareasHoy = useMemo(
-    () =>
-      tareas.filter(
-        (t) =>
-          t.responsableId === usuarioActual.id &&
-          (t.estado === "en_progreso" ||
-            (t.fechaVencimiento !== null && t.fechaVencimiento <= hoyISO)),
-      ),
-    [tareas],
+  const { tareas, accesos } = await withUser(session.user.id, async (tx) => {
+    const tareas = await tx<TareaRow[]>`
+      select
+        t.id,
+        t.titulo,
+        t.estado,
+        t.fecha_vencimiento::text,
+        a.color as area_color
+      from tarea t
+      left join area a on a.id = t.area_id
+      where t.responsable_id = mi_usuario_id()
+        and t.estado != 'hecha'
+      order by t.fecha_vencimiento asc nulls last, t.orden asc
+    `;
+
+    const accesos = await tx<AccesoRow[]>`
+      select id, etiqueta, url
+      from acceso_rapido
+      where organizacion_id = mi_organizacion_id()
+      order by orden asc
+    `;
+
+    return { tareas, accesos };
+  });
+
+  const misTareasHoy = tareas.filter(
+    (t) => t.estado === "en_progreso" || (t.fecha_vencimiento !== null && t.fecha_vencimiento <= hoyISO),
   );
 
-  const estaSemana = useMemo(
-    () =>
-      tareas.filter(
-        (t) =>
-          t.responsableId === usuarioActual.id &&
-          t.estado !== "hecha" &&
-          t.fechaVencimiento !== null &&
-          t.fechaVencimiento > hoyISO,
-      ),
-    [tareas],
+  const estaSemana = tareas.filter(
+    (t) => t.fecha_vencimiento !== null && t.fecha_vencimiento > hoyISO,
   );
 
   return (
@@ -121,7 +87,7 @@ export default function HoyPage() {
       <div>
         <p className="text-muted-foreground text-sm">{fechaLarga()}</p>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {saludo()}, {usuarioActual.nombre.split(" ")[0]}
+          {saludo()}, {session.user.name.split(" ")[0]}
         </h1>
       </div>
 
@@ -136,7 +102,16 @@ export default function HoyPage() {
             </p>
           ) : (
             misTareasHoy.map((t) => (
-              <TareaFila key={t.id} tarea={t} onToggle={toggleTarea} />
+              <TareaFila
+                key={t.id}
+                id={t.id}
+                titulo={t.titulo}
+                estado={t.estado}
+                areaColor={t.area_color}
+                vencida={
+                  t.fecha_vencimiento !== null && t.fecha_vencimiento < hoyISO
+                }
+              />
             ))
           )}
         </CardContent>
@@ -161,7 +136,14 @@ export default function HoyPage() {
                 </p>
               ) : (
                 estaSemana.map((t) => (
-                  <TareaFila key={t.id} tarea={t} onToggle={toggleTarea} />
+                  <TareaFila
+                    key={t.id}
+                    id={t.id}
+                    titulo={t.titulo}
+                    estado={t.estado}
+                    areaColor={t.area_color}
+                    vencida={false}
+                  />
                 ))
               )}
             </CardContent>
@@ -169,27 +151,29 @@ export default function HoyPage() {
         </Card>
       </Collapsible>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Accesos rápidos</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {accesosRapidos.map((ar) => (
-            <Button
-              key={ar.id}
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              render={
-                <a href={ar.url} target="_blank" rel="noopener noreferrer" />
-              }
-            >
-              <Link2 />
-              {ar.etiqueta}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
+      {accesos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Accesos rápidos</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {accesos.map((ar) => (
+              <Button
+                key={ar.id}
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={
+                  <a href={ar.url} target="_blank" rel="noopener noreferrer" />
+                }
+              >
+                <Link2 />
+                {ar.etiqueta}
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

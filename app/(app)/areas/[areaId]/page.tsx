@@ -1,10 +1,24 @@
+import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { auth } from "@/auth";
+import { withUser } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { areas, tareas, usuarioPorId } from "@/lib/mock-data";
+
+type AreaRow = {
+  id: string;
+  nombre: string;
+  color: string;
+};
+
+type TareaRow = {
+  id: string;
+  titulo: string;
+  estado: string;
+  responsable_nombre: string | null;
+};
 
 export default async function AreaDetallePage({
   params,
@@ -12,10 +26,36 @@ export default async function AreaDetallePage({
   params: Promise<{ areaId: string }>;
 }) {
   const { areaId } = await params;
-  const area = areas.find((a) => a.id === areaId);
-  if (!area) notFound();
+  const session = await auth();
+  if (!session?.user) redirect("/login");
 
-  const tareasArea = tareas.filter((t) => t.areaId === area.id);
+  const { area, tareas } = await withUser(session.user.id, async (tx) => {
+    const [area] = await tx<AreaRow[]>`
+      select id, nombre, color
+      from area
+      where id = ${areaId}
+        and activa = true
+      limit 1
+    `;
+
+    if (!area) return { area: null, tareas: [] };
+
+    const tareas = await tx<TareaRow[]>`
+      select
+        t.id,
+        t.titulo,
+        t.estado,
+        u.nombre as responsable_nombre
+      from tarea t
+      left join usuario u on u.id = t.responsable_id
+      where t.area_id = ${areaId}
+      order by t.orden asc, t.creada_en asc
+    `;
+
+    return { area, tareas };
+  });
+
+  if (!area) notFound();
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
@@ -39,31 +79,28 @@ export default async function AreaDetallePage({
 
       <Card>
         <CardContent className="divide-y">
-          {tareasArea.length === 0 ? (
+          {tareas.length === 0 ? (
             <p className="text-muted-foreground py-4 text-sm">
               Esta área todavía no tiene tareas.
             </p>
           ) : (
-            tareasArea.map((t) => {
-              const responsable = usuarioPorId(t.responsableId);
-              return (
-                <div
-                  key={t.id}
-                  className="flex items-center justify-between gap-3 py-2.5"
+            tareas.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center justify-between gap-3 py-2.5"
+              >
+                <span
+                  className={`text-sm ${t.estado === "hecha" ? "text-muted-foreground line-through" : ""}`}
                 >
-                  <span
-                    className={`text-sm ${t.estado === "hecha" ? "text-muted-foreground line-through" : ""}`}
-                  >
-                    {t.titulo}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant="outline">
-                      {responsable ? responsable.nombre : "Sin responsable"}
-                    </Badge>
-                  </div>
+                  {t.titulo}
+                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge variant="outline">
+                    {t.responsable_nombre ?? "Sin responsable"}
+                  </Badge>
                 </div>
-              );
-            })
+              </div>
+            ))
           )}
         </CardContent>
       </Card>

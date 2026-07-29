@@ -33,7 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { usuarioActual } from "@/lib/mock-data";
+import { signOut } from "@/app/(app)/actions";
 
 const items = [
   { href: "/hoy", label: "Hoy", icon: Sparkles },
@@ -45,8 +45,20 @@ const items = [
   { href: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
-export function AppSidebar() {
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+type SidebarUser = {
+  name: string;
+  email: string;
+};
+
+export function AppSidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
+  const inits = iniciales(user.name);
 
   return (
     <Sidebar collapsible="icon">
@@ -94,7 +106,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <DropdownMenu>
           <DropdownMenuTrigger render={<SidebarMenuButton size="lg" className="h-auto py-2" />}>
-            {/* Logo UTN encima del nombre — visible cuando sidebar está expandido */}
+            {/* Expandido: logo + nombre */}
             <div className="flex flex-col gap-1.5 group-data-[collapsible=icon]:hidden w-full">
               <div className="flex items-center gap-1.5 opacity-60">
                 <Image
@@ -107,31 +119,21 @@ export function AppSidebar() {
                 <span className="text-[10px] font-medium tracking-wide uppercase">UTN FRVM</span>
               </div>
               <div className="flex items-center gap-2">
-                <Avatar className="size-7" style={{ backgroundColor: usuarioActual.color ?? "#E05B22" }}>
-                  <AvatarFallback
-                    className="text-xs font-semibold text-white"
-                    style={{ backgroundColor: usuarioActual.color ?? "#E05B22" }}
-                  >
-                    {usuarioActual.iniciales}
+                <Avatar className="size-7">
+                  <AvatarFallback className="text-xs font-semibold bg-[oklch(0.62_0.19_42)] text-white">
+                    {inits}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col text-left text-sm leading-tight">
-                  <span className="truncate font-medium">
-                    {usuarioActual.apodo ?? usuarioActual.nombre.split(" ")[0]}
-                  </span>
-                  <span className="text-muted-foreground truncate text-xs">
-                    {usuarioActual.email}
-                  </span>
+                  <span className="truncate font-medium">{user.name.split(" ")[0]}</span>
+                  <span className="text-muted-foreground truncate text-xs">{user.email}</span>
                 </div>
               </div>
             </div>
-            {/* Solo avatar cuando está colapsado */}
-            <Avatar className="size-6 group-data-[collapsible=icon]:flex hidden" style={{ backgroundColor: usuarioActual.color ?? "#E05B22" }}>
-              <AvatarFallback
-                className="text-[10px] font-semibold text-white"
-                style={{ backgroundColor: usuarioActual.color ?? "#E05B22" }}
-              >
-                {usuarioActual.iniciales}
+            {/* Colapsado: solo avatar */}
+            <Avatar className="size-6 group-data-[collapsible=icon]:flex hidden">
+              <AvatarFallback className="text-[10px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
+                {inits}
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
@@ -144,15 +146,13 @@ export function AppSidebar() {
               Mi perfil
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              nativeButton={false}
-              render={<Link href="/login" />}
-            >
+            <DropdownMenuItem nativeButton={false} render={<button form="signout-form" type="submit" />}>
               <LogOut className="size-4" />
               Cerrar sesión
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <form id="signout-form" action={signOut} className="hidden" />
       </SidebarFooter>
     </Sidebar>
   );
