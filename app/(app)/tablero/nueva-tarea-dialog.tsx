@@ -126,7 +126,7 @@ export function NuevaTareaDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Tipo</Label>
-              <Select value={tipo} onValueChange={setTipo}>
+              <Select value={tipo} onValueChange={(v) => setTipo(v ?? "")}>
                 <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -141,7 +141,7 @@ export function NuevaTareaDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Prioridad</Label>
-              <Select value={prioridad} onValueChange={setPrioridad}>
+              <Select value={prioridad} onValueChange={(v) => setPrioridad(v ?? "")}>
                 <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -159,7 +159,7 @@ export function NuevaTareaDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Área *</Label>
-              <Select value={areaId} onValueChange={setAreaId}>
+              <Select value={areaId} onValueChange={(v) => setAreaId(v ?? "")}>
                 <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Elegir área" />
                 </SelectTrigger>
@@ -182,7 +182,7 @@ export function NuevaTareaDialog({
               <Label className="text-xs">Responsable</Label>
               <Select
                 value={responsableId || "_none"}
-                onValueChange={(v) => setResponsableId(v === "_none" ? "" : v)}
+                onValueChange={(v) => setResponsableId(!v || v === "_none" ? "" : v)}
               >
                 <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Sin asignar" />

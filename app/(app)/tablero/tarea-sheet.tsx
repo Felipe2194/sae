@@ -147,6 +147,7 @@ export function TareaSheet({
   // Fetch detalle on open
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch de detalle al abrir el panel
     setLoadingDetalle(true);
     Promise.all([
       fetchTareaDetalle(tarea.id),
@@ -348,7 +349,7 @@ export function TareaSheet({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Tipo</Label>
-                <Select value={tipo} onValueChange={setTipo}>
+                <Select value={tipo} onValueChange={(v) => setTipo(v ?? "")}>
                   <SelectTrigger className="w-full h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -363,7 +364,7 @@ export function TareaSheet({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Prioridad</Label>
-                <Select value={prioridad} onValueChange={setPrioridad}>
+                <Select value={prioridad} onValueChange={(v) => setPrioridad(v ?? "")}>
                   <SelectTrigger className="w-full h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -384,7 +385,7 @@ export function TareaSheet({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Área</Label>
-                <Select value={areaId} onValueChange={setAreaId}>
+                <Select value={areaId} onValueChange={(v) => setAreaId(v ?? "")}>
                   <SelectTrigger className="w-full h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -405,7 +406,7 @@ export function TareaSheet({
                 <Select
                   value={responsableId || "_none"}
                   onValueChange={(v) =>
-                    setResponsableId(v === "_none" ? "" : v)
+                    setResponsableId(!v || v === "_none" ? "" : v)
                   }
                 >
                   <SelectTrigger className="w-full h-8">
@@ -426,7 +427,7 @@ export function TareaSheet({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Estado</Label>
-                <Select value={estado} onValueChange={setEstado}>
+                <Select value={estado} onValueChange={(v) => setEstado(v ?? "")}>
                   <SelectTrigger className="w-full h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -686,7 +687,6 @@ export function TareaSheet({
               </Button>
             </form>
           </div>
-        </div>
 
           {/* Historial */}
           {log.length > 0 && (

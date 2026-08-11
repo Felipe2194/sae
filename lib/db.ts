@@ -1,9 +1,15 @@
 import postgres from 'postgres';
 
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    'Falta la variable de entorno DATABASE_URL. Copiá .env.example a .env.local y completá la cadena de conexión a Postgres.',
+  );
+}
+
 // Un único pool de conexiones. Las conexiones van como superuser; las
 // transacciones de usuario bajan al rol sae_app via SET LOCAL ROLE para
 // que RLS se aplique correctamente.
-const sql = postgres(process.env.DATABASE_URL!, {
+const sql = postgres(process.env.DATABASE_URL, {
   max: 10,
   idle_timeout: 20,
   connect_timeout: 10,

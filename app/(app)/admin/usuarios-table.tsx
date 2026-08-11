@@ -102,7 +102,7 @@ function UsuarioRow({
         ) : (
           <Select
             value={usuario.rol}
-            onValueChange={onRolChange}
+            onValueChange={(rol) => rol && onRolChange(rol)}
             disabled={pending}
           >
             <SelectTrigger className="h-8 w-36 text-xs">

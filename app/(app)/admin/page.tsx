@@ -323,7 +323,7 @@ export default async function AdminPage() {
                   </li>
                   <li>
                     El calendario compartido de la SAE debe estar en modo <strong>público</strong>.
-                    En Configuración → "Integrar calendario" → copiá el <strong>ID del calendario</strong>{" "}
+                    En Configuración → &ldquo;Integrar calendario&rdquo; → copiá el <strong>ID del calendario</strong>{" "}
                     (termina en <code className="bg-muted rounded px-1">@group.calendar.google.com</code>).
                   </li>
                   <li>Reiniciá el servidor después de agregar las variables.</li>

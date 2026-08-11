@@ -104,6 +104,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch de datos según año/mes seleccionado
     fetchEvents(year, month);
   }, [year, month, fetchEvents]);
 

@@ -124,6 +124,28 @@ export async function actualizarTarea(
   revalidatePath('/coordinacion');
 }
 
+export async function moverEstadoTarea(tareaId: string, estado: string) {
+  const session = await requireAuth();
+  const completada_en = estado === 'hecha' ? new Date() : null;
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      update tarea set
+        estado        = ${estado}::estado_tarea,
+        completada_en = ${completada_en}
+      where id = ${tareaId}
+        and organizacion_id = mi_organizacion_id()
+    `;
+    await tx`
+      insert into tarea_log (tarea_id, usuario_id, campo, valor_antes, valor_despues)
+      select ${tareaId}, mi_usuario_id(), 'Estado', estado::text, ${estado}
+      from tarea where id = ${tareaId}
+    `;
+  });
+  revalidatePath('/tablero');
+  revalidatePath('/hoy');
+  revalidatePath('/coordinacion');
+}
+
 export async function eliminarTarea(tareaId: string) {
   const session = await requireAuth();
   await withUser(session.user.id, async (tx) => {

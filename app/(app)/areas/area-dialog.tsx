@@ -130,7 +130,7 @@ export function AreaDialog({ open, onOpenChange, usuarios, areaInicial }: Props)
             <Label className="text-xs">Responsable</Label>
             <Select
               value={responsableId || "_none"}
-              onValueChange={(v) => setResponsableId(v === "_none" ? "" : v)}
+              onValueChange={(v) => setResponsableId(!v || v === "_none" ? "" : v)}
             >
               <SelectTrigger className="w-full h-9">
                 <SelectValue placeholder="Sin responsable" />

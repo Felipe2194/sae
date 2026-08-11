@@ -2,12 +2,21 @@
 
 import { redirect } from 'next/navigation';
 import bcrypt from 'bcryptjs';
+import { headers } from 'next/headers';
 import { sql } from '@/lib/db';
+import { obtenerIp, registrarIntento, verificarLimiteIntentos } from '@/lib/rate-limit';
 
 export async function registrar(
   _prevState: { error: string } | null,
   formData: FormData,
 ): Promise<{ error: string } | null> {
+  const ip = obtenerIp(await headers());
+  const claveIp = `registro:ip:${ip}`;
+  if (!(await verificarLimiteIntentos(claveIp, 5, 60 * 60 * 1000))) {
+    return { error: 'Demasiados registros desde esta conexión. Probá de nuevo más tarde.' };
+  }
+  await registrarIntento(claveIp);
+
   const nombre = (formData.get('nombre') as string | null)?.trim() ?? '';
   const email = (formData.get('email') as string | null)?.trim().toLowerCase() ?? '';
   const password = (formData.get('password') as string | null) ?? '';

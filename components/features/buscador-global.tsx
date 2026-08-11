@@ -40,6 +40,7 @@ export function BuscadorGlobal() {
   // Buscar cuando cambia el query debounceado
   useEffect(() => {
     if (!debouncedQuery.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpiar resultados al vaciar la búsqueda
       setResultados([]);
       return;
     }

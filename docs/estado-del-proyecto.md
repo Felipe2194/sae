@@ -69,45 +69,78 @@ en la documentación pública de shadcn). La diferencia práctica:
       entorno; falta que el usuario cree el repo en GitHub y se agregue como
       `origin` cuando quiera).
 - [x] **M0.2 — Base de datos**: migrado a PostgreSQL 17 puro en Docker.
-  - Migraciones activas en `db/migrations/`:
-    - `001_schema.sql` — 9 tablas + 5 enums + índices. La tabla `usuario` tiene
-      `password_hash` propio (sin FK a `auth.users` de Supabase).
-    - `002_rls.sql` — RLS + GRANTs (ver M0.3).
+  - Migraciones activas en `db/migrations/` (aplicadas en orden, trackeadas en
+    la tabla `_migraciones`): `001_schema.sql` (9 tablas base + 5 enums),
+    `002_rls.sql` (RLS + GRANTs), `003_tareas_v2.sql` (subtareas),
+    `004_notas_area.sql` (bitácora), `005_tarea_log.sql` (historial de
+    cambios), `006_notificaciones.sql`, `007_rate_limit.sql` (control de
+    intentos de login/registro).
   - Seed en `db/seed.ts` (TypeScript, usa bcryptjs para hashear passwords).
   - Tipos TS en `types/database.ts` — mantenidos a mano, sin generador.
   - Las migraciones anteriores de Supabase están en `supabase/migrations/` como
     referencia histórica, pero ya no se usan.
-- [x] **M0.3 — Seguridad multi-organización (RLS + GRANTs)**: completado.
+- [x] **M0.3 — Seguridad multi-organización (RLS + GRANTs)**: completado a
+      nivel de código — cada tabla nueva agrega su propia política RLS en su
+      migración (verificado: `subtarea`, `nota_area`, `tarea_log`,
+      `notificacion` la tienen).
   - Rol PostgreSQL `sae_app` (NOLOGIN): las queries de la app hacen
     `SET LOCAL ROLE sae_app` + `set_config('app.user_id', uuid, true)` al inicio
     de cada transacción. RLS se activa automáticamente para `sae_app`.
   - Funciones helper `mi_usuario_id()`, `mi_organizacion_id()`, `mi_rol()`
     (las dos últimas con `SECURITY DEFINER` para evitar recursión RLS).
-  - Políticas completas en las 9 tablas (SELECT/INSERT/UPDATE/DELETE).
   - El helper `withUser(userId, fn)` en `lib/db.ts` encapsula el patrón.
-  - **Pendiente de validar**: probar aislamiento con segunda organización de
-    prueba (paso 0.3.8 del plan). Se considera cerrado cuando ese test pase.
-- [ ] **M0.4 — Despliegue**: pendiente (requiere decidir Vercel + qué hacer con
-      la base — Supabase Cloud vs. self-hosted).
+  - **Sigue pendiente de validar en la práctica**: nunca se probó el
+    aislamiento con una segunda organización real (paso 0.3.8 del plan) ni hay
+    un test automatizado que lo cubra. Es la garantía de seguridad central del
+    diseño — conviene cerrarlo antes de producción.
+- [ ] **M0.4 — Despliegue**: pendiente. Falta decidir el proveedor de Postgres
+      gestionado (Vercel ya no ofrece Postgres propio — se provisiona vía
+      Marketplace: Neon, Supabase Cloud, etc.) y confirmar Vercel como destino
+      de deploy. Sin esto no hay dónde desplegar.
 
-### Front (adelantado fuera de orden, a pedido, con datos mock)
+### Front — conectado a la base real
 
-Se armó la navegación completa de la app con datos hardcodeados
-(`lib/mock-data.ts`) para poder verla, **sin esperar a M0.3/M1.1**:
+Ya no usa `lib/mock-data.ts` (queda el archivo pero no se importa en ninguna
+página). Todo el front lee/escribe contra Postgres vía `withUser()`:
 
-- Layout `(app)` con sidebar + header.
-- `/hoy` — Panel del día (interactivo: checkbox marca tarea como hecha).
-- `/tablero` — Kanban estático (sin drag and drop todavía).
-- `/areas` y `/areas/[areaId]` — listado y detalle.
-- `/login`, `/registro`, `/pendiente-de-aprobacion` — solo UI, sin conectar a
-  Supabase Auth todavía.
-- `/calendario`, `/cronograma`, `/coordinacion`, `/admin` — placeholders "en
-  construcción" con referencia al módulo del plan que los implementa.
+- Layout `(app)` con sidebar + header + búsqueda global (Cmd/Ctrl+K).
+- `/hoy` — panel del día, accesos rápidos configurables.
+- `/tablero` — Kanban con drag-and-drop (dnd-kit), filtros, subtareas,
+  comentarios, adjuntos (solo enlaces, no upload de archivos), historial de
+  cambios por tarea.
+- `/areas` y `/areas/[areaId]` — CRUD para coordinadores/admins + bitácora de
+  notas por área.
+- `/cronograma` — turnos del equipo, timeline visual.
+- `/calendario` — integra Google Calendar API (opcional; sin las env vars
+  muestra eventos de ejemplo) + tareas del sistema.
+- `/coordinacion`, `/admin` — gestión de usuarios (aprobar, cambiar rol,
+  activar/desactivar), configuración.
+- `/login` (Credentials + Google OAuth), `/registro`, `/pendiente-de-aprobacion`
+  — conectados a Auth.js v5 real. Login y registro tienen rate limiting básico
+  (`lib/rate-limit.ts`, tabla `intento_auth`).
+- Notificaciones in-app (polling cada 30s — no escala mucho más allá de un
+  puñado de usuarios simultáneos, pero alcanza para el uso actual).
 
-**Importante:** estas pantallas usan datos mock, no la base real. Cuando se
-resuelva M0.3 (GRANTs + RLS) hay que reemplazar `lib/mock-data.ts` por queries
-reales a Supabase (`lib/supabase/client.ts` / `lib/supabase/server.ts`, ya
-creados) — es el trabajo de M1.1 en adelante.
+---
+
+## Checklist para producción (pendiente, en orden de prioridad)
+
+- [ ] Elegir proveedor de Postgres gestionado y confirmar deploy en Vercel
+      (M0.4 — ver arriba).
+- [ ] Validar aislamiento multi-organización con una segunda org de prueba.
+- [ ] Tests automatizados y CI (hoy no hay ni test runner ni `.github/`) — nada
+      impide que un commit con código roto llegue a `main`.
+- [ ] Observabilidad: no hay Sentry ni logging estructurado ni endpoint de
+      health-check.
+- [ ] Headers de seguridad (CSP, HSTS, X-Frame-Options) en `next.config.ts`.
+- [ ] `robots.txt` / sitemap (bajo impacto por ser app interna).
+
+Ya resueltos en la última revisión (2026-08-11): build roto en `main` (JSX mal
+cerrado en `tarea-sheet.tsx`), 16 errores de tipos por `onValueChange` de los
+`Select` de Base UI recibiendo `string | null`, errores de ESLint que
+bloqueaban el build, validación de `DATABASE_URL` al arrancar,
+`error.tsx`/`not-found.tsx`/`global-error.tsx`, rate limiting en login/registro,
+variables de Google OAuth documentadas en `.env.example`.
 
 ---
 
@@ -144,8 +177,7 @@ npx tsc --noEmit       # chequeo de tipos
 
 ## Próximo paso sugerido
 
-**Validar M0.3 + arrancar M1.1**: levantar el stack (`docker compose up -d &&
-npm run db:migrate && npm run db:seed`), verificar que el login funcione con
-`admin@sae.test / password123`, y probar el aislamiento con una segunda
-organización de prueba. Una vez validado, reemplazar `lib/mock-data.ts` por
-queries reales usando `withUser()` de `lib/db.ts` — es el trabajo de M1.1.
+**Cerrar M0.4**: decidir proveedor de Postgres gestionado + confirmar Vercel,
+y con eso hacer el primer deploy real. En paralelo, probar el aislamiento
+multi-organización (única deuda de seguridad pendiente de M0.3) antes de dar
+por cerrada esa etapa. Ver el checklist de producción arriba para el resto.
