@@ -152,7 +152,9 @@ Datos básicos del usuario logueado (nombre, email, rol). Sin edición de datos 
   escribe, igual que los resultados de búsqueda.
 - **Notificaciones**: campana con no-leídas. Se generan al asignar una tarea a alguien o
   al comentar en una tarea de la que alguien es responsable. Polling cada 3 min (más
-  refresco al volver a la pestaña y al abrir el panel) — no push/websocket.
+  refresco al volver a la pestaña y al abrir el panel) — no push/websocket. Las mismas
+  dos acciones también mandan un aviso al grupo de Telegram del equipo, si está
+  configurado.
 - **Modo oscuro por defecto**: toda la app arranca en oscuro (`next-themes`); hay un
   botón sol/luna en el header para cambiar a claro, y la preferencia queda guardada.
 
@@ -220,9 +222,10 @@ En orden de lo que más se nota al usar el sistema:
   cubren parte de este caso de uso — clonar un conjunto de tareas a demanda — pero no son
   recurrencia automática por calendario.
 - **Adjuntos son solo enlaces**, no hay carga real de archivos (a propósito, por ahora).
-- **Notificaciones son solo in-app** (con polling de 3 min + refresco al volver a la
-  pestaña) — no hay canal de email ni de Telegram, algo que la especificación original
-  dejaba como pregunta abierta.
+- **Notificaciones**: in-app (polling de 3 min + refresco al volver a la pestaña) +
+  **Telegram opcional** (`lib/telegram.ts` — un mensaje al grupo del equipo al asignar
+  una tarea o comentar; requiere `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`, ver
+  `credenciales-pendientes.md`). Sigue sin haber canal de email.
 - ~~Aislamiento multi-organización sin validar en la práctica~~ — **resuelto**: hay un
   test automatizado (`db/tests/rls-aislamiento.test.ts`, `npm test`) que crea dos
   organizaciones de prueba y verifica que RLS bloquea lectura y escritura cruzada.

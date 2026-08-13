@@ -111,7 +111,40 @@ controlar lo que suena ahí en vez de una radio fija), va a hacer falta un
 [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) y un refresh
 token de esa cuenta — no está implementado, es un upgrade posible a futuro.
 
-## 4. Observabilidad (Sentry) — opcional, no implementado
+## 4. Notificaciones por Telegram (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`)
+
+La especificación original dejaba abierto si las notificaciones fuera de la app debían
+ser por email o algo más inmediato como Telegram. Quedó implementado Telegram: cuando se
+asigna una tarea o alguien comenta, además de la notificación in-app se manda un mensaje
+al grupo del equipo. Es "todo el equipo ve todo" (un solo grupo), no mensajes privados
+por persona — más simple de armar y, para un equipo chico, probablemente más útil que
+notificaciones 1 a 1 que nadie lee.
+
+**Dónde conseguirlo:**
+
+1. En Telegram, hablá con **[@BotFather](https://t.me/BotFather)** (el bot oficial para
+   crear bots).
+2. Mandale `/newbot`, seguí las instrucciones (nombre del bot, username que termine en
+   `bot`). Te devuelve un **token** con este formato: `123456789:AAH...`.
+3. Creá (o usá uno existente) un **grupo de Telegram** con el equipo de la secretaría.
+4. Agregá al bot recién creado a ese grupo.
+5. Para conseguir el **chat_id** del grupo:
+   - Mandá cualquier mensaje al grupo (para que quede una actualización pendiente).
+   - Abrí en el navegador: `https://api.telegram.org/bot<TU_TOKEN>/getUpdates`
+   - Buscá `"chat":{"id":-100...` en la respuesta — ese número (negativo, para grupos)
+     es el `chat_id`.
+
+**Dónde pegarlo:**
+
+```
+TELEGRAM_BOT_TOKEN=<el token de BotFather>
+TELEGRAM_CHAT_ID=<el id del grupo, con el signo menos incluido>
+```
+
+Sin estas variables, `enviarTelegram()` (`lib/telegram.ts`) no hace nada — las
+notificaciones in-app siguen funcionando igual.
+
+## 5. Observabilidad (Sentry) — opcional, no implementado
 
 Si se quiere trazar excepciones con stack trace y alertas (más allá del logging
 estructurado que ya corre en `lib/logger.ts`), hace falta:
@@ -126,7 +159,7 @@ estructurado que ya corre en `lib/logger.ts`), hace falta:
 SENTRY_DSN=<el DSN del proyecto>
 ```
 
-## 5. Pendiente de decidir (se documenta acá cuando se resuelva)
+## 6. Pendiente de decidir (se documenta acá cuando se resuelva)
 
 - **Despliegue en producción**: cuando se elija proveedor de Postgres gestionado (Neon,
   Supabase Cloud, etc. — Vercel ya no ofrece Postgres propio), va a hacer falta la
