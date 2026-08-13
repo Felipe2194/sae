@@ -111,7 +111,22 @@ controlar lo que suena ahí en vez de una radio fija), va a hacer falta un
 [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) y un refresh
 token de esa cuenta — no está implementado, es un upgrade posible a futuro.
 
-## 4. Pendiente de decidir (se documenta acá cuando se resuelva)
+## 4. Observabilidad (Sentry) — opcional, no implementado
+
+Si se quiere trazar excepciones con stack trace y alertas (más allá del logging
+estructurado que ya corre en `lib/logger.ts`), hace falta:
+
+1. Crear una cuenta en [sentry.io](https://sentry.io) (tiene plan gratuito) y un
+   proyecto de tipo Next.js.
+2. Copiar el **DSN** que te da al crear el proyecto.
+3. Correr `npx @sentry/wizard@latest -i nextjs` en el repo — instala el SDK y genera la
+   configuración automáticamente (no hace falta escribirla a mano).
+
+```
+SENTRY_DSN=<el DSN del proyecto>
+```
+
+## 5. Pendiente de decidir (se documenta acá cuando se resuelva)
 
 - **Despliegue en producción**: cuando se elija proveedor de Postgres gestionado (Neon,
   Supabase Cloud, etc. — Vercel ya no ofrece Postgres propio), va a hacer falta la

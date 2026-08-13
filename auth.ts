@@ -4,6 +4,7 @@ import Google from 'next-auth/providers/google';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { sql } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -88,10 +89,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           insert into usuario (organizacion_id, nombre, email, password_hash, rol, estado)
           values (${org.id}, ${user.name ?? user.email}, ${user.email}, ${passwordHash}, 'miembro', 'pendiente')
         `;
+        logger.info('alta automática vía Google', { email: user.email });
         return '/pendiente-de-aprobacion';
       }
 
-      if (usuario.estado !== 'activo') return '/pendiente-de-aprobacion';
+      if (usuario.estado !== 'activo') {
+        logger.warn('login bloqueado: usuario no activo', {
+          email: user.email,
+          estado: usuario.estado,
+        });
+        return '/pendiente-de-aprobacion';
+      }
 
       return true;
     },

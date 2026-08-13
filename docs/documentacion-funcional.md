@@ -230,11 +230,16 @@ En orden de lo que más se nota al usar el sistema:
   ofrece Postgres propio, se provisiona vía Marketplace: Neon, Supabase Cloud, etc.) y
   hacer el primer deploy real. Hoy todo corre local con Docker.
 - **Tests automatizados: arrancaron, pero son mínimos.** Hay `vitest` configurado
-  (`npm test`) y un test de aislamiento RLS — nada de UI ni de los demás flujos. Sigue
-  sin haber CI (`.github/`): nada impide que un commit con código roto llegue a `main`
-  salvo correrlo a mano antes de pushear.
-- **Sin observabilidad**: no hay logging estructurado, Sentry, ni endpoint de
-  health-check.
+  (`npm test`) y un test de aislamiento RLS — nada de UI ni de los demás flujos.
+- ~~Sin CI~~ — **resuelto**: `.github/workflows/ci.yml` corre en cada push/PR a `main`
+  (lint, chequeo de tipos, migraciones contra un Postgres de servicio, tests y build).
+  Sigue sin haber deploy automático — este CI valida, no despliega.
+- **Observabilidad: parcial.** Hay `/api/health` (sin auth, para monitoreo externo —
+  confirma que el proceso responde y que la base es alcanzable) y `lib/logger.ts`
+  (logging estructurado en JSON, sin dependencias) conectado en los puntos más
+  sensibles de auth (`auth.ts`: alta automática por Google, logins bloqueados). Falta
+  Sentry (o similar) para trazas de errores con stack completo y alertas — necesita un
+  DSN, se documenta en `credenciales-pendientes.md` cuando se decida sumarlo.
 - ~~Sin headers de seguridad~~ — **resuelto**: `next.config.ts` ahora manda CSP (sin
   nonces — ver comentario en el archivo), `X-Frame-Options`, `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy` y HSTS en producción.

@@ -18,5 +18,7 @@ export const proxy = auth((req) => {
 });
 
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon\\.ico).*)'],
+  // api/health queda afuera a propósito: lo pegan monitores externos sin
+  // sesión (uptime checks, balanceadores de carga).
+  matcher: ['/((?!api/auth|api/health|_next/static|_next/image|favicon\\.ico).*)'],
 };
