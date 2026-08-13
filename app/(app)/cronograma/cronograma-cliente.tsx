@@ -202,7 +202,7 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
   );
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-3">
+    <div className="mx-auto flex max-w-6xl flex-col gap-3">
 
       {/* ── Encabezado + ahora en línea ─────────────────────────────────────── */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

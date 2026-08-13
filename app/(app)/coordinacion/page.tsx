@@ -328,7 +328,7 @@ export default async function CoordinacionPage() {
                     <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Abiertas</th>
                     <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Vencidas</th>
                     <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Hechas</th>
-                    <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Prom. días</th>
+                    <th className="hidden sm:table-cell text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Prom. días</th>
                     <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium min-w-[120px]">Progreso</th>
                   </tr>
                 </thead>
@@ -357,7 +357,7 @@ export default async function CoordinacionPage() {
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-center tabular-nums text-green-600 font-medium">{p.hecha}</td>
-                      <td className="px-3 py-2.5 text-center text-xs text-muted-foreground tabular-nums">
+                      <td className="hidden sm:table-cell px-3 py-2.5 text-center text-xs text-muted-foreground tabular-nums">
                         {p.dias_promedio != null ? `${p.dias_promedio}d` : "—"}
                       </td>
                       <td className="px-4 py-2.5">
@@ -395,7 +395,7 @@ export default async function CoordinacionPage() {
                     <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Total</th>
                     <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Vencidas</th>
                     <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Hechas</th>
-                    <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Prom. días</th>
+                    <th className="hidden sm:table-cell text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">Prom. días</th>
                     <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium min-w-[120px]">Progreso</th>
                   </tr>
                 </thead>
@@ -417,7 +417,7 @@ export default async function CoordinacionPage() {
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-center tabular-nums text-green-600 font-medium">{a.hecha}</td>
-                      <td className="px-3 py-2.5 text-center text-xs text-muted-foreground tabular-nums">
+                      <td className="hidden sm:table-cell px-3 py-2.5 text-center text-xs text-muted-foreground tabular-nums">
                         {a.dias_promedio != null ? `${a.dias_promedio}d` : "—"}
                       </td>
                       <td className="px-4 py-2.5">

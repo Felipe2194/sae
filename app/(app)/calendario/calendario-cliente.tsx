@@ -213,7 +213,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
                       onClick={() => dateISO && setSelectedDay(dateISO)}
                       disabled={!dia}
                       className={[
-                        "min-h-[5.5rem] border-b border-r p-1.5 text-left transition-colors",
+                        "min-h-[3.25rem] sm:min-h-[5.5rem] border-b border-r p-1 sm:p-1.5 text-left transition-colors",
                         !esMesActual ? "bg-muted/20 cursor-default" : "hover:bg-muted/40 cursor-pointer",
                         esSeleccionado ? "bg-accent/60" : "",
                         esFinDeSemana && esMesActual ? "bg-muted/10" : "",
@@ -237,7 +237,26 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
                             </span>
                           </div>
 
-                          <div className="flex flex-col gap-0.5">
+                          {/* Pantallas chicas: puntos de color — el detalle vive en el
+                              panel del día seleccionado, que ya es legible. Un texto de
+                              11px truncado en una celda de ~50px de ancho no lo es. */}
+                          <div className="flex flex-wrap gap-0.5 sm:hidden">
+                            {todosItems.slice(0, 4).map((item) => {
+                              const isGcal = "allDay" in item;
+                              const color = isGcal
+                                ? (item.color ?? "#94a3b8")
+                                : ((item as TareaConFecha).area_color ?? "#94a3b8");
+                              return (
+                                <span
+                                  key={isGcal ? item.id : (item as TareaConFecha).id}
+                                  className="size-1.5 shrink-0 rounded-full"
+                                  style={{ backgroundColor: color }}
+                                />
+                              );
+                            })}
+                          </div>
+
+                          <div className="hidden sm:flex flex-col gap-0.5">
                             {todosItems.slice(0, maxMostrar).map((item) => {
                               const isGcal = "allDay" in item;
                               const color = isGcal

@@ -53,19 +53,14 @@ const ROL_LABEL: Record<UsuarioFila["rol"], string> = {
   administrador: "Administrador",
 };
 
-function UsuarioRow({
-  usuario,
-  esSelf,
-}: {
-  usuario: UsuarioFila;
-  esSelf: boolean;
-}) {
+// Lógica y estado compartidos entre la fila de tabla (desktop) y la tarjeta
+// (mobile) — para no duplicar los handlers en dos componentes distintos.
+function useUsuarioRowActions(usuario: UsuarioFila) {
   const [pending, startTransition] = useTransition();
   const [confirmReset, setConfirmReset] = useState(false);
   const [isPendingReset, startReset] = useTransition();
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
-  const badge = ESTADO_BADGE[usuario.estado];
 
   function aprobar() {
     startTransition(() => cambiarEstadoUsuario(usuario.id, "activo"));
@@ -102,11 +97,178 @@ function UsuarioRow({
     setTimeout(() => setCopiado(false), 1500);
   }
 
+  return {
+    pending,
+    confirmReset,
+    setConfirmReset,
+    isPendingReset,
+    tempPassword,
+    setTempPassword,
+    copiado,
+    aprobar,
+    desactivar,
+    reactivar,
+    onRolChange,
+    resetPassword,
+    copiarPassword,
+  };
+}
+
+function PasswordDialog({
+  usuario,
+  tempPassword,
+  setTempPassword,
+  copiado,
+  copiarPassword,
+}: {
+  usuario: UsuarioFila;
+  tempPassword: string | null;
+  setTempPassword: (v: string | null) => void;
+  copiado: boolean;
+  copiarPassword: () => void;
+}) {
   return (
-    <tr
-      className={`border-b last:border-0 ${pending ? "opacity-50" : ""}`}
+    <Dialog open={tempPassword !== null} onOpenChange={(v) => !v && setTempPassword(null)}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Contraseña restablecida</DialogTitle>
+          <DialogDescription>
+            Compartila con {usuario.nombre} de forma segura. No se va a poder ver de nuevo.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 rounded-lg border bg-muted px-3 py-2 text-sm font-mono tracking-wide">
+            {tempPassword}
+          </code>
+          <Button size="sm" variant="outline" onClick={copiarPassword} className="h-9 shrink-0">
+            {copiado ? "Copiado" : "Copiar"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AccionesUsuario({
+  usuario,
+  esSelf,
+  a,
+}: {
+  usuario: UsuarioFila;
+  esSelf: boolean;
+  a: ReturnType<typeof useUsuarioRowActions>;
+}) {
+  if (esSelf) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {usuario.estado === "pendiente" ? (
+        <Button size="sm" onClick={a.aprobar} disabled={a.pending} className="h-8 text-xs">
+          Aprobar
+        </Button>
+      ) : usuario.estado === "activo" ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={a.desactivar}
+          disabled={a.pending}
+          className="h-8 text-xs text-destructive hover:text-destructive"
+        >
+          Desactivar
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={a.reactivar}
+          disabled={a.pending}
+          className="h-8 text-xs"
+        >
+          Reactivar
+        </Button>
+      )}
+
+      {usuario.estado !== "pendiente" &&
+        (a.confirmReset ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">¿Confirmar?</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs"
+              onClick={() => a.setConfirmReset(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={a.resetPassword}
+              disabled={a.isPendingReset}
+            >
+              {a.isPendingReset ? "Reseteando..." : "Confirmar"}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-xs text-muted-foreground"
+            onClick={a.resetPassword}
+            title="Resetear contraseña"
+          >
+            <KeyRound className="size-3.5" />
+          </Button>
+        ))}
+    </div>
+  );
+}
+
+function RolUsuario({
+  usuario,
+  esSelf,
+  a,
+  className,
+}: {
+  usuario: UsuarioFila;
+  esSelf: boolean;
+  a: ReturnType<typeof useUsuarioRowActions>;
+  className?: string;
+}) {
+  if (esSelf || usuario.estado !== "activo") {
+    return <span className="text-sm text-muted-foreground">{ROL_LABEL[usuario.rol]}</span>;
+  }
+  return (
+    <Select
+      value={usuario.rol}
+      onValueChange={(rol) => rol && a.onRolChange(rol)}
+      disabled={a.pending}
+      items={{ miembro: "Miembro", coordinador: "Coordinador", administrador: "Administrador" }}
     >
-      {/* Nombre + email */}
+      <SelectTrigger className={className ?? "h-8 w-36 text-xs"}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="miembro">Miembro</SelectItem>
+        <SelectItem value="coordinador">Coordinador</SelectItem>
+        <SelectItem value="administrador">Administrador</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function UsuarioRow({
+  usuario,
+  esSelf,
+}: {
+  usuario: UsuarioFila;
+  esSelf: boolean;
+}) {
+  const a = useUsuarioRowActions(usuario);
+  const badge = ESTADO_BADGE[usuario.estado];
+
+  return (
+    <tr className={`border-b last:border-0 ${a.pending ? "opacity-50" : ""}`}>
       <td className="px-4 py-3">
         <p className="font-medium text-sm leading-tight">
           {usuario.nombre}
@@ -118,126 +280,66 @@ function UsuarioRow({
         </p>
         <p className="text-xs text-muted-foreground">{usuario.email}</p>
       </td>
-
-      {/* Estado */}
       <td className="px-3 py-3 whitespace-nowrap">
         <Badge className={badge.className}>{badge.label}</Badge>
       </td>
-
-      {/* Rol */}
       <td className="px-3 py-3 whitespace-nowrap">
-        {esSelf || usuario.estado !== "activo" ? (
-          <span className="text-sm text-muted-foreground">
-            {ROL_LABEL[usuario.rol]}
-          </span>
-        ) : (
-          <Select
-            value={usuario.rol}
-            onValueChange={(rol) => rol && onRolChange(rol)}
-            disabled={pending}
-            items={{ miembro: "Miembro", coordinador: "Coordinador", administrador: "Administrador" }}
-          >
-            <SelectTrigger className="h-8 w-36 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="miembro">Miembro</SelectItem>
-              <SelectItem value="coordinador">Coordinador</SelectItem>
-              <SelectItem value="administrador">Administrador</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+        <RolUsuario usuario={usuario} esSelf={esSelf} a={a} />
+      </td>
+      <td className="px-3 py-3 whitespace-nowrap">
+        <AccionesUsuario usuario={usuario} esSelf={esSelf} a={a} />
       </td>
 
-      {/* Acciones */}
-      <td className="px-3 py-3 whitespace-nowrap">
-        {esSelf ? (
-          <span className="text-xs text-muted-foreground">—</span>
-        ) : (
-          <div className="flex items-center gap-1.5">
-            {usuario.estado === "pendiente" ? (
-              <Button size="sm" onClick={aprobar} disabled={pending} className="h-8 text-xs">
-                Aprobar
-              </Button>
-            ) : usuario.estado === "activo" ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={desactivar}
-                disabled={pending}
-                className="h-8 text-xs text-destructive hover:text-destructive"
-              >
-                Desactivar
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={reactivar}
-                disabled={pending}
-                className="h-8 text-xs"
-              >
-                Reactivar
-              </Button>
-            )}
-
-            {usuario.estado !== "pendiente" && (
-              confirmReset ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground">¿Confirmar?</span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 text-xs"
-                    onClick={() => setConfirmReset(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs"
-                    onClick={resetPassword}
-                    disabled={isPendingReset}
-                  >
-                    {isPendingReset ? "Reseteando..." : "Confirmar"}
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 text-xs text-muted-foreground"
-                  onClick={resetPassword}
-                  title="Resetear contraseña"
-                >
-                  <KeyRound className="size-3.5" />
-                </Button>
-              )
-            )}
-          </div>
-        )}
-      </td>
-
-      <Dialog open={tempPassword !== null} onOpenChange={(v) => !v && setTempPassword(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Contraseña restablecida</DialogTitle>
-            <DialogDescription>
-              Compartila con {usuario.nombre} de forma segura. No se va a poder ver de nuevo.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded-lg border bg-muted px-3 py-2 text-sm font-mono tracking-wide">
-              {tempPassword}
-            </code>
-            <Button size="sm" variant="outline" onClick={copiarPassword} className="h-9 shrink-0">
-              {copiado ? "Copiado" : "Copiar"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PasswordDialog
+        usuario={usuario}
+        tempPassword={a.tempPassword}
+        setTempPassword={a.setTempPassword}
+        copiado={a.copiado}
+        copiarPassword={a.copiarPassword}
+      />
     </tr>
+  );
+}
+
+function UsuarioCard({
+  usuario,
+  esSelf,
+}: {
+  usuario: UsuarioFila;
+  esSelf: boolean;
+}) {
+  const a = useUsuarioRowActions(usuario);
+  const badge = ESTADO_BADGE[usuario.estado];
+
+  return (
+    <div className={`flex flex-col gap-2.5 border-b p-4 last:border-0 ${a.pending ? "opacity-50" : ""}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-medium text-sm leading-tight">
+            {usuario.nombre}
+            {esSelf && (
+              <span className="ml-2 text-[11px] text-muted-foreground font-normal">
+                (vos)
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>
+        </div>
+        <Badge className={`shrink-0 ${badge.className}`}>{badge.label}</Badge>
+      </div>
+
+      <RolUsuario usuario={usuario} esSelf={esSelf} a={a} className="h-9 w-full text-sm" />
+
+      <AccionesUsuario usuario={usuario} esSelf={esSelf} a={a} />
+
+      <PasswordDialog
+        usuario={usuario}
+        tempPassword={a.tempPassword}
+        setTempPassword={a.setTempPassword}
+        copiado={a.copiado}
+        copiarPassword={a.copiarPassword}
+      />
+    </div>
   );
 }
 
@@ -252,41 +354,49 @@ export function UsuariosTable({
   const resto = usuarios.filter((u) => u.estado !== "pendiente");
   const ordenados = [...pendientes, ...resto];
 
+  if (ordenados.length === 0) {
+    return (
+      <p className="text-muted-foreground px-4 py-6 text-center text-sm">
+        No hay usuarios.
+      </p>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium w-full">
-              Usuario
-            </th>
-            <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
-              Estado
-            </th>
-            <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
-              Rol
-            </th>
-            <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
-              Acciones
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {ordenados.map((u) => (
-            <UsuarioRow key={u.id} usuario={u} esSelf={u.id === selfId} />
-          ))}
-          {ordenados.length === 0 && (
-            <tr>
-              <td
-                colSpan={4}
-                className="text-muted-foreground px-4 py-6 text-center text-sm"
-              >
-                No hay usuarios.
-              </td>
+    <>
+      {/* Desktop: tabla */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium w-full">
+                Usuario
+              </th>
+              <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
+                Estado
+              </th>
+              <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
+                Rol
+              </th>
+              <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
+                Acciones
+              </th>
             </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {ordenados.map((u) => (
+              <UsuarioRow key={u.id} usuario={u} esSelf={u.id === selfId} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile: tarjetas — la tabla con 4 columnas no entra sin cortar Rol */}
+      <div className="md:hidden">
+        {ordenados.map((u) => (
+          <UsuarioCard key={u.id} usuario={u} esSelf={u.id === selfId} />
+        ))}
+      </div>
+    </>
   );
 }

@@ -126,64 +126,96 @@ export default async function AdminPage() {
 
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium w-full">
-                      Tarea
-                    </th>
-                    <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
-                      Estado
-                    </th>
-                    <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
-                      Responsable
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tareas.map((t) => (
-                    <tr key={t.id} className="border-b last:border-0">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          {t.area_color && (
-                            <span
-                              className="size-2 shrink-0 rounded-full"
-                              style={{ backgroundColor: t.area_color }}
+            {tareas.length === 0 ? (
+              <p className="text-muted-foreground px-4 py-6 text-center text-sm">
+                No hay tareas abiertas.
+              </p>
+            ) : (
+              <>
+                {/* Desktop: tabla */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium w-full">
+                          Tarea
+                        </th>
+                        <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
+                          Estado
+                        </th>
+                        <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">
+                          Responsable
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tareas.map((t) => (
+                        <tr key={t.id} className="border-b last:border-0">
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                              {t.area_color && (
+                                <span
+                                  className="size-2 shrink-0 rounded-full"
+                                  style={{ backgroundColor: t.area_color }}
+                                />
+                              )}
+                              <div>
+                                <p className="font-medium leading-tight">{t.titulo}</p>
+                                {t.area_nombre && (
+                                  <p className="text-muted-foreground text-xs">{t.area_nombre}</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            <Badge variant={ESTADO_VARIANT[t.estado] ?? "outline"}>
+                              {ESTADO_LABEL[t.estado] ?? t.estado}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <AsignarSelect
+                              tareaId={t.id}
+                              responsableId={t.responsable_id}
+                              usuarios={usuarios}
                             />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile: tarjetas — Responsable no entra sin cortar en una tabla de 3 columnas */}
+                <div className="md:hidden divide-y">
+                  {tareas.map((t) => (
+                    <div key={t.id} className="flex flex-col gap-2 p-4">
+                      <div className="flex items-start gap-2">
+                        {t.area_color && (
+                          <span
+                            className="mt-1.5 size-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: t.area_color }}
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium leading-tight">{t.titulo}</p>
+                          {t.area_nombre && (
+                            <p className="text-muted-foreground text-xs">{t.area_nombre}</p>
                           )}
-                          <div>
-                            <p className="font-medium leading-tight">{t.titulo}</p>
-                            {t.area_nombre && (
-                              <p className="text-muted-foreground text-xs">{t.area_nombre}</p>
-                            )}
-                          </div>
                         </div>
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <Badge variant={ESTADO_VARIANT[t.estado] ?? "outline"}>
+                        <Badge variant={ESTADO_VARIANT[t.estado] ?? "outline"} className="shrink-0">
                           {ESTADO_LABEL[t.estado] ?? t.estado}
                         </Badge>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <AsignarSelect
-                          tareaId={t.id}
-                          responsableId={t.responsable_id}
-                          usuarios={usuarios}
-                        />
-                      </td>
-                    </tr>
+                      </div>
+                      <AsignarSelect
+                        tareaId={t.id}
+                        responsableId={t.responsable_id}
+                        usuarios={usuarios}
+                      />
+                    </div>
                   ))}
-                  {tareas.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="text-muted-foreground px-4 py-6 text-center text-sm">
-                        No hay tareas abiertas.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </section>
