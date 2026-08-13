@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   CircleUser,
   LogOut,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +43,7 @@ const ITEMS_BASE: { href: string; label: string; icon: React.ElementType; roles:
   { href: "/cronograma", label: "Cronograma", icon: CalendarRange, roles: null },
   { href: "/areas", label: "Áreas", icon: Layers3, roles: null },
   { href: "/coordinacion", label: "Coordinación", icon: UsersRound, roles: ["coordinador", "administrador"] },
+  { href: "/informes", label: "Informes", icon: BarChart3, roles: ["coordinador", "administrador"] },
   { href: "/admin", label: "Admin", icon: ShieldCheck, roles: ["administrador"] },
 ];
 

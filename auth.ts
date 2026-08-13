@@ -46,6 +46,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
         if (!valido) return null;
 
+        await sql`update usuario set ultimo_login = now() where id = ${usuario.id}`;
+
         return {
           id: usuario.id,
           name: usuario.nombre,
@@ -100,6 +102,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         return '/pendiente-de-aprobacion';
       }
+
+      await sql`update usuario set ultimo_login = now() where id = ${usuario.id}`;
 
       return true;
     },

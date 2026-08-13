@@ -44,6 +44,7 @@ export interface UsuarioRow {
   creada_en: string;
   playlist_url: string | null;
   avatar_color: string | null;
+  ultimo_login: string | null;
 }
 
 export interface UsuarioInsert {

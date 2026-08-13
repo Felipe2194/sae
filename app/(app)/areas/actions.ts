@@ -181,6 +181,11 @@ export async function aplicarPlantilla(plantillaId: string, areaId: string) {
         values (mi_organizacion_id(), ${areaId}, ${item.titulo}, mi_usuario_id(), 0)
       `;
     }
+    await tx`
+      update plantilla_area
+      set veces_aplicada = veces_aplicada + 1, ultima_aplicacion = now()
+      where id = ${plantillaId}
+    `;
   });
   revalidatePath(`/areas/${areaId}`);
   revalidatePath('/tablero');

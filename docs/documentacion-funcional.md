@@ -76,10 +76,16 @@ que el usuario tenga que ir a buscarlo.
   `credenciales-pendientes.md` para el porqué y la alternativa con Spotify).
 - **En la oficina ahora**: quién está de turno en este momento, calculado a partir del
   cronograma (`/cronograma`), y ya no cuenta a quien marcó ausencia.
-- **Pulso del equipo**: contador de tareas abiertas / en progreso / completadas hoy, a
-  nivel de toda la organización (no solo del usuario).
+- **Pulso**: contador compacto (formato cuadrado, no una tira horizontal) de tareas
+  abiertas / en progreso / completadas hoy, a nivel de toda la organización.
 - **Accesos rápidos**: botones a URLs externas (Drive, Sheets, formularios) configurados
   desde `/admin`.
+
+Bitácora y música son colapsables (por defecto la bitácora arranca abierta si todavía no
+se cargó hoy, y cerrada si ya se cargó); todos los bloques de la columna derecha
+(bitácora, música, en la oficina, pulso, accesos rápidos) están dimensionados para verse
+completos sin scroll extra al entrar al panel, en vez de apilarse en una sola columna
+larga.
 
 ### 3.2 `/tablero` — Kanban
 
@@ -148,7 +154,26 @@ Vista de métricas para quien coordina el equipo, no para uso diario:
 - **Precisión de estimación**: promedio de horas estimadas vs. horas reales, sobre las
   tareas que tienen ambos datos cargados — solo aparece cuando hay al menos una.
 
-### 3.7 `/admin` — Administración (solo administrador)
+### 3.7 `/informes` — Analíticas (coordinador/admin)
+
+Complementa a `/coordinacion` (que mira el estado *actual* del trabajo) con una vista de
+*actividad y adopción a lo largo del tiempo*:
+
+- **Tareas por semana**: creadas vs. completadas, últimas 8 semanas (gráfico de barras).
+- **Ritmo de cierre por área**: tareas cerradas en los últimos 30 días vs. total histórico.
+- **Actividad de bitácora**: % de días con bitácora cargada por persona, últimos 30 días.
+- **Antigüedad de tareas vencidas**: distribución en baldes (0–7 / 8–14 / 15–30 / 30+
+  días) — un balde de antigüedad, no una tendencia histórica real, porque el sistema no
+  guarda una foto periódica del estado pasado.
+- **Uso de plantillas**: cuántas veces se aplicó cada plantilla de área y cuándo fue la
+  última vez (`plantilla_area.veces_aplicada`/`ultima_aplicacion`, incrementado cada vez
+  que se usa "Aplicar" en `/areas/[areaId]`).
+- **Colaboración**: comentarios dejados por persona en los últimos 30 días.
+- **Ausencias por persona**: últimos 90 días, a partir de `excepcion_turno`.
+- **Última conexión por usuario**: `usuario.ultimo_login`, actualizado en cada login
+  exitoso (tanto Credentials como Google).
+
+### 3.8 `/admin` — Administración (solo administrador)
 
 - **Usuarios**: aprobar registros pendientes, cambiar rol, activar/desactivar cuentas.
 - **Asignar tareas**: listado de tareas abiertas sin dueño (o para reasignar) con un
@@ -157,13 +182,14 @@ Vista de métricas para quien coordina el equipo, no para uso diario:
 - **Google Calendar**: panel de estado (conectado / sin configurar) con instrucciones de
   cómo generar la API Key.
 
-### 3.8 `/perfil`
+### 3.9 `/perfil`
 
 Datos básicos del usuario logueado (nombre, email, rol — sin edición de datos sensibles),
-más un link opcional a una playlist de YouTube/YouTube Music propia, que después aparece
-como opción en el widget "Música de la oficina" de `/hoy`.
+color de avatar (se guarda al toque, sin re-login para verlo reflejado en el sidebar) y un
+link opcional a una playlist de YouTube/YouTube Music propia, que después aparece como
+opción en el widget "Música de la oficina" de `/hoy`.
 
-### 3.9 Elementos transversales (en el header, en todas las páginas)
+### 3.10 Elementos transversales (en el header, en todas las páginas)
 
 - **Búsqueda global** (`Cmd/Ctrl+K`): busca tareas y áreas por texto, navega directo al
   resultado. También ofrece **acciones rápidas** (nueva tarea, ir a la bitácora de hoy,
@@ -201,6 +227,13 @@ El sistema tiene varias capas de seguimiento, cada una con un propósito distint
    cambios de turno, así el cronograma y "En la oficina ahora" no dan falsos positivos.
 8. **Panel de coordinación** — agrega todo lo anterior en métricas: carga por persona,
    avance por área, antigüedad de tareas sin resolver, precisión de estimación.
+9. **Último login por usuario** (`usuario.ultimo_login`) — se actualiza en cada login
+   exitoso, visible en `/informes`.
+10. **Uso de plantillas** (`plantilla_area.veces_aplicada`/`ultima_aplicacion`) — se
+    incrementa cada vez que se aplica una plantilla, visible en `/informes`.
+11. **Panel de informes** (`/informes`) — agrega actividad y adopción en el tiempo:
+    tareas por semana, ritmo de cierre por área, actividad de bitácora, antigüedad de
+    vencidas, uso de plantillas, colaboración por comentarios, ausencias y último login.
 
 ---
 
@@ -264,6 +297,10 @@ En orden de lo que más se nota al usar el sistema:
 - ~~Sin headers de seguridad~~ — **resuelto**: `next.config.ts` ahora manda CSP (sin
   nonces — ver comentario en el archivo), `X-Frame-Options`, `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy` y HSTS en producción.
+- ~~Sin analíticas de uso/adopción~~ — **resuelto**: ver `/informes` (sección 3.7).
+- ~~Sidebar colapsado con íconos descentrados~~ — **resuelto**: era falta de
+  `justify-center` en `sidebarMenuButtonVariants` (`components/ui/sidebar.tsx`), afectaba
+  tanto a los ítems del menú como al avatar del footer.
 - **Rediseño visual (idea 8) — parcial a propósito, sin navegador real en ningún
   momento de esta sesión.** Lo implementado se limitó a cosas verificables por lógica/
   datos en vez de por ojo: modo oscuro por defecto, confetti al completar las tareas del
