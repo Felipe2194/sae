@@ -42,6 +42,7 @@ export interface UsuarioRow {
   rol: RolUsuario;
   estado: EstadoUsuario;
   creada_en: string;
+  playlist_url: string | null;
 }
 
 export interface UsuarioInsert {
@@ -53,6 +54,7 @@ export interface UsuarioInsert {
   avatar_url?: string | null;
   rol?: RolUsuario;
   estado?: EstadoUsuario;
+  playlist_url?: string | null;
 }
 
 export type UsuarioUpdate = Partial<Omit<UsuarioInsert, 'organizacion_id'>>;

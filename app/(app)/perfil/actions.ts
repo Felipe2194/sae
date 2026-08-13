@@ -11,13 +11,25 @@ export async function actualizarNombre(formData: FormData) {
   const nombre = (formData.get('nombre') as string).trim();
   if (!nombre) return;
 
+  const playlistRaw = ((formData.get('playlist_url') as string | null) ?? '').trim();
+  let playlistUrl: string | null = null;
+  if (playlistRaw) {
+    try {
+      new URL(playlistRaw);
+      playlistUrl = playlistRaw;
+    } catch {
+      throw new Error('El link de la playlist no es una URL válida');
+    }
+  }
+
   await withUser(session.user.id, async (tx) => {
     await tx`
       update usuario
-      set nombre = ${nombre}
+      set nombre = ${nombre}, playlist_url = ${playlistUrl}
       where id = mi_usuario_id()
     `;
   });
 
   revalidatePath('/perfil');
+  revalidatePath('/hoy');
 }

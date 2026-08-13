@@ -39,12 +39,15 @@ type Props = {
   nombre: string;
   email: string;
   rol: string;
+  playlistUrl: string | null;
 };
 
-export function PerfilForm({ nombre: nombreInicial, email, rol }: Props) {
+export function PerfilForm({ nombre: nombreInicial, email, rol, playlistUrl }: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
+  const [playlistUrlValue, setPlaylistUrlValue] = useState(playlistUrl ?? "");
   const [color, setColor] = useState(COLORES[0].hex);
   const [guardado, setGuardado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const iniciales = nombre
@@ -58,10 +61,15 @@ export function PerfilForm({ nombre: nombreInicial, email, rol }: Props) {
   function handleGuardar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    setError(null);
     startTransition(async () => {
-      await actualizarNombre(fd);
-      setGuardado(true);
-      setTimeout(() => setGuardado(false), 2500);
+      try {
+        await actualizarNombre(fd);
+        setGuardado(true);
+        setTimeout(() => setGuardado(false), 2500);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "No se pudo guardar");
+      }
     });
   }
 
@@ -170,6 +178,27 @@ export function PerfilForm({ nombre: nombreInicial, email, rol }: Props) {
                 className="h-11 opacity-60"
               />
             </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="playlist_url">Tu playlist (opcional)</Label>
+              <Input
+                id="playlist_url"
+                name="playlist_url"
+                type="url"
+                value={playlistUrlValue}
+                onChange={(e) => setPlaylistUrlValue(e.target.value)}
+                placeholder="https://music.youtube.com/playlist?list=..."
+                className="h-11"
+              />
+              <p className="text-muted-foreground text-xs">
+                Un link de YouTube o YouTube Music. Va a aparecer como opción para elegir
+                en el widget de música de &ldquo;Hoy&rdquo;.
+              </p>
+            </div>
+
+            {error && (
+              <p className="text-destructive text-sm">{error}</p>
+            )}
 
             <div className="flex items-center gap-3 mt-2">
               <Button

@@ -67,9 +67,12 @@ que el usuario tenga que ir a buscarlo.
   precarga automáticamente con los títulos de las tareas que el usuario completó ese día.
 - **Música de la oficina**: embed oficial de YouTube (`youtube-nocookie.com`, colapsado
   por defecto), con los controles nativos del reproductor de YouTube. No requiere cuenta
-  ni credencial; apunta a un lofi 24/7 conocido salvo que se configure
-  `NEXT_PUBLIC_YOUTUBE_EMBED_ID` con otro video/transmisión. No muestra "lo que estoy
-  escuchando en mi cuenta de YouTube Music" — eso no tiene API oficial (ver
+  ni credencial. Un selector permite elegir entre la playlist por defecto de la
+  organización (configurable con `NEXT_PUBLIC_YOUTUBE_EMBED_ID` — soporta tanto un
+  video/transmisión suelto como una playlist completa, detecta el formato solo) y la
+  playlist que cada persona haya guardado en su `/perfil`; si el usuario actual tiene una
+  propia, arranca ahí por defecto. No muestra "lo que estoy escuchando en mi cuenta de
+  YouTube Music en este momento" — eso no tiene API oficial (ver
   `credenciales-pendientes.md` para el porqué y la alternativa con Spotify).
 - **En la oficina ahora**: quién está de turno en este momento, calculado a partir del
   cronograma (`/cronograma`), y ya no cuenta a quien marcó ausencia.
@@ -156,7 +159,9 @@ Vista de métricas para quien coordina el equipo, no para uso diario:
 
 ### 3.8 `/perfil`
 
-Datos básicos del usuario logueado (nombre, email, rol). Sin edición de datos sensibles.
+Datos básicos del usuario logueado (nombre, email, rol — sin edición de datos sensibles),
+más un link opcional a una playlist de YouTube/YouTube Music propia, que después aparece
+como opción en el widget "Música de la oficina" de `/hoy`.
 
 ### 3.9 Elementos transversales (en el header, en todas las páginas)
 

@@ -163,7 +163,7 @@ export default async function HoyPage() {
   const canManage = rol === "coordinador" || rol === "administrador";
   const hoyISO = new Date().toISOString().slice(0, 10);
 
-  const { tareas, stats, enOficina, accesos, bitacoraHoy, prefillHecho, novedad } = await withUser(
+  const { tareas, stats, enOficina, accesos, bitacoraHoy, prefillHecho, novedad, playlists } = await withUser(
     session.user.id,
     async (tx) => {
       const tareas = await tx<TareaRow[]>`
@@ -238,6 +238,17 @@ export default async function HoyPage() {
         limit 1
       `;
 
+      // Playlists que la gente cargó en su perfil, para elegir en el widget
+      // de música.
+      const playlists = await tx<{ usuario_id: string; nombre: string; url: string }[]>`
+        select id as usuario_id, nombre, playlist_url as url
+        from usuario
+        where organizacion_id = mi_organizacion_id()
+          and estado = 'activo'
+          and playlist_url is not null
+        order by nombre asc
+      `;
+
       const [bitacoraHoy] = await tx<BitacoraHoyRow[]>`
         select hecho, pendiente, observaciones
         from bitacora_diaria
@@ -297,6 +308,7 @@ export default async function HoyPage() {
         bitacoraHoy: bitacoraHoy ?? null,
         prefillHecho: lineasHecho.join("\n"),
         novedad: novedad ?? null,
+        playlists: [...playlists],
       };
     },
   );
@@ -495,7 +507,10 @@ export default async function HoyPage() {
           </div>
 
           {/* Música de la oficina */}
-          <MusicWidget />
+          <MusicWidget
+            playlists={playlists.map((p) => ({ usuarioId: p.usuario_id, nombre: p.nombre, url: p.url }))}
+            usuarioActualId={session.user.id}
+          />
 
           {/* En la oficina ahora */}
           <Card>

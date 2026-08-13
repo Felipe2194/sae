@@ -7,6 +7,7 @@ type UsuarioRow = {
   nombre: string;
   email: string;
   rol: string;
+  playlist_url: string | null;
 };
 
 export default async function PerfilPage() {
@@ -15,7 +16,7 @@ export default async function PerfilPage() {
 
   const [usuario] = await withUser(session.user.id, async (tx) => {
     return tx<UsuarioRow[]>`
-      select nombre, email, rol::text
+      select nombre, email, rol::text, playlist_url
       from usuario
       where id = mi_usuario_id()
     `;
@@ -26,6 +27,7 @@ export default async function PerfilPage() {
       nombre={usuario.nombre}
       email={usuario.email}
       rol={usuario.rol}
+      playlistUrl={usuario.playlist_url}
     />
   );
 }
