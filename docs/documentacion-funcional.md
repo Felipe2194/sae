@@ -54,6 +54,10 @@ la sesión al cargar).
 Lo primero que ve cualquiera al entrar. Busca responder "¿qué tengo que hacer hoy?" sin
 que el usuario tenga que ir a buscarlo.
 
+- **Saludo con ícono** según la franja horaria (amanecer/sol/luna).
+- **Última novedad**: banner discreto con la nota más reciente de `nota_area` de
+  cualquier área de la organización (autor, área, cuándo) — para no tener que entrar a
+  cada área a ver si hay algo nuevo. No aparece si todavía no hay ninguna nota cargada.
 - **Vencidas**: tareas propias con fecha pasada, resaltadas en rojo — solo aparece si hay alguna.
 - **Mis tareas de hoy**: tareas propias en progreso o con vencimiento hoy. Al dejarla en
   cero (se completó todo lo de hoy) tira un confetti como feedback — no vuelve a
@@ -75,7 +79,8 @@ que el usuario tenga que ir a buscarlo.
 El lugar donde vive el trabajo día a día. Columnas fijas: **Por hacer · En progreso ·
 Hecha** (a propósito no configurables — evita la complejidad tipo Jira).
 
-- Tarjetas arrastrables entre columnas (drag-and-drop con `dnd-kit`).
+- Tarjetas arrastrables entre columnas (drag-and-drop con `dnd-kit`). Las de prioridad
+  alta (y no completadas) tienen un borde sutil para destacarlas de un vistazo.
 - Filtros por área, responsable y estado.
 - Cada tarjeta abre un panel lateral con: descripción, tipo (tarea/evento/entrega/
   reunión), prioridad, fecha de vencimiento, **repetición** (diaria/semanal/mensual),
@@ -250,12 +255,16 @@ En orden de lo que más se nota al usar el sistema:
 - ~~Sin headers de seguridad~~ — **resuelto**: `next.config.ts` ahora manda CSP (sin
   nonces — ver comentario en el archivo), `X-Frame-Options`, `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy` y HSTS en producción.
-- **Rediseño visual (idea 8) — parcial a propósito.** Se implementó lo verificable sin
-  navegador (modo oscuro por defecto, confetti al completar las tareas del día, widget
-  de música): esta sesión no tuvo acceso a un navegador real para revisar visualmente
-  cambios más subjetivos (glow/neumorfismo en elementos interactivos, banner de "frase
-  del día", saludo con ícono de clima, animaciones más amplias con `framer-motion` en el
-  tablero). Quedan como mejora a seguir cuando se pueda iterar mirando la pantalla.
+- **Rediseño visual (idea 8) — parcial a propósito, sin navegador real en ningún
+  momento de esta sesión.** Lo implementado se limitó a cosas verificables por lógica/
+  datos en vez de por ojo: modo oscuro por defecto, confetti al completar las tareas del
+  día, widget de música, saludo con ícono según franja horaria, banner de "última
+  novedad" (dato real de `nota_area`, no una frase decorativa), borde sutil en tarjetas
+  de prioridad alta, y una transición suave (`framer-motion`) al completar tareas en
+  `/hoy` — deliberadamente **no** se tocó el tablero Kanban con animaciones para no
+  arriesgar interferencia con el drag-and-drop de `dnd-kit`. Lo que sigue pendiente por
+  ser más una decisión de gusto que de lógica: glow/neumorfismo más marcado, y cualquier
+  ajuste de paleta/espaciado que solo se pueda evaluar mirando la pantalla.
 
 ## 7 . Correcciones a lo realizado y mejoras por hacer.
 Analizando en detalle la arquitectura funcional, el modelo de datos y las limitaciones documentadas de **SAE**, el diseño general es sólido y está bien enfocado: eliminar fricciones, evitar costos por asiento (*per-seat pricing*) de herramientas comerciales como Jira/Asana y mantener la jerarquía simple (Área → Tarea).

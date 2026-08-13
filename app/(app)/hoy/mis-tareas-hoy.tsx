@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import confetti from "canvas-confetti";
 import { TareaFila } from "./tarea-fila";
 
@@ -21,6 +22,7 @@ type TareaRow = {
 // festejar por el simple hecho de no tener nada pendiente al entrar).
 export function MisTareasHoy({ tareas }: { tareas: TareaRow[] }) {
   const vioAlgunaPendiente = useRef(false);
+  const prefiereMenosMovimiento = useReducedMotion();
 
   useEffect(() => {
     if (tareas.length > 0) {
@@ -28,10 +30,6 @@ export function MisTareasHoy({ tareas }: { tareas: TareaRow[] }) {
       return;
     }
     if (!vioAlgunaPendiente.current) return;
-
-    const prefiereMenosMovimiento = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
     if (prefiereMenosMovimiento) return;
 
     confetti({
@@ -41,13 +39,26 @@ export function MisTareasHoy({ tareas }: { tareas: TareaRow[] }) {
       origin: { y: 0.6 },
       colors: ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6"],
     });
-  }, [tareas.length]);
+  }, [tareas.length, prefiereMenosMovimiento]);
 
   return (
-    <>
+    <AnimatePresence initial={false}>
       {tareas.map((t) => (
-        <TareaFila key={t.id} {...t} vencida={false} />
+        <motion.div
+          key={t.id}
+          layout={!prefiereMenosMovimiento}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={
+            prefiereMenosMovimiento
+              ? { opacity: 0 }
+              : { opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }
+          }
+          transition={{ duration: 0.2 }}
+        >
+          <TareaFila {...t} vencida={false} />
+        </motion.div>
       ))}
-    </>
+    </AnimatePresence>
   );
 }

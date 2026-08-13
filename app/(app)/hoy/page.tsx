@@ -9,6 +9,10 @@ import {
   CheckCircle2,
   Clock,
   ListTodo,
+  Sunrise,
+  Sun,
+  Moon,
+  Megaphone,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
@@ -40,6 +44,24 @@ function saludo(): string {
   if (h < 12) return "Buenos días";
   if (h < 20) return "Buenas tardes";
   return "Buenas noches";
+}
+
+function formatFechaRelativaCorta(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "recién";
+  if (mins < 60) return `hace ${mins} min`;
+  const hs = Math.floor(mins / 60);
+  if (hs < 24) return `hace ${hs} h`;
+  const dias = Math.floor(hs / 24);
+  return `hace ${dias} d`;
+}
+
+function SaludoIcono({ className }: { className?: string }) {
+  const h = new Date().getHours();
+  if (h < 9) return <Sunrise className={className} />;
+  if (h < 20) return <Sun className={className} />;
+  return <Moon className={className} />;
 }
 
 function fechaLarga(): string {
@@ -114,6 +136,14 @@ type BitacoraHoyRow = {
   observaciones: string | null;
 };
 
+type NovedadRow = {
+  contenido: string;
+  area_nombre: string;
+  area_color: string;
+  autor_nombre: string;
+  creada_en: string;
+};
+
 // ── Navegación rápida ─────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -133,7 +163,7 @@ export default async function HoyPage() {
   const canManage = rol === "coordinador" || rol === "administrador";
   const hoyISO = new Date().toISOString().slice(0, 10);
 
-  const { tareas, stats, enOficina, accesos, bitacoraHoy, prefillHecho } = await withUser(
+  const { tareas, stats, enOficina, accesos, bitacoraHoy, prefillHecho, novedad } = await withUser(
     session.user.id,
     async (tx) => {
       const tareas = await tx<TareaRow[]>`
@@ -189,6 +219,23 @@ export default async function HoyPage() {
         from acceso_rapido
         where organizacion_id = mi_organizacion_id()
         order by orden asc
+      `;
+
+      // Última novedad de cualquier área — banner discreto para que no haga
+      // falta entrar a cada área a ver si hay algo nuevo.
+      const [novedad] = await tx<NovedadRow[]>`
+        select
+          n.contenido,
+          a.nombre  as area_nombre,
+          a.color   as area_color,
+          u.nombre  as autor_nombre,
+          n.creada_en::text
+        from nota_area n
+        join area    a on a.id = n.area_id
+        join usuario u on u.id = n.autor_id
+        where a.organizacion_id = mi_organizacion_id()
+        order by n.creada_en desc
+        limit 1
       `;
 
       const [bitacoraHoy] = await tx<BitacoraHoyRow[]>`
@@ -249,6 +296,7 @@ export default async function HoyPage() {
         accesos: [...accesos],
         bitacoraHoy: bitacoraHoy ?? null,
         prefillHecho: lineasHecho.join("\n"),
+        novedad: novedad ?? null,
       };
     },
   );
@@ -285,13 +333,33 @@ export default async function HoyPage() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1">
         <p className="text-muted-foreground text-sm">{fechaLarga()}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+          <SaludoIcono className="size-5 text-muted-foreground" />
           {saludo()}, {session.user.name.split(" ")[0]}
         </h1>
         <p className={`text-sm ${vencidas.length > 0 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
           {subtituloHoy}
         </p>
       </div>
+
+      {/* ── Última novedad ────────────────────────────────────────────────── */}
+      {novedad && (
+        <div
+          className="flex items-start gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm"
+          style={{ borderLeftColor: novedad.area_color, borderLeftWidth: 3 }}
+        >
+          <Megaphone className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <p className="min-w-0 flex-1">
+            <span className="font-medium">{novedad.area_nombre}</span>
+            <span className="text-muted-foreground"> · {novedad.autor_nombre} </span>
+            <span className="text-muted-foreground text-xs">
+              ({formatFechaRelativaCorta(novedad.creada_en)})
+            </span>
+            <br />
+            <span className="text-muted-foreground">{novedad.contenido}</span>
+          </p>
+        </div>
+      )}
 
       {/* ── Body 2-col ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_260px]">

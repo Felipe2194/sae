@@ -63,7 +63,11 @@ export function TareaCardItem({
       className={isDragging ? "opacity-40" : ""}
     >
       <Card
-        className="gap-0 py-0 hover:shadow-md transition-shadow select-none cursor-pointer"
+        className={`gap-0 py-0 hover:shadow-md transition-shadow select-none cursor-pointer ${
+          tarea.prioridad === "alta" && tarea.estado !== "hecha"
+            ? "ring-1 ring-red-500/25"
+            : ""
+        }`}
         onClick={onClick}
       >
         <CardContent className="flex flex-col gap-2 p-3">
