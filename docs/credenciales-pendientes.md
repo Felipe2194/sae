@@ -95,21 +95,35 @@ la clave y marcarla en Restricciones de API.
 
 ## 3. Música de la oficina — no requiere credenciales
 
-El widget "Música de la oficina" de `/hoy` quedó resuelto con una radio lofi pública
-(SomaFM, streaming directo por `<audio>`) que funciona sin ninguna cuenta ni clave. Es
-configurable si se quiere apuntar a otra emisora, pero no hace falta tocar nada para que
-funcione:
+El widget "Música de la oficina" de `/hoy` es un **embed oficial de YouTube**
+(`youtube-nocookie.com`, modo privacy-enhanced) — usa los controles nativos del
+reproductor de YouTube, no hace falta cuenta ni credencial. Por defecto apunta a un lofi
+24/7 conocido; para cambiarlo a otro video/transmisión/playlist propia:
 
 ```
-NEXT_PUBLIC_RADIO_STREAM_URL=<url de streaming mp3/ogg directo>
-NEXT_PUBLIC_RADIO_NOMBRE=<nombre a mostrar>
+NEXT_PUBLIC_YOUTUBE_EMBED_ID=<el ID del video, la parte después de v= en la URL>
+NEXT_PUBLIC_YOUTUBE_EMBED_NOMBRE=<nombre a mostrar>
 ```
 
-Si más adelante se quiere integrar con una cuenta de Spotify compartida (mostrar/
-controlar lo que suena ahí en vez de una radio fija), va a hacer falta un
-`SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` desde
-[developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) y un refresh
-token de esa cuenta — no está implementado, es un upgrade posible a futuro.
+**Por qué no es un `<audio>` apuntando directo a un stream:** se probó primero así con un
+stream de SomaFM — funcionaba perfecto probado con `curl`, pero un navegador real recibía
+403 (SomaFM rechaza algo del pedido que manda un navegador, no la IP: el mismo pedido
+por curl seguía funcionando). Se armó un proxy propio (`/api/radio-proxy`) para esquivar
+eso, pero se terminó reemplazando todo por el embed de YouTube porque es más simple, no
+depende de mantener un proxy, y el usuario pidió poder elegir su propia música en vez de
+una radio fija.
+
+**Por qué no es la cuenta personal de YouTube Music del usuario:** YouTube Music no tiene
+una API oficial para mostrar o controlar lo que suena en una cuenta personal (a
+diferencia de Spotify). Existen librerías no oficiales que hacen scraping con cookies de
+sesión, pero son frágiles y violan los términos de uso de Google — no se implementaron.
+
+Si más adelante se quiere de verdad "lo que estoy escuchando ahora en mi cuenta" (no una
+playlist fija), Spotify sí lo permite oficialmente: hace falta un `SPOTIFY_CLIENT_ID` /
+`SPOTIFY_CLIENT_SECRET` desde
+[developer.spotify.com/dashboard](https://developer.spotify.com/dashboard), un refresh
+token de la cuenta, y cuenta Premium si se quiere controlar la reproducción (no solo
+mostrarla) — no está implementado, es un upgrade posible a futuro.
 
 ## 4. Notificaciones por Telegram (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`)
 
