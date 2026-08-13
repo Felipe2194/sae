@@ -131,6 +131,7 @@ export function AreaDialog({ open, onOpenChange, usuarios, areaInicial }: Props)
             <Select
               value={responsableId || "_none"}
               onValueChange={(v) => setResponsableId(!v || v === "_none" ? "" : v)}
+              items={{ _none: "Sin responsable", ...Object.fromEntries(usuarios.map((u) => [u.id, u.nombre])) }}
             >
               <SelectTrigger className="w-full h-9">
                 <SelectValue placeholder="Sin responsable" />

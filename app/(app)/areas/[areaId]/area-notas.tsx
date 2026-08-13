@@ -167,7 +167,7 @@ export function AreaNotas({ areaId, notasIniciales, usuarioActualId, canDelete }
           />
 
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-[12px] text-muted-foreground">
               Ctrl+Enter para guardar
             </span>
             <div className="flex gap-2">
@@ -214,11 +214,11 @@ export function AreaNotas({ areaId, notasIniciales, usuarioActualId, canDelete }
                 {/* Contenido */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[11px] font-medium ${cfg.color}`}>
+                    <span className={`text-[12px] font-medium ${cfg.color}`}>
                       {cfg.label}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">·</span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground">·</span>
+                    <span className="text-[11px] text-muted-foreground">
                       {formatFecha(nota.creada_en)}
                     </span>
                   </div>
@@ -226,10 +226,10 @@ export function AreaNotas({ areaId, notasIniciales, usuarioActualId, canDelete }
                     {nota.contenido}
                   </p>
                   <div className="flex items-center gap-1.5 mt-2">
-                    <span className="inline-flex size-4 items-center justify-center rounded-full bg-muted text-[9px] font-semibold">
+                    <span className="inline-flex size-4 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
                       {iniciales(nota.autor_nombre)}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[12px] text-muted-foreground">
                       {nota.autor_nombre}
                     </span>
                   </div>

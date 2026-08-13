@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { withUser } from '@/lib/db';
 import { notificarAsignacion, notificarComentario } from '@/lib/notificaciones';
+import type { TareaCard } from './page';
 
 async function requireAuth() {
   const session = await auth();
@@ -61,6 +62,8 @@ export async function actualizarTarea(
     responsable_id: string | null;
     fecha_vencimiento: string | null;
     estado: string;
+    duracion_estimada_hs?: number | null;
+    duracion_real_hs?: number | null;
   },
   prev?: {
     titulo: string;
@@ -78,15 +81,17 @@ export async function actualizarTarea(
   await withUser(session.user.id, async (tx) => {
     await tx`
       update tarea set
-        titulo            = ${data.titulo},
-        descripcion       = ${data.descripcion},
-        tipo              = ${data.tipo}::tipo_tarea,
-        prioridad         = ${data.prioridad}::prioridad_tarea,
-        area_id           = ${data.area_id},
-        responsable_id    = ${data.responsable_id},
-        fecha_vencimiento = ${data.fecha_vencimiento},
-        estado            = ${data.estado}::estado_tarea,
-        completada_en     = ${completada_en}
+        titulo               = ${data.titulo},
+        descripcion          = ${data.descripcion},
+        tipo                 = ${data.tipo}::tipo_tarea,
+        prioridad            = ${data.prioridad}::prioridad_tarea,
+        area_id              = ${data.area_id},
+        responsable_id       = ${data.responsable_id},
+        fecha_vencimiento    = ${data.fecha_vencimiento},
+        estado               = ${data.estado}::estado_tarea,
+        completada_en        = ${completada_en},
+        duracion_estimada_hs = ${data.duracion_estimada_hs ?? null},
+        duracion_real_hs     = ${data.duracion_real_hs ?? null}
       where id = ${tareaId}
         and organizacion_id = mi_organizacion_id()
     `;
@@ -98,7 +103,7 @@ export async function actualizarTarea(
 
     // Registrar cambios en el log
     if (prev) {
-      const CAMPOS: { key: keyof typeof data; label: string }[] = [
+      const CAMPOS: { key: keyof NonNullable<typeof prev>; label: string }[] = [
         { key: 'titulo',            label: 'Título' },
         { key: 'estado',            label: 'Estado' },
         { key: 'prioridad',         label: 'Prioridad' },
@@ -146,11 +151,11 @@ export async function moverEstadoTarea(tareaId: string, estado: string) {
   revalidatePath('/coordinacion');
 }
 
-export async function eliminarTarea(tareaId: string) {
+export async function archivarTarea(tareaId: string) {
   const session = await requireAuth();
   await withUser(session.user.id, async (tx) => {
     await tx`
-      delete from tarea
+      update tarea set archivada = true
       where id = ${tareaId}
         and organizacion_id = mi_organizacion_id()
     `;
@@ -158,6 +163,54 @@ export async function eliminarTarea(tareaId: string) {
   revalidatePath('/tablero');
   revalidatePath('/hoy');
   revalidatePath('/coordinacion');
+}
+
+export async function restaurarTarea(tareaId: string) {
+  const session = await requireAuth();
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      update tarea set archivada = false
+      where id = ${tareaId}
+        and organizacion_id = mi_organizacion_id()
+    `;
+  });
+  revalidatePath('/tablero');
+  revalidatePath('/hoy');
+  revalidatePath('/coordinacion');
+}
+
+export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
+  const session = await requireAuth();
+  return withUser(session.user.id, async (tx) => {
+    const rows = await tx<TareaCard[]>`
+      select
+        t.id,
+        t.titulo,
+        t.estado::text,
+        t.prioridad::text,
+        t.tipo::text,
+        t.descripcion,
+        t.fecha_vencimiento::text,
+        t.area_id,
+        t.responsable_id,
+        t.creada_por,
+        t.archivada,
+        t.duracion_estimada_hs,
+        t.duracion_real_hs,
+        a.nombre  as area_nombre,
+        a.color   as area_color,
+        u.nombre  as responsable_nombre,
+        coalesce((select count(*)::int from subtarea s where s.tarea_id = t.id), 0)              as subtarea_total,
+        coalesce((select count(*)::int from subtarea s where s.tarea_id = t.id and s.hecha), 0)  as subtarea_hecha,
+        coalesce((select count(*)::int from comentario c where c.tarea_id = t.id), 0)            as comentario_count
+      from tarea t
+      left join area    a on a.id = t.area_id
+      left join usuario u on u.id = t.responsable_id
+      where t.organizacion_id = mi_organizacion_id() and t.archivada = true
+      order by t.titulo asc
+    `;
+    return [...rows];
+  });
 }
 
 // ── Subtareas ─────────────────────────────────────────────────────────────────
@@ -236,10 +289,15 @@ export async function crearSubtarea(tareaId: string, titulo: string) {
 
 export async function toggleSubtarea(subtareaId: string, hecha: boolean) {
   const session = await requireAuth();
+  const completada_en = hecha ? new Date() : null;
   await withUser(session.user.id, async (tx) => {
-    await tx`update subtarea set hecha = ${hecha} where id = ${subtareaId}`;
+    await tx`
+      update subtarea set hecha = ${hecha}, completada_en = ${completada_en}
+      where id = ${subtareaId}
+    `;
   });
   revalidatePath('/tablero');
+  revalidatePath('/hoy');
 }
 
 export async function eliminarSubtarea(subtareaId: string) {

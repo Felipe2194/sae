@@ -100,6 +100,9 @@ export interface TareaRow {
   creada_en: string;
   completada_en: string | null;
   orden: number;
+  archivada: boolean;
+  duracion_estimada_hs: number | null;
+  duracion_real_hs: number | null;
 }
 
 export interface TareaInsert {
@@ -117,6 +120,9 @@ export interface TareaInsert {
   creada_por: string;
   completada_en?: string | null;
   orden?: number;
+  archivada?: boolean;
+  duracion_estimada_hs?: number | null;
+  duracion_real_hs?: number | null;
 }
 
 export type TareaUpdate = Partial<Omit<TareaInsert, 'organizacion_id' | 'creada_por'>>;

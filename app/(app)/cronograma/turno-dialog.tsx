@@ -50,6 +50,9 @@ export function TurnoDialog({ open, onOpenChange, turno, usuarios }: Props) {
   const [desde, setDesde] = useState(turno?.vigente_desde ?? hoy);
   const [hasta, setHasta] = useState(turno?.vigente_hasta ?? "");
 
+  const USUARIO_ITEMS = Object.fromEntries(usuarios.map((u) => [u.id, u.nombre]));
+  const DIA_ITEMS = Object.fromEntries(DIAS.map((d) => [String(d.value), d.label]));
+
   // Resetear cuando cambia el turno
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset de formulario al cambiar de turno
@@ -96,7 +99,7 @@ export function TurnoDialog({ open, onOpenChange, turno, usuarios }: Props) {
           {/* Usuario */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Persona</Label>
-            <Select value={usuarioId} onValueChange={(v) => setUsuarioId(v ?? "")} required>
+            <Select value={usuarioId} onValueChange={(v) => setUsuarioId(v ?? "")} items={USUARIO_ITEMS} required>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Seleccioná una persona" />
               </SelectTrigger>
@@ -113,7 +116,7 @@ export function TurnoDialog({ open, onOpenChange, turno, usuarios }: Props) {
           {/* Día */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Día</Label>
-            <Select value={dia} onValueChange={(v) => setDia(v ?? "")}>
+            <Select value={dia} onValueChange={(v) => setDia(v ?? "")} items={DIA_ITEMS}>
               <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>

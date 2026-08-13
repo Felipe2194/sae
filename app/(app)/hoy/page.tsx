@@ -29,6 +29,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TareaFila } from "./tarea-fila";
 import { AccesosCard } from "./accesos-card";
+import { BitacoraCard } from "./bitacora-card";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -105,6 +106,12 @@ type PersonaRow = { nombre: string };
 
 type AccesoRow = { id: string; etiqueta: string; url: string };
 
+type BitacoraHoyRow = {
+  hecho: string | null;
+  pendiente: string | null;
+  observaciones: string | null;
+};
+
 // ── Navegación rápida ─────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -124,7 +131,7 @@ export default async function HoyPage() {
   const canManage = rol === "coordinador" || rol === "administrador";
   const hoyISO = new Date().toISOString().slice(0, 10);
 
-  const { tareas, stats, enOficina, accesos } = await withUser(
+  const { tareas, stats, enOficina, accesos, bitacoraHoy, prefillHecho } = await withUser(
     session.user.id,
     async (tx) => {
       const tareas = await tx<TareaRow[]>`
@@ -141,6 +148,7 @@ export default async function HoyPage() {
         left join area a on a.id = t.area_id
         where t.responsable_id = mi_usuario_id()
           and t.estado != 'hecha'
+          and t.archivada = false
         order by t.fecha_vencimiento asc nulls last, t.orden asc
       `;
 
@@ -152,6 +160,7 @@ export default async function HoyPage() {
             and completada_en::date = current_date)::int                                   as completadas_hoy
         from tarea
         where organizacion_id = mi_organizacion_id()
+          and archivada = false
       `;
 
       const enOficina = await tx<PersonaRow[]>`
@@ -164,6 +173,12 @@ export default async function HoyPage() {
           and t.hora_fin    >  current_time
           and t.vigente_desde <= current_date
           and (t.vigente_hasta is null or t.vigente_hasta >= current_date)
+          and not exists (
+            select 1 from excepcion_turno e
+            where e.usuario_id = t.usuario_id
+              and e.tipo = 'ausencia'
+              and e.fecha = current_date
+          )
         order by u.nombre asc
       `;
 
@@ -174,11 +189,64 @@ export default async function HoyPage() {
         order by orden asc
       `;
 
+      const [bitacoraHoy] = await tx<BitacoraHoyRow[]>`
+        select hecho, pendiente, observaciones
+        from bitacora_diaria
+        where usuario_id = mi_usuario_id() and fecha = current_date
+      `;
+
+      const tareasCompletadasHoy = await tx<{ titulo: string }[]>`
+        select titulo
+        from tarea
+        where responsable_id = mi_usuario_id()
+          and estado = 'hecha'
+          and completada_en::date = current_date
+          and archivada = false
+        order by completada_en asc
+      `;
+
+      // Subtareas que el usuario resolvió hoy en sus propias tareas — evita
+      // que tenga que reescribir a mano el avance que ya quedó registrado.
+      const subtareasCompletadasHoy = await tx<{ titulo: string; tarea_titulo: string }[]>`
+        select s.titulo, t.titulo as tarea_titulo
+        from subtarea s
+        join tarea t on t.id = s.tarea_id
+        where t.responsable_id = mi_usuario_id()
+          and s.hecha = true
+          and s.completada_en::date = current_date
+        order by s.completada_en asc
+      `;
+
+      // Comentarios que el usuario dejó hoy en cualquier tarea.
+      const comentariosHoy = await tx<{ contenido: string; tarea_titulo: string }[]>`
+        select c.contenido, t.titulo as tarea_titulo
+        from comentario c
+        join tarea t on t.id = c.tarea_id
+        where c.autor_id = mi_usuario_id()
+          and c.creado_en::date = current_date
+        order by c.creado_en asc
+      `;
+
+      const lineasHecho = [
+        ...tareasCompletadasHoy.map((t) => `- ${t.titulo}`),
+        ...subtareasCompletadasHoy.map(
+          (s) => `- ${s.titulo} (en "${s.tarea_titulo}")`,
+        ),
+        ...comentariosHoy.map(
+          (c) =>
+            `- Comentario en "${c.tarea_titulo}": ${
+              c.contenido.length > 80 ? c.contenido.slice(0, 80) + "…" : c.contenido
+            }`,
+        ),
+      ];
+
       return {
         tareas: [...tareas],
         stats,
         enOficina: [...enOficina],
         accesos: [...accesos],
+        bitacoraHoy: bitacoraHoy ?? null,
+        prefillHecho: lineasHecho.join("\n"),
       };
     },
   );
@@ -351,6 +419,11 @@ export default async function HoyPage() {
         {/* ── Columna derecha ───────────────────────────────────────────────── */}
         <div className="flex flex-col gap-4">
 
+          {/* Bitácora del día */}
+          <div id="bitacora" className="scroll-mt-4">
+            <BitacoraCard bitacoraHoy={bitacoraHoy} prefillHecho={prefillHecho} />
+          </div>
+
           {/* En la oficina ahora */}
           <Card>
             <CardHeader className="pb-2 pt-4 px-4">
@@ -370,7 +443,7 @@ export default async function HoyPage() {
                     {enOficina.map((p) => (
                       <Avatar key={p.nombre} className="size-8">
                         <AvatarFallback
-                          className="text-[10px] font-semibold text-white"
+                          className="text-[11px] font-semibold text-white"
                           style={{ backgroundColor: colorParaNombre(p.nombre, nombresPaleta) }}
                         >
                           {iniciales(p.nombre)}

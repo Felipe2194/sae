@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { Trash2, Plus, X, Send, Loader2, History, Paperclip, ExternalLink } from "lucide-react";
+import { Archive, ArchiveRestore, Plus, X, Send, Loader2, History, Paperclip, ExternalLink } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -25,7 +25,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
   actualizarTarea,
-  eliminarTarea,
+  archivarTarea,
+  restaurarTarea,
   fetchTareaDetalle,
   fetchTareaLog,
   crearSubtarea,
@@ -62,6 +63,12 @@ const ESTADO_OPTS = [
   { value: "en_progreso", label: "En progreso" },
   { value: "hecha", label: "Hecha" },
 ];
+
+// Base UI necesita `items` para poder mostrar la etiqueta del valor
+// seleccionado sin haber abierto el popup todavía (si no, muestra el value crudo).
+const TIPO_ITEMS = Object.fromEntries(TIPO_OPTS.map((o) => [o.value, o.label]));
+const PRIORIDAD_ITEMS = Object.fromEntries(PRIORIDAD_OPTS.map((o) => [o.value, o.label]));
+const ESTADO_ITEMS = Object.fromEntries(ESTADO_OPTS.map((o) => [o.value, o.label]));
 
 const PRIORIDAD_COLOR: Record<string, string> = {
   baja: "bg-slate-300",
@@ -117,6 +124,12 @@ export function TareaSheet({
     tarea.fecha_vencimiento ?? "",
   );
   const [estado, setEstado] = useState(tarea.estado);
+  const [duracionEstimada, setDuracionEstimada] = useState(
+    tarea.duracion_estimada_hs != null ? String(tarea.duracion_estimada_hs) : "",
+  );
+  const [duracionReal, setDuracionReal] = useState(
+    tarea.duracion_real_hs != null ? String(tarea.duracion_real_hs) : "",
+  );
 
   // ── Detalle (subtareas + comentarios + adjuntos + log) ──────────────────────
   const [subtareas, setSubtareas] = useState<SubtareaRow[]>([]);
@@ -206,6 +219,8 @@ export function TareaSheet({
           responsable_id: responsableId || null,
           fecha_vencimiento: fechaVencimiento || null,
           estado,
+          duracion_estimada_hs: duracionEstimada.trim() ? Number(duracionEstimada) : null,
+          duracion_real_hs: duracionReal.trim() ? Number(duracionReal) : null,
         },
         prev,
       );
@@ -213,13 +228,20 @@ export function TareaSheet({
     });
   }
 
-  function handleDelete() {
+  function handleArchivar() {
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
     }
     startDelete(async () => {
-      await eliminarTarea(tarea.id);
+      await archivarTarea(tarea.id);
+      onOpenChange(false);
+    });
+  }
+
+  function handleRestaurar() {
+    startDelete(async () => {
+      await restaurarTarea(tarea.id);
       onOpenChange(false);
     });
   }
@@ -278,6 +300,12 @@ export function TareaSheet({
 
   const hechas = subtareas.filter((s) => s.hecha).length;
   const area = areas.find((a) => a.id === areaId);
+
+  const AREA_ITEMS = Object.fromEntries(areas.map((a) => [a.id, a.nombre]));
+  const RESPONSABLE_ITEMS = {
+    _none: "Sin asignar",
+    ...Object.fromEntries(usuarios.map((u) => [u.id, u.nombre])),
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -349,7 +377,7 @@ export function TareaSheet({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Tipo</Label>
-                <Select value={tipo} onValueChange={(v) => setTipo(v ?? "")}>
+                <Select value={tipo} onValueChange={(v) => setTipo(v ?? "")} items={TIPO_ITEMS}>
                   <SelectTrigger className="w-full h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -364,7 +392,7 @@ export function TareaSheet({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Prioridad</Label>
-                <Select value={prioridad} onValueChange={(v) => setPrioridad(v ?? "")}>
+                <Select value={prioridad} onValueChange={(v) => setPrioridad(v ?? "")} items={PRIORIDAD_ITEMS}>
                   <SelectTrigger className="w-full h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -385,7 +413,7 @@ export function TareaSheet({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Área</Label>
-                <Select value={areaId} onValueChange={(v) => setAreaId(v ?? "")}>
+                <Select value={areaId} onValueChange={(v) => setAreaId(v ?? "")} items={AREA_ITEMS}>
                   <SelectTrigger className="w-full h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -408,6 +436,7 @@ export function TareaSheet({
                   onValueChange={(v) =>
                     setResponsableId(!v || v === "_none" ? "" : v)
                   }
+                  items={RESPONSABLE_ITEMS}
                 >
                   <SelectTrigger className="w-full h-8">
                     <SelectValue placeholder="Sin asignar" />
@@ -427,7 +456,7 @@ export function TareaSheet({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Estado</Label>
-                <Select value={estado} onValueChange={(v) => setEstado(v ?? "")}>
+                <Select value={estado} onValueChange={(v) => setEstado(v ?? "")} items={ESTADO_ITEMS}>
                   <SelectTrigger className="w-full h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -446,6 +475,33 @@ export function TareaSheet({
                   type="date"
                   value={fechaVencimiento}
                   onChange={(e) => setFechaVencimiento(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Horas estimadas</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  placeholder="—"
+                  value={duracionEstimada}
+                  onChange={(e) => setDuracionEstimada(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Horas reales</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  placeholder="—"
+                  value={duracionReal}
+                  onChange={(e) => setDuracionReal(e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -631,14 +687,14 @@ export function TareaSheet({
                 {comentarios.map((c) => (
                   <div key={c.id} className="flex gap-2.5 group">
                     <Avatar className="size-6 shrink-0 mt-0.5">
-                      <AvatarFallback className="text-[9px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
+                      <AvatarFallback className="text-[10px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
                         {iniciales(c.autor_nombre)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-xs font-medium">{c.autor_nombre}</span>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-[11px] text-muted-foreground">
                           {formatRelativo(c.creado_en)}
                         </span>
                         {c.es_propio && (
@@ -720,11 +776,21 @@ export function TareaSheet({
           )}
         </div>
 
-        {/* Footer with delete */}
+        {/* Footer with archive */}
         <div className="px-5 py-3 border-t flex items-center justify-end">
-          {confirmDelete ? (
+          {tarea.archivada ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRestaurar}
+              disabled={isPendingDelete}
+            >
+              <ArchiveRestore className="size-3.5" />
+              {isPendingDelete ? "Restaurando..." : "Restaurar tarea"}
+            </Button>
+          ) : confirmDelete ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">¿Confirmar eliminación?</span>
+              <span className="text-sm text-muted-foreground">¿Confirmar archivado?</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -735,10 +801,10 @@ export function TareaSheet({
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={handleDelete}
+                onClick={handleArchivar}
                 disabled={isPendingDelete}
               >
-                {isPendingDelete ? "Eliminando..." : "Eliminar"}
+                {isPendingDelete ? "Archivando..." : "Confirmar"}
               </Button>
             </div>
           ) : (
@@ -746,10 +812,10 @@ export function TareaSheet({
               variant="ghost"
               size="sm"
               className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              onClick={handleDelete}
+              onClick={handleArchivar}
             >
-              <Trash2 className="size-3.5" />
-              Eliminar tarea
+              <Archive className="size-3.5" />
+              Archivar tarea
             </Button>
           )}
         </div>

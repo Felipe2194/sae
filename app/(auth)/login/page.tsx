@@ -98,9 +98,9 @@ export default function LoginPage() {
         </form>
       </CardContent>
       <CardFooter className="flex flex-col gap-2 text-sm pt-0">
-        <Link href="#" className="text-muted-foreground hover:underline">
-          ¿Olvidaste tu contraseña?
-        </Link>
+        <p className="text-muted-foreground text-xs text-center">
+          ¿Olvidaste tu contraseña? Pedile a un coordinador o administrador que te la restablezca.
+        </p>
         <span className="text-muted-foreground">
           ¿No tenés cuenta?{' '}
           <Link href="/registro" className="text-foreground underline">

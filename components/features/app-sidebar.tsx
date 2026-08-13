@@ -73,7 +73,7 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
             width={170}
             style={{ objectFit: "contain", objectPosition: "left", display: "block" }}
           />
-          <span className="text-muted-foreground text-[11px] font-medium tracking-wide">
+          <span className="text-muted-foreground text-[12px] font-medium tracking-wide">
             Sistema de Actividades Estudiantiles
           </span>
         </div>
@@ -119,7 +119,7 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
             {/* Expandido: logo + nombre */}
             <div className="flex flex-col gap-1.5 group-data-[collapsible=icon]:hidden w-full">
               <div className="flex items-center gap-1.5 opacity-60">
-                <span className="text-[10px] font-medium tracking-wide uppercase">UTN FRVM</span>
+                <span className="text-[11px] font-medium tracking-wide uppercase">UTN FRVM</span>
               </div>
               <div className="flex items-center gap-2">
                 <Avatar className="size-7">
@@ -135,7 +135,7 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
             </div>
             {/* Colapsado: solo avatar */}
             <Avatar className="size-6 group-data-[collapsible=icon]:flex hidden">
-              <AvatarFallback className="text-[10px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
+              <AvatarFallback className="text-[11px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
                 {inits}
               </AvatarFallback>
             </Avatar>

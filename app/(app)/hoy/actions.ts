@@ -23,3 +23,28 @@ export async function toggleTarea(tareaId: string, estadoActual: string) {
 
   revalidatePath('/hoy');
 }
+
+export async function guardarBitacora(input: {
+  hecho: string;
+  pendiente: string;
+  observaciones: string;
+}) {
+  const session = await auth();
+  if (!session?.user) throw new Error('No autenticado');
+
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      insert into bitacora_diaria (organizacion_id, usuario_id, fecha, hecho, pendiente, observaciones)
+      values (
+        mi_organizacion_id(), mi_usuario_id(), current_date,
+        ${input.hecho || null}, ${input.pendiente || null}, ${input.observaciones || null}
+      )
+      on conflict (usuario_id, fecha) do update
+      set hecho = excluded.hecho,
+          pendiente = excluded.pendiente,
+          observaciones = excluded.observaciones
+    `;
+  });
+
+  revalidatePath('/hoy');
+}

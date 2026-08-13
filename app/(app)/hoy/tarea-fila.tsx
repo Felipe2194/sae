@@ -81,13 +81,13 @@ export function TareaFila({
 
       <div className="flex items-center gap-1.5 shrink-0">
         {TIPO_LABEL[tipo] && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+          <Badge variant="outline" className="text-[11px] px-1.5 py-0 font-normal">
             {TIPO_LABEL[tipo]}
           </Badge>
         )}
         {fechaRelativa && (
           <span
-            className={`flex items-center gap-1 text-[11px] ${
+            className={`flex items-center gap-1 text-[12px] ${
               vencida ? "text-destructive font-medium" : "text-muted-foreground"
             }`}
           >

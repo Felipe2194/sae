@@ -2,7 +2,19 @@
 
 import { useState, useEffect, useTransition, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, LayoutDashboard, Layers3, Loader2 } from "lucide-react";
+import {
+  Search,
+  LayoutDashboard,
+  Layers3,
+  Loader2,
+  Zap,
+  Plus,
+  CalendarClock,
+  NotebookPen,
+  CalendarRange,
+  UsersRound,
+  ShieldCheck,
+} from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { buscar, type ResultadoBusqueda } from "@/app/(app)/actions";
 
@@ -15,7 +27,24 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced;
 }
 
-export function BuscadorGlobal() {
+type Accion = {
+  id: string;
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  roles: string[] | null;
+};
+
+const ACCIONES_BASE: Accion[] = [
+  { id: "nueva-tarea", label: "Nueva tarea",          href: "/tablero?nueva=1", icon: Plus,          roles: null },
+  { id: "vencidas",    label: "Ver mis tareas de hoy", href: "/hoy",             icon: CalendarClock, roles: null },
+  { id: "bitacora",    label: "Cargar bitácora de hoy", href: "/hoy#bitacora",   icon: NotebookPen,   roles: null },
+  { id: "cronograma",  label: "Ver cronograma",        href: "/cronograma",      icon: CalendarRange, roles: null },
+  { id: "coordinacion", label: "Ir a Coordinación",    href: "/coordinacion",    icon: UsersRound,    roles: ["coordinador", "administrador"] },
+  { id: "admin",       label: "Ir a Administración",   href: "/admin",           icon: ShieldCheck,   roles: ["administrador"] },
+];
+
+export function BuscadorGlobal({ rol }: { rol: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ResultadoBusqueda[]>([]);
@@ -36,6 +65,11 @@ export function BuscadorGlobal() {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, []);
+
+  // Resetear selección al tipear (las acciones se filtran sin debounce)
+  useEffect(() => {
+    setSelected(0);
+  }, [query]);
 
   // Buscar cuando cambia el query debounceado
   useEffect(() => {
@@ -69,25 +103,32 @@ export function BuscadorGlobal() {
     [router],
   );
 
-  // Navegación con teclado
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelected((s) => Math.min(s + 1, resultados.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelected((s) => Math.max(s - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (resultados[selected]) navegar(resultados[selected].href);
-    }
-  }
+  const q = query.trim().toLowerCase();
+  const acciones = ACCIONES_BASE.filter(
+    (a) =>
+      (a.roles === null || a.roles.includes(rol)) &&
+      (!q || a.label.toLowerCase().includes(q)),
+  );
 
   const tareas = resultados.filter((r) => r.tipo === "tarea");
   const areas = resultados.filter((r) => r.tipo === "area");
 
   // Índice global → índice de la lista plana de resultados en pantalla
-  const ordenados = [...tareas, ...areas];
+  const ordenados: (Accion | ResultadoBusqueda)[] = [...acciones, ...tareas, ...areas];
+
+  // Navegación con teclado
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelected((s) => Math.min(s + 1, ordenados.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelected((s) => Math.max(s - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (ordenados[selected]) navegar(ordenados[selected].href);
+    }
+  }
 
   return (
     <>
@@ -99,7 +140,7 @@ export function BuscadorGlobal() {
       >
         <Search className="size-3.5 shrink-0" />
         <span className="hidden sm:inline">Buscar…</span>
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 text-[10px] font-mono text-muted-foreground">
+        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 text-[11px] font-mono text-muted-foreground">
           ⌘K
         </kbd>
       </button>
@@ -119,7 +160,7 @@ export function BuscadorGlobal() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Buscar tareas, áreas…"
+              placeholder="Buscar tareas, áreas o una acción…"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
             {query && (
@@ -134,13 +175,38 @@ export function BuscadorGlobal() {
 
           {/* Resultados */}
           <div className="max-h-80 overflow-y-auto py-2">
-            {!query.trim() && (
+            {acciones.length > 0 && (
+              <div>
+                <p className="px-4 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Acciones
+                </p>
+                {acciones.map((a) => {
+                  const idx = ordenados.indexOf(a);
+                  const Icon = a.icon;
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => navegar(a.href)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                        selected === idx ? "bg-accent" : "hover:bg-accent/50"
+                      }`}
+                    >
+                      <Zap className="size-3.5 text-muted-foreground shrink-0" />
+                      <p className="flex-1 text-sm truncate">{a.label}</p>
+                      <Icon className="size-3.5 text-muted-foreground shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {!query.trim() && acciones.length === 0 && (
               <p className="text-center text-xs text-muted-foreground py-8">
                 Escribí para buscar tareas y áreas
               </p>
             )}
 
-            {query.trim() && resultados.length === 0 && !pending && (
+            {query.trim() && resultados.length === 0 && acciones.length === 0 && !pending && (
               <p className="text-center text-xs text-muted-foreground py-8">
                 Sin resultados para &ldquo;{query}&rdquo;
               </p>
@@ -148,7 +214,7 @@ export function BuscadorGlobal() {
 
             {tareas.length > 0 && (
               <div>
-                <p className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="px-4 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Tareas
                 </p>
                 {tareas.map((r) => {
@@ -180,7 +246,7 @@ export function BuscadorGlobal() {
 
             {areas.length > 0 && (
               <div>
-                <p className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="px-4 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Áreas
                 </p>
                 {areas.map((r) => {
@@ -207,7 +273,7 @@ export function BuscadorGlobal() {
           </div>
 
           {/* Footer */}
-          <div className="border-t px-4 py-2 flex gap-3 text-[10px] text-muted-foreground">
+          <div className="border-t px-4 py-2 flex gap-3 text-[11px] text-muted-foreground">
             <span><kbd className="font-mono">↑↓</kbd> navegar</span>
             <span><kbd className="font-mono">↵</kbd> abrir</span>
             <span><kbd className="font-mono">Esc</kbd> cerrar</span>

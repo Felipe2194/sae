@@ -4,6 +4,12 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { withUser } from '@/lib/db';
 
+async function requireAuth() {
+  const session = await auth();
+  if (!session?.user) throw new Error('No autenticado');
+  return session;
+}
+
 async function requireCoord() {
   const session = await auth();
   if (!session?.user) throw new Error('No autenticado');
@@ -78,6 +84,48 @@ export async function eliminarTurno(turnoId: string) {
       where id = ${turnoId}
         and organizacion_id = mi_organizacion_id()
     `;
+  });
+  revalidatePath('/cronograma');
+  revalidatePath('/hoy');
+}
+
+// ── Excepciones de turno (ausencias / cambios) ──────────────────────────────
+// Cualquiera puede marcar su propia ausencia; coordinador/admin pueden marcar
+// la de cualquiera. RLS (excepcion_turno_insert/delete) refuerza esto mismo
+// del lado de la base.
+
+export async function crearExcepcion(data: {
+  usuario_id: string;
+  fecha: string;
+  tipo: 'ausencia' | 'cambio';
+  nota: string | null;
+}) {
+  const session = await requireAuth();
+  const rol = (session.user as { rol: string }).rol;
+  if (data.usuario_id !== session.user.id && rol !== 'coordinador' && rol !== 'administrador') {
+    throw new Error('Solo podés marcar tu propia ausencia');
+  }
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      insert into excepcion_turno (organizacion_id, usuario_id, fecha, tipo, nota, creada_por)
+      values (
+        mi_organizacion_id(),
+        ${data.usuario_id},
+        ${data.fecha},
+        ${data.tipo}::tipo_excepcion_turno,
+        ${data.nota || null},
+        mi_usuario_id()
+      )
+    `;
+  });
+  revalidatePath('/cronograma');
+  revalidatePath('/hoy');
+}
+
+export async function eliminarExcepcion(excepcionId: string) {
+  const session = await requireAuth();
+  await withUser(session.user.id, async (tx) => {
+    await tx`delete from excepcion_turno where id = ${excepcionId}`;
   });
   revalidatePath('/cronograma');
   revalidatePath('/hoy');

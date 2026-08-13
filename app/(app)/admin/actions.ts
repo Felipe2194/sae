@@ -1,8 +1,10 @@
 'use server';
 
+import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { withUser, sql } from '@/lib/db';
+import { generarPasswordTemporal } from '@/lib/passwords';
 
 async function requireAdmin() {
   const session = await auth();
@@ -51,6 +53,25 @@ export async function cambiarRolUsuario(userId: string, rol: string) {
     `;
   });
   revalidatePath('/admin');
+}
+
+export async function resetearPassword(userId: string): Promise<{ passwordTemporal: string }> {
+  const session = await requireAdmin();
+  if (userId === session.user.id) throw new Error('No podés resetear tu propia contraseña');
+
+  const passwordTemporal = generarPasswordTemporal();
+  const passwordHash = await bcrypt.hash(passwordTemporal, 10);
+
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      update usuario
+      set password_hash = ${passwordHash}
+      where id = ${userId}
+        and organizacion_id = mi_organizacion_id()
+    `;
+  });
+  revalidatePath('/admin');
+  return { passwordTemporal };
 }
 
 // ── Tareas ────────────────────────────────────────────────────────────────────

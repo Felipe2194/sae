@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useTransition, useOptimistic } from "react";
-import { Plus, X, SlidersHorizontal } from "lucide-react";
+import { useState, useMemo, useEffect, useTransition, useOptimistic } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Plus, X, SlidersHorizontal, Archive } from "lucide-react";
 import {
   DndContext,
   DragEndEvent,
@@ -23,7 +24,8 @@ import {
 import { TareaCardItem } from "./tarea-card";
 import { NuevaTareaDialog } from "./nueva-tarea-dialog";
 import { TareaSheet } from "./tarea-sheet";
-import { moverEstadoTarea } from "./actions";
+import { TareaArchivadaFila } from "./tarea-archivada-fila";
+import { moverEstadoTarea, fetchTareasArchivadas, restaurarTarea } from "./actions";
 import type { TareaCard, AreaOption, UsuarioOption } from "./page";
 
 const COLUMNAS = [
@@ -126,6 +128,8 @@ function Columna({
 }
 
 export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, currentUserId }: Props) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [optimisticTareas, moverOptimista] = useOptimistic(
     tareasIniciales,
     (state, { tareaId, nuevoEstado }: { tareaId: string; nuevoEstado: string }) =>
@@ -138,6 +142,19 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const [showArchivadas, setShowArchivadas] = useState(false);
+  const [archivadas, setArchivadas] = useState<TareaCard[] | null>(null);
+  const [, startArchivadasTransition] = useTransition();
+
+  // Atajo desde el buscador global (Cmd/Ctrl+K → "Nueva tarea"): /tablero?nueva=1
+  useEffect(() => {
+    if (searchParams.get("nueva") === "1") {
+      setDialogEstado("por_hacer");
+      setDialogOpen(true);
+      router.replace("/tablero");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe correr cuando cambia el query param
+  }, [searchParams]);
 
   const tareas = optimisticTareas;
 
@@ -178,6 +195,24 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
     setSheetOpen(true);
   }
 
+  function toggleArchivadas() {
+    const next = !showArchivadas;
+    setShowArchivadas(next);
+    if (next && archivadas === null) {
+      startArchivadasTransition(async () => {
+        const rows = await fetchTareasArchivadas();
+        setArchivadas(rows);
+      });
+    }
+  }
+
+  function handleRestaurarArchivada(tareaId: string) {
+    setArchivadas((prev) => prev?.filter((t) => t.id !== tareaId) ?? prev);
+    startArchivadasTransition(async () => {
+      await restaurarTarea(tareaId);
+    });
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     setActiveDragId(null);
     const { active, over } = event;
@@ -214,6 +249,7 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
         <Select
           value={filtros.areaId || "_all"}
           onValueChange={(v) => set("areaId", !v || v === "_all" ? "" : v)}
+          items={{ _all: "Todas las áreas", ...Object.fromEntries(areas.map((a) => [a.id, a.nombre])) }}
         >
           <SelectTrigger className="h-8 w-36 text-xs">
             <SelectValue placeholder="Área" />
@@ -237,6 +273,7 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
         <Select
           value={filtros.prioridad || "_all"}
           onValueChange={(v) => set("prioridad", !v || v === "_all" ? "" : v)}
+          items={{ _all: "Toda prioridad", ...Object.fromEntries(PRIORIDAD_OPTS.map((p) => [p.value, p.label])) }}
         >
           <SelectTrigger className="h-8 w-32 text-xs">
             <SelectValue placeholder="Prioridad" />
@@ -254,6 +291,7 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
         <Select
           value={filtros.responsableId || "_all"}
           onValueChange={(v) => set("responsableId", !v || v === "_all" ? "" : v)}
+          items={{ _all: "Todos", ...Object.fromEntries(usuarios.map((u) => [u.id, u.nombre])) }}
         >
           <SelectTrigger className="h-8 w-36 text-xs">
             <SelectValue placeholder="Responsable" />
@@ -319,6 +357,35 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* ── Archivadas ────────────────────────────────────────────────────── */}
+      <div className="mt-6 border-t pt-4">
+        <button
+          onClick={toggleArchivadas}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <Archive className="size-3.5" />
+          {showArchivadas ? "Ocultar archivadas" : "Ver tareas archivadas"}
+        </button>
+        {showArchivadas && (
+          <div className="mt-3 flex flex-col gap-1.5">
+            {archivadas === null ? (
+              <p className="text-xs text-muted-foreground">Cargando...</p>
+            ) : archivadas.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No hay tareas archivadas.</p>
+            ) : (
+              archivadas.map((t) => (
+                <TareaArchivadaFila
+                  key={t.id}
+                  tarea={t}
+                  onAbrir={() => abrirSheet(t)}
+                  onRestaurar={() => handleRestaurarArchivada(t.id)}
+                />
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       <NuevaTareaDialog
         open={dialogOpen}

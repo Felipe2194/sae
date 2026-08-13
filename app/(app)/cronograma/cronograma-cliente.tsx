@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { ChevronLeft, ChevronRight, Clock, Users, Plus, Pencil, Trash2 } from "lucide-react";
+import { useState, useTransition, useMemo } from "react";
+import { ChevronLeft, ChevronRight, Clock, Users, Plus, Pencil, Trash2, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { TurnoDialog } from "./turno-dialog";
-import { eliminarTurno } from "./actions";
-import type { TurnoData, UsuarioOpt } from "./page";
+import { AusenciaDialog } from "./ausencia-dialog";
+import { eliminarTurno, eliminarExcepcion } from "./actions";
+import type { TurnoData, UsuarioOpt, ExcepcionData } from "./page";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -95,14 +97,16 @@ function asignarLanes(turnos: TurnoData[]): TurnoConLane[] {
 type Props = {
   turnos: TurnoData[];
   usuarios: UsuarioOpt[];
+  excepciones: ExcepcionData[];
   sesionUsuarioId: string;
   canManage: boolean;
 };
 
-export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage }: Props) {
+export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuarioId, canManage }: Props) {
   const [lunes, setLunes] = useState(() => lunesDe(new Date()));
   const [dialogOpen, setDialogOpen] = useState(false);
   const [turnoEditar, setTurnoEditar] = useState<TurnoData | null>(null);
+  const [ausenciaDialogOpen, setAusenciaDialogOpen] = useState(false);
   const [deletingId, startDeleteTransition] = useTransition();
 
   function abrirNuevo() {
@@ -118,7 +122,29 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
   function handleEliminar(turnoId: string) {
     startDeleteTransition(() => eliminarTurno(turnoId));
   }
+
+  function handleEliminarExcepcion(excepcionId: string) {
+    startDeleteTransition(() => eliminarExcepcion(excepcionId));
+  }
   const colorMap = buildColorMap(turnos);
+
+  // Excepciones de la semana visible (lunes a viernes)
+  const diasSemanaISO = [0, 1, 2, 3, 4].map((i) => fechaDia(lunes, i).toISOString().slice(0, 10));
+  const excepcionesSemana = useMemo(
+    () => excepciones.filter((e) => diasSemanaISO.includes(e.fecha)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- diasSemanaISO se recalcula cada render pero solo cambia con `lunes`
+    [excepciones, lunes],
+  );
+  // usuario_id -> set de fechas ISO en las que está ausente
+  const ausenciasPorUsuario = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const e of excepciones) {
+      if (e.tipo !== "ausencia") continue;
+      if (!map.has(e.usuario_id)) map.set(e.usuario_id, new Set());
+      map.get(e.usuario_id)!.add(e.fecha);
+    }
+    return map;
+  }, [excepciones]);
 
   // Rango de horas dinámico: se ajusta a los turnos reales ± 1 h de margen
   const horaMin = turnos.length
@@ -137,14 +163,15 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
   const esSemanaActual =
     lunesDe(ahora).toISOString().slice(0, 10) === lunes.toISOString().slice(0, 10);
 
-  // Quién está en la oficina ahora mismo
+  // Quién está en la oficina ahora mismo (excluye a quien marcó ausencia hoy)
   const presentesAhora =
     esSemanaActual && diaHoy < 5
       ? turnos.filter(
           (t) =>
             t.dia_semana === diaHoy &&
             horaANum(t.hora_inicio) <= horaActual &&
-            horaANum(t.hora_fin) > horaActual,
+            horaANum(t.hora_fin) > horaActual &&
+            !ausenciasPorUsuario.get(t.usuario_id)?.has(hoyISO),
         )
       : [];
 
@@ -257,11 +284,11 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
                       key={dia}
                       className={`py-2 text-center border-r last:border-r-0 ${esHoy ? "bg-primary/5" : ""}`}
                     >
-                      <p className={`text-[11px] font-semibold ${esHoy ? "text-primary" : "text-muted-foreground"}`}>
+                      <p className={`text-[12px] font-semibold ${esHoy ? "text-primary" : "text-muted-foreground"}`}>
                         <span className="hidden sm:inline">{label}</span>
                         <span className="sm:hidden">{abrev}</span>
                       </p>
-                      <p className={`text-[11px] ${esHoy ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                      <p className={`text-[12px] ${esHoy ? "text-primary font-medium" : "text-muted-foreground"}`}>
                         {fecha.toLocaleDateString("es-AR", { day: "numeric", month: "numeric" })}
                       </p>
                       {esHoy && (
@@ -285,7 +312,7 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
                   {horaLabels.map((h) => (
                     <div
                       key={h}
-                      className="absolute right-2 text-[10px] text-muted-foreground leading-none"
+                      className="absolute right-2 text-[11px] text-muted-foreground leading-none"
                       style={{ top: `${(h - horaMin) * PX_POR_HORA - 6}px` }}
                     >
                       {String(h).padStart(2, "0")}:00
@@ -296,7 +323,8 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
                 {/* Columnas de días */}
                 {DIAS.map(({ dia }) => {
                   const fecha = fechaDia(lunes, dia);
-                  const esHoy = fecha.toISOString().slice(0, 10) === hoyISO;
+                  const fechaISO = fecha.toISOString().slice(0, 10);
+                  const esHoy = fechaISO === hoyISO;
                   const turnosDia = turnos.filter((t) => t.dia_semana === dia);
                   const conLanes = asignarLanes(turnosDia);
 
@@ -335,6 +363,7 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
                         const height = (Math.min(fin, horaMax) - Math.max(inicio, horaMin)) * PX_POR_HORA;
                         const color = colorMap.get(t.usuario_nombre) ?? "#94a3b8";
                         const esMio = t.usuario_id === sesionUsuarioId;
+                        const ausente = ausenciasPorUsuario.get(t.usuario_id)?.has(fechaISO) ?? false;
 
                         const laneW = 100 / t.totalLanes;
                         const left = `calc(${t.lane * laneW}% + 3px)`;
@@ -343,30 +372,35 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
                         return (
                           <div
                             key={`${t.usuario_nombre}-${t.dia_semana}-${t.hora_inicio}`}
-                            className="absolute rounded-md overflow-hidden transition-opacity"
+                            className={`absolute rounded-md overflow-hidden transition-opacity ${ausente ? "opacity-40" : ""}`}
                             style={{
                               top: `${top + 2}px`,
                               height: `${height - 4}px`,
                               left,
                               width,
                               backgroundColor: `${color}20`,
-                              borderLeft: `3px solid ${color}`,
+                              borderLeft: `3px solid ${ausente ? "#94a3b8" : color}`,
+                              borderStyle: ausente ? "dashed" : "solid",
                               boxShadow: esMio ? `0 0 0 1px ${color}40` : undefined,
                             }}
-                            title={`${t.usuario_nombre} · ${t.hora_inicio}–${t.hora_fin}`}
+                            title={
+                              ausente
+                                ? `${t.usuario_nombre} — ausente`
+                                : `${t.usuario_nombre} · ${t.hora_inicio}–${t.hora_fin}`
+                            }
                           >
                             <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden group/bloque">
                               <div className="flex items-center gap-1">
                                 {esMio && (
                                   <span
-                                    className="size-3.5 shrink-0 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                                    className="size-3.5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
                                     style={{ backgroundColor: color }}
                                   >
                                     {iniciales(t.usuario_nombre).slice(0, 1)}
                                   </span>
                                 )}
                                 <p
-                                  className="text-[11px] font-semibold truncate leading-tight flex-1"
+                                  className="text-[12px] font-semibold truncate leading-tight flex-1"
                                   style={{ color }}
                                 >
                                   {esMio ? "Vos" : iniciales(t.usuario_nombre)}
@@ -391,8 +425,8 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
                                 )}
                               </div>
                               {height >= PX_POR_HORA && (
-                                <p className="text-[10px] leading-tight mt-0.5 truncate opacity-70" style={{ color }}>
-                                  {t.hora_inicio}–{t.hora_fin}
+                                <p className="text-[11px] leading-tight mt-0.5 truncate opacity-70" style={{ color }}>
+                                  {ausente ? "Ausente" : `${t.hora_inicio}–${t.hora_fin}`}
                                 </p>
                               )}
                             </div>
@@ -425,6 +459,65 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
         </div>
       )}
 
+      {/* ── Ausencias de la semana ────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2 border-t pt-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <UserX className="size-3.5 text-muted-foreground" />
+            Ausencias de la semana
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-xs"
+            onClick={() => setAusenciaDialogOpen(true)}
+          >
+            <Plus className="size-3.5" />
+            Marcar ausencia
+          </Button>
+        </div>
+
+        {excepcionesSemana.length === 0 ? (
+          <p className="text-muted-foreground text-xs">
+            Nadie marcó ausencias para esta semana.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {excepcionesSemana.map((e) => {
+              const puedeBorrar = canManage || e.usuario_id === sesionUsuarioId;
+              const fecha = new Date(e.fecha + "T00:00:00");
+              return (
+                <div
+                  key={e.id}
+                  className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs"
+                >
+                  <Badge variant="outline" className="shrink-0">
+                    {fecha.toLocaleDateString("es-AR", { weekday: "short", day: "numeric" })}
+                  </Badge>
+                  <span className="font-medium">{e.usuario_nombre}</span>
+                  <span className="text-muted-foreground">
+                    {e.tipo === "ausencia" ? "ausente" : "cambio de turno"}
+                  </span>
+                  {e.nota && (
+                    <span className="text-muted-foreground truncate">— {e.nota}</span>
+                  )}
+                  {puedeBorrar && (
+                    <button
+                      onClick={() => handleEliminarExcepcion(e.id)}
+                      disabled={deletingId}
+                      className="text-muted-foreground hover:text-destructive ml-auto shrink-0"
+                      title="Quitar"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {canManage && (
         <TurnoDialog
           open={dialogOpen}
@@ -433,6 +526,14 @@ export function CronogramaCliente({ turnos, usuarios, sesionUsuarioId, canManage
           usuarios={usuarios}
         />
       )}
+
+      <AusenciaDialog
+        open={ausenciaDialogOpen}
+        onOpenChange={setAusenciaDialogOpen}
+        usuarios={usuarios}
+        usuarioActualId={sesionUsuarioId}
+        canManage={canManage}
+      />
     </div>
   );
 }

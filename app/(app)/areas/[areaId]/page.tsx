@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AreaDetalleCliente } from "./area-detalle-cliente";
 import { AreaNotas, type NotaRow } from "./area-notas";
+import { AreaPlantillas } from "./area-plantillas";
+import { fetchPlantillas } from "../actions";
 
 type AreaRow = {
   id: string;
@@ -24,6 +26,7 @@ type AreaRow = {
   descripcion: string | null;
   responsable_id: string | null;
   responsable_nombre: string | null;
+  activa: boolean;
   tareas_total: number;
   tareas_hechas: number;
   tareas_abiertas: number;
@@ -81,17 +84,16 @@ export default async function AreaDetallePage({
   const { area, tareas, usuarios, notas } = await withUser(session.user.id, async (tx) => {
     const [area] = await tx<AreaRow[]>`
       select
-        a.id, a.nombre, a.color, a.descripcion, a.responsable_id,
+        a.id, a.nombre, a.color, a.descripcion, a.responsable_id, a.activa,
         u.nombre  as responsable_nombre,
         count(t.id)::int                                    as tareas_total,
         count(t.id) filter (where t.estado = 'hecha')::int   as tareas_hechas,
         count(t.id) filter (where t.estado != 'hecha')::int  as tareas_abiertas
       from area a
       left join usuario u on u.id = a.responsable_id
-      left join tarea   t on t.area_id = a.id
+      left join tarea   t on t.area_id = a.id and t.archivada = false
       where a.id = ${areaId}
         and a.organizacion_id = mi_organizacion_id()
-        and a.activa = true
       group by a.id, u.nombre
       limit 1
     `;
@@ -107,6 +109,7 @@ export default async function AreaDetallePage({
       from tarea t
       left join usuario u on u.id = t.responsable_id
       where t.area_id = ${areaId}
+        and t.archivada = false
       order by
         case t.estado
           when 'en_progreso' then 1
@@ -144,6 +147,8 @@ export default async function AreaDetallePage({
 
   if (!area) notFound();
 
+  const plantillas = await fetchPlantillas(areaId);
+
   const pct =
     area.tareas_total > 0
       ? Math.round((area.tareas_hechas / area.tareas_total) * 100)
@@ -179,6 +184,7 @@ export default async function AreaDetallePage({
             descripcion: area.descripcion,
             color: area.color,
             responsable_id: area.responsable_id,
+            activa: area.activa,
           }}
           usuarios={usuarios}
           canManage={canManage}
@@ -193,7 +199,12 @@ export default async function AreaDetallePage({
             style={{ backgroundColor: area.color }}
           />
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight">{area.nombre}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">{area.nombre}</h1>
+              {!area.activa && (
+                <Badge variant="outline" className="text-muted-foreground">Archivada</Badge>
+              )}
+            </div>
             {area.descripcion && (
               <p className="text-muted-foreground text-sm">{area.descripcion}</p>
             )}
@@ -278,13 +289,13 @@ export default async function AreaDetallePage({
                         </p>
                         <div className="flex items-center flex-wrap gap-2 mt-1">
                           {TIPO_LABEL[t.tipo] && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+                            <Badge variant="outline" className="text-[11px] px-1.5 py-0 font-normal">
                               {TIPO_LABEL[t.tipo]}
                             </Badge>
                           )}
                           {t.fecha_vencimiento && (
                             <span
-                              className={`flex items-center gap-1 text-[11px] ${vencida ? "text-destructive font-medium" : "text-muted-foreground"}`}
+                              className={`flex items-center gap-1 text-[12px] ${vencida ? "text-destructive font-medium" : "text-muted-foreground"}`}
                             >
                               <CalendarDays className="size-3" />
                               {new Date(t.fecha_vencimiento + "T00:00:00").toLocaleDateString("es-AR", {
@@ -299,12 +310,12 @@ export default async function AreaDetallePage({
                       {/* Responsable */}
                       {t.responsable_nombre ? (
                         <Avatar className="size-6 shrink-0">
-                          <AvatarFallback className="text-[9px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
+                          <AvatarFallback className="text-[10px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
                             {iniciales(t.responsable_nombre)}
                           </AvatarFallback>
                         </Avatar>
                       ) : (
-                        <span className="text-muted-foreground/40 text-[10px] shrink-0 mt-0.5">—</span>
+                        <span className="text-muted-foreground/40 text-[11px] shrink-0 mt-0.5">—</span>
                       )}
                     </div>
                   );
@@ -330,6 +341,15 @@ export default async function AreaDetallePage({
             </Button>
           </div>
         )}
+      </div>
+
+      {/* ── Plantillas de tareas ───────────────────────────────────────────── */}
+      <div className="border-t pt-6">
+        <AreaPlantillas
+          areaId={area.id}
+          plantillasIniciales={plantillas}
+          canManage={canManage}
+        />
       </div>
 
       {/* ── Bitácora ────────────────────────────────────────────────────────── */}

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Plus, User } from "lucide-react";
+import { Plus, User, Archive, ArchiveRestore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AreaDialog, type UsuarioOption } from "./area-dialog";
+import { fetchAreasArchivadas, reactivarArea, type AreaArchivadaRow } from "./actions";
 
 type Area = {
   id: string;
@@ -25,6 +26,25 @@ type Props = {
 
 export function AreasCliente({ areas, usuarios, canManage }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [showArchivadas, setShowArchivadas] = useState(false);
+  const [archivadas, setArchivadas] = useState<AreaArchivadaRow[] | null>(null);
+  const [, startTransition] = useTransition();
+
+  function toggleArchivadas() {
+    const next = !showArchivadas;
+    setShowArchivadas(next);
+    if (next && archivadas === null) {
+      startTransition(async () => {
+        const rows = await fetchAreasArchivadas();
+        setArchivadas(rows);
+      });
+    }
+  }
+
+  function handleReactivar(areaId: string) {
+    setArchivadas((prev) => prev?.filter((a) => a.id !== areaId) ?? prev);
+    startTransition(() => reactivarArea(areaId));
+  }
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -107,7 +127,7 @@ export function AreasCliente({ areas, usuarios, canManage }: Props) {
                             }}
                           />
                         </div>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-[12px] text-muted-foreground">
                           {area.tareas_hechas} de {area.tareas_total} completadas
                         </p>
                       </div>
@@ -127,6 +147,54 @@ export function AreasCliente({ areas, usuarios, canManage }: Props) {
               </Link>
             );
           })}
+        </div>
+      )}
+
+      {canManage && (
+        <div className="border-t pt-4">
+          <button
+            onClick={toggleArchivadas}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Archive className="size-3.5" />
+            {showArchivadas ? "Ocultar áreas archivadas" : "Ver áreas archivadas"}
+          </button>
+          {showArchivadas && (
+            <div className="mt-3 flex flex-col gap-1.5">
+              {archivadas === null ? (
+                <p className="text-xs text-muted-foreground">Cargando...</p>
+              ) : archivadas.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No hay áreas archivadas.</p>
+              ) : (
+                archivadas.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2"
+                  >
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: a.color }}
+                    />
+                    <Link
+                      href={`/areas/${a.id}`}
+                      className="min-w-0 flex-1 truncate text-sm hover:underline"
+                    >
+                      {a.nombre}
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 shrink-0 text-xs"
+                      onClick={() => handleReactivar(a.id)}
+                    >
+                      <ArchiveRestore className="size-3.5" />
+                      Reactivar
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
 

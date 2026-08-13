@@ -39,7 +39,7 @@ export default async function AreasPage() {
         count(t.id) filter (where t.estado != 'hecha')::int as tareas_abiertas
       from area a
       left join usuario u on u.id = a.responsable_id
-      left join tarea   t on t.area_id = a.id
+      left join tarea   t on t.area_id = a.id and t.archivada = false
       where a.organizacion_id = mi_organizacion_id()
         and a.activa = true
       group by a.id, a.nombre, a.color, a.descripcion, a.responsable_id, u.nombre

@@ -35,6 +35,9 @@ const PRIORIDAD_OPTS = [
   { value: "alta", label: "Alta" },
 ];
 
+const TIPO_ITEMS = Object.fromEntries(TIPO_OPTS.map((o) => [o.value, o.label]));
+const PRIORIDAD_ITEMS = Object.fromEntries(PRIORIDAD_OPTS.map((o) => [o.value, o.label]));
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -58,6 +61,12 @@ export function NuevaTareaDialog({
   const [areaId, setAreaId] = useState(areas[0]?.id ?? "");
   const [responsableId, setResponsableId] = useState("");
   const [fechaVencimiento, setFechaVencimiento] = useState("");
+
+  const AREA_ITEMS = Object.fromEntries(areas.map((a) => [a.id, a.nombre]));
+  const RESPONSABLE_ITEMS = {
+    _none: "Sin asignar",
+    ...Object.fromEntries(usuarios.map((u) => [u.id, u.nombre])),
+  };
 
   function resetForm() {
     setTitulo("");
@@ -126,7 +135,7 @@ export function NuevaTareaDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Tipo</Label>
-              <Select value={tipo} onValueChange={(v) => setTipo(v ?? "")}>
+              <Select value={tipo} onValueChange={(v) => setTipo(v ?? "")} items={TIPO_ITEMS}>
                 <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -141,7 +150,7 @@ export function NuevaTareaDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Prioridad</Label>
-              <Select value={prioridad} onValueChange={(v) => setPrioridad(v ?? "")}>
+              <Select value={prioridad} onValueChange={(v) => setPrioridad(v ?? "")} items={PRIORIDAD_ITEMS}>
                 <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -159,7 +168,7 @@ export function NuevaTareaDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Área *</Label>
-              <Select value={areaId} onValueChange={(v) => setAreaId(v ?? "")}>
+              <Select value={areaId} onValueChange={(v) => setAreaId(v ?? "")} items={AREA_ITEMS}>
                 <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Elegir área" />
                 </SelectTrigger>
@@ -183,6 +192,7 @@ export function NuevaTareaDialog({
               <Select
                 value={responsableId || "_none"}
                 onValueChange={(v) => setResponsableId(!v || v === "_none" ? "" : v)}
+                items={RESPONSABLE_ITEMS}
               >
                 <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Sin asignar" />

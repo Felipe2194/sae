@@ -16,6 +16,15 @@ export type TurnoData = {
 
 export type UsuarioOpt = { id: string; nombre: string };
 
+export type ExcepcionData = {
+  id: string;
+  usuario_id: string;
+  usuario_nombre: string;
+  fecha: string;
+  tipo: string;
+  nota: string | null;
+};
+
 export default async function CronogramaPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -23,7 +32,7 @@ export default async function CronogramaPage() {
   const rol = (session.user as { rol: string }).rol;
   const canManage = rol === "coordinador" || rol === "administrador";
 
-  const { turnos, usuarios } = await withUser(session.user.id, async (tx) => {
+  const { turnos, usuarios, excepciones } = await withUser(session.user.id, async (tx) => {
     const turnos = await tx<TurnoData[]>`
       select
         t.id,
@@ -41,21 +50,38 @@ export default async function CronogramaPage() {
       order by t.dia_semana, t.hora_inicio, u.nombre
     `;
 
-    const usuarios = canManage
-      ? await tx<UsuarioOpt[]>`
-          select id, nombre from usuario
-          where organizacion_id = mi_organizacion_id() and estado = 'activo'
-          order by nombre asc
-        `
-      : [];
+    // Se usa tanto para asignar turnos (coordinador/admin) como para que
+    // cualquiera pueda marcar su propia ausencia — se trae siempre.
+    const usuarios = await tx<UsuarioOpt[]>`
+      select id, nombre from usuario
+      where organizacion_id = mi_organizacion_id() and estado = 'activo'
+      order by nombre asc
+    `;
 
-    return { turnos: [...turnos], usuarios: [...usuarios] };
+    // Ventana razonable para navegar semanas hacia atrás/adelante sin recargar.
+    const excepciones = await tx<ExcepcionData[]>`
+      select
+        e.id,
+        e.usuario_id,
+        u.nombre    as usuario_nombre,
+        e.fecha::text,
+        e.tipo::text,
+        e.nota
+      from excepcion_turno e
+      join usuario u on u.id = e.usuario_id
+      where e.organizacion_id = mi_organizacion_id()
+        and e.fecha between (current_date - interval '14 days') and (current_date + interval '90 days')
+      order by e.fecha asc
+    `;
+
+    return { turnos: [...turnos], usuarios: [...usuarios], excepciones: [...excepciones] };
   });
 
   return (
     <CronogramaCliente
       turnos={turnos}
       usuarios={usuarios}
+      excepciones={excepciones}
       sesionUsuarioId={session.user.id}
       canManage={canManage}
     />

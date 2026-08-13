@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, CalendarDays, MessageSquare, CheckSquare } from "lucide-react";
@@ -42,6 +43,12 @@ export function TareaCardItem({
     disabled: overlay,
   });
 
+  // dnd-kit genera aria-describedby con un id autoincremental que no coincide
+  // entre el render de servidor y el de cliente — se activa recién montado en
+  // el cliente para evitar el hydration mismatch.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
 
   const estaVencida =
@@ -73,15 +80,15 @@ export function TareaCardItem({
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {tarea.tipo !== "tarea" && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                <Badge variant="secondary" className="text-[11px] px-1.5 py-0">
                   {TIPO_LABEL[tarea.tipo] ?? tarea.tipo}
                 </Badge>
               )}
               {/* Drag handle — solo aquí se inicia el drag */}
               {!overlay && (
                 <span
-                  {...listeners}
-                  {...attributes}
+                  {...(mounted ? listeners : undefined)}
+                  {...(mounted ? attributes : undefined)}
                   onClick={(e) => e.stopPropagation()}
                   className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors p-0.5 -mr-1 rounded"
                   aria-label="Arrastrar tarea"
@@ -105,7 +112,7 @@ export function TareaCardItem({
             <div className="flex items-center gap-2.5">
               {tarea.fecha_vencimiento && (
                 <span
-                  className={`flex items-center gap-1 text-[11px] ${
+                  className={`flex items-center gap-1 text-[12px] ${
                     estaVencida ? "text-destructive font-medium" : "text-muted-foreground"
                   }`}
                 >
@@ -117,13 +124,13 @@ export function TareaCardItem({
                 </span>
               )}
               {tarea.subtarea_total > 0 && (
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1 text-[12px] text-muted-foreground">
                   <CheckSquare className="size-3" />
                   {tarea.subtarea_hecha}/{tarea.subtarea_total}
                 </span>
               )}
               {tarea.comentario_count > 0 && (
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1 text-[12px] text-muted-foreground">
                   <MessageSquare className="size-3" />
                   {tarea.comentario_count}
                 </span>
@@ -131,7 +138,7 @@ export function TareaCardItem({
             </div>
             {tarea.responsable_nombre && (
               <Avatar className="size-5 shrink-0">
-                <AvatarFallback className="text-[9px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
+                <AvatarFallback className="text-[10px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
                   {iniciales(tarea.responsable_nombre)}
                 </AvatarFallback>
               </Avatar>

@@ -20,6 +20,9 @@ export type TareaCard = {
   subtarea_hecha: number;
   comentario_count: number;
   creada_por: string;
+  archivada: boolean;
+  duracion_estimada_hs: number | null;
+  duracion_real_hs: number | null;
 };
 
 export type AreaOption = { id: string; nombre: string; color: string };
@@ -42,6 +45,9 @@ export default async function TableroPage() {
         t.area_id,
         t.responsable_id,
         t.creada_por,
+        t.archivada,
+        t.duracion_estimada_hs,
+        t.duracion_real_hs,
         a.nombre  as area_nombre,
         a.color   as area_color,
         u.nombre  as responsable_nombre,
@@ -51,7 +57,7 @@ export default async function TableroPage() {
       from tarea t
       left join area    a on a.id = t.area_id
       left join usuario u on u.id = t.responsable_id
-      where t.organizacion_id = mi_organizacion_id()
+      where t.organizacion_id = mi_organizacion_id() and t.archivada = false
       order by t.orden asc, t.creada_en asc
     `;
 

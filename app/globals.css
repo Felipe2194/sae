@@ -46,6 +46,22 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Escala tipográfica agrandada — la app se sentía muy chica con los
+     defaults de Tailwind (xs/sm por todos lados). Un paso más grande en
+     cada tamaño, aplicado central para no tocar cada className. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.15rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.4rem;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.65rem;
+  --text-lg: 1.1875rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.85rem;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 2.05rem;
 }
 
 :root {
@@ -138,7 +154,6 @@
   }
   body {
     @apply bg-background text-foreground text-base;
-    font-size: 15px;
     line-height: 1.6;
   }
   html {

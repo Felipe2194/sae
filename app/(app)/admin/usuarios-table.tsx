@@ -1,8 +1,16 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { KeyRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -10,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cambiarEstadoUsuario, cambiarRolUsuario } from "./actions";
+import { cambiarEstadoUsuario, cambiarRolUsuario, resetearPassword } from "./actions";
 
 export type UsuarioFila = {
   id: string;
@@ -53,6 +61,10 @@ function UsuarioRow({
   esSelf: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [isPendingReset, startReset] = useTransition();
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
   const badge = ESTADO_BADGE[usuario.estado];
 
   function aprobar() {
@@ -71,6 +83,25 @@ function UsuarioRow({
     startTransition(() => cambiarRolUsuario(usuario.id, rol));
   }
 
+  function resetPassword() {
+    if (!confirmReset) {
+      setConfirmReset(true);
+      return;
+    }
+    startReset(async () => {
+      const { passwordTemporal } = await resetearPassword(usuario.id);
+      setTempPassword(passwordTemporal);
+      setConfirmReset(false);
+    });
+  }
+
+  function copiarPassword() {
+    if (!tempPassword) return;
+    navigator.clipboard.writeText(tempPassword);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 1500);
+  }
+
   return (
     <tr
       className={`border-b last:border-0 ${pending ? "opacity-50" : ""}`}
@@ -80,7 +111,7 @@ function UsuarioRow({
         <p className="font-medium text-sm leading-tight">
           {usuario.nombre}
           {esSelf && (
-            <span className="ml-2 text-[10px] text-muted-foreground font-normal">
+            <span className="ml-2 text-[11px] text-muted-foreground font-normal">
               (vos)
             </span>
           )}
@@ -104,6 +135,7 @@ function UsuarioRow({
             value={usuario.rol}
             onValueChange={(rol) => rol && onRolChange(rol)}
             disabled={pending}
+            items={{ miembro: "Miembro", coordinador: "Coordinador", administrador: "Administrador" }}
           >
             <SelectTrigger className="h-8 w-36 text-xs">
               <SelectValue />
@@ -121,32 +153,90 @@ function UsuarioRow({
       <td className="px-3 py-3 whitespace-nowrap">
         {esSelf ? (
           <span className="text-xs text-muted-foreground">—</span>
-        ) : usuario.estado === "pendiente" ? (
-          <Button size="sm" onClick={aprobar} disabled={pending} className="h-8 text-xs">
-            Aprobar
-          </Button>
-        ) : usuario.estado === "activo" ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={desactivar}
-            disabled={pending}
-            className="h-8 text-xs text-destructive hover:text-destructive"
-          >
-            Desactivar
-          </Button>
         ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={reactivar}
-            disabled={pending}
-            className="h-8 text-xs"
-          >
-            Reactivar
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {usuario.estado === "pendiente" ? (
+              <Button size="sm" onClick={aprobar} disabled={pending} className="h-8 text-xs">
+                Aprobar
+              </Button>
+            ) : usuario.estado === "activo" ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={desactivar}
+                disabled={pending}
+                className="h-8 text-xs text-destructive hover:text-destructive"
+              >
+                Desactivar
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={reactivar}
+                disabled={pending}
+                className="h-8 text-xs"
+              >
+                Reactivar
+              </Button>
+            )}
+
+            {usuario.estado !== "pendiente" && (
+              confirmReset ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">¿Confirmar?</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-xs"
+                    onClick={() => setConfirmReset(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={resetPassword}
+                    disabled={isPendingReset}
+                  >
+                    {isPendingReset ? "Reseteando..." : "Confirmar"}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-xs text-muted-foreground"
+                  onClick={resetPassword}
+                  title="Resetear contraseña"
+                >
+                  <KeyRound className="size-3.5" />
+                </Button>
+              )
+            )}
+          </div>
         )}
       </td>
+
+      <Dialog open={tempPassword !== null} onOpenChange={(v) => !v && setTempPassword(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Contraseña restablecida</DialogTitle>
+            <DialogDescription>
+              Compartila con {usuario.nombre} de forma segura. No se va a poder ver de nuevo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded-lg border bg-muted px-3 py-2 text-sm font-mono tracking-wide">
+              {tempPassword}
+            </code>
+            <Button size="sm" variant="outline" onClick={copiarPassword} className="h-9 shrink-0">
+              {copiado ? "Copiado" : "Copiar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </tr>
   );
 }

@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SidebarTrigger className="size-9" />
           <span className="text-muted-foreground text-sm font-medium">SAE · UTN FRVM</span>
           <div className="ml-auto flex items-center gap-1">
-            <BuscadorGlobal />
+            <BuscadorGlobal rol={(session.user as { rol: string }).rol} />
             <PanelNotificaciones />
           </div>
         </header>

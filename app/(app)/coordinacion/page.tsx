@@ -36,6 +36,12 @@ type StatGlobal = {
   vencidas: number;
 };
 
+type PrecisionEstimacion = {
+  cantidad: number;
+  promedio_estimado: number | null;
+  promedio_real: number | null;
+};
+
 type TareaAntigua = {
   titulo: string;
   area_nombre: string | null;
@@ -68,7 +74,7 @@ export default async function CoordinacionPage() {
   const rol = (session.user as { rol: string }).rol;
   if (rol === "miembro") redirect("/hoy");
 
-  const { global: stat, porPersona, porArea, tareasAntiguas } = await withUser(
+  const { global: stat, porPersona, porArea, tareasAntiguas, precisionEstimacion } = await withUser(
     session.user.id,
     async (tx) => {
       const [global] = await tx<[StatGlobal]>`
@@ -84,6 +90,7 @@ export default async function CoordinacionPage() {
           )::int                                                                   as vencidas
         from tarea
         where organizacion_id = mi_organizacion_id()
+          and archivada = false
       `;
 
       const porPersona = await tx<ResumenPersona[]>`
@@ -106,6 +113,7 @@ export default async function CoordinacionPage() {
         from usuario u
         left join tarea t on t.responsable_id = u.id
           and t.organizacion_id = mi_organizacion_id()
+          and t.archivada = false
         where u.organizacion_id = mi_organizacion_id()
           and u.estado = 'activo'
         group by u.id, u.nombre
@@ -135,6 +143,7 @@ export default async function CoordinacionPage() {
         from area a
         left join tarea t on t.area_id = a.id
           and t.organizacion_id = mi_organizacion_id()
+          and t.archivada = false
         where a.organizacion_id = mi_organizacion_id()
           and a.activa = true
         group by a.id, a.nombre, a.color
@@ -153,11 +162,24 @@ export default async function CoordinacionPage() {
         left join usuario u on u.id = t.responsable_id
         where t.organizacion_id = mi_organizacion_id()
           and t.estado != 'hecha'
+          and t.archivada = false
         order by t.creada_en asc
         limit 5
       `;
 
-      return { global, porPersona, porArea, tareasAntiguas };
+      const [precisionEstimacion] = await tx<[PrecisionEstimacion]>`
+        select
+          count(*)::int                          as cantidad,
+          round(avg(duracion_estimada_hs), 1)     as promedio_estimado,
+          round(avg(duracion_real_hs), 1)         as promedio_real
+        from tarea
+        where organizacion_id = mi_organizacion_id()
+          and archivada = false
+          and duracion_estimada_hs is not null
+          and duracion_real_hs is not null
+      `;
+
+      return { global, porPersona, porArea, tareasAntiguas, precisionEstimacion };
     },
   );
 
@@ -220,6 +242,36 @@ export default async function CoordinacionPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Precisión de estimación ────────────────────────────────────── */}
+      {precisionEstimacion.cantidad > 0 && (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Timer className="text-muted-foreground size-4" />
+            <h2 className="font-semibold">Precisión de estimación</h2>
+          </div>
+          <Card>
+            <CardContent className="pt-4 flex flex-wrap items-center gap-6 text-sm">
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-xs">Promedio estimado</span>
+                <span className="text-xl font-bold tabular-nums">
+                  {precisionEstimacion.promedio_estimado}h
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-xs">Promedio real</span>
+                <span className="text-xl font-bold tabular-nums">
+                  {precisionEstimacion.promedio_real}h
+                </span>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Basado en {precisionEstimacion.cantidad} tarea
+                {precisionEstimacion.cantidad !== 1 ? "s" : ""} con ambos datos cargados.
+              </p>
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {/* ── Tareas más antiguas sin resolver ───────────────────────────── */}
       {tareasAntiguas.length > 0 && (

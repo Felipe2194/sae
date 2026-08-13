@@ -251,7 +251,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
                                 <div
                                   key={isGcal ? item.id : (item as TareaConFecha).id}
                                   title={titulo}
-                                  className="truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight"
+                                  className="truncate rounded px-1 py-0.5 text-[11px] font-medium leading-tight"
                                   style={{
                                     backgroundColor: `${color}22`,
                                     color: color,
@@ -266,7 +266,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
                               );
                             })}
                             {todosItems.length > maxMostrar && (
-                              <span className="text-muted-foreground pl-1 text-[10px]">
+                              <span className="text-muted-foreground pl-1 text-[11px]">
                                 +{todosItems.length - maxMostrar} más
                               </span>
                             )}
@@ -352,12 +352,12 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
                         </span>
                       )}
                       {TIPO_LABEL[t.tipo] && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+                        <Badge variant="outline" className="text-[11px] px-1.5 py-0 font-normal">
                           {TIPO_LABEL[t.tipo]}
                         </Badge>
                       )}
                       {ESTADO_LABEL[t.estado] && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                        <Badge variant="secondary" className="text-[11px] px-1.5 py-0 font-normal">
                           {ESTADO_LABEL[t.estado]}
                         </Badge>
                       )}
@@ -391,7 +391,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
                     style={{ backgroundColor: t.area_color ?? "#94a3b8" }}
                   />
                   <span className="text-xs truncate flex-1">{t.titulo}</span>
-                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                  <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
                     {t.fecha_vencimiento.slice(8)}
                   </span>
                 </button>
