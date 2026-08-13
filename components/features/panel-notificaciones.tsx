@@ -44,13 +44,29 @@ export function PanelNotificaciones() {
       });
     }
     cargar();
-    // Polling liviano cada 30s
-    const interval = setInterval(cargar, 30000);
+    // Polling cada 3 min — antes eran 30s, un costo innecesario de DB/red
+    // para algo que no es urgente. Para compensar la menor frecuencia,
+    // se refresca también al volver a la pestaña y al abrir el panel.
+    const interval = setInterval(cargar, 3 * 60 * 1000);
+    function alVolverAPestaña() {
+      if (document.visibilityState === "visible") cargar();
+    }
+    document.addEventListener("visibilitychange", alVolverAPestaña);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", alVolverAPestaña);
     };
   }, []);
+
+  useEffect(() => {
+    if (open) {
+      fetchNotificaciones().then(({ items, noLeidas }) => {
+        setItems(items);
+        setNoLeidas(noLeidas);
+      });
+    }
+  }, [open]);
 
   function handleClick(n: NotificacionRow) {
     if (!n.leida) {
@@ -83,7 +99,7 @@ export function PanelNotificaciones() {
       >
         <Bell className="size-4" />
         {noLeidas > 0 && (
-          <span className="absolute top-1 right-1 size-4 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center leading-none">
+          <span className="absolute top-1 right-1 size-4 rounded-full bg-destructive text-[10px] font-bold text-white flex items-center justify-center leading-none">
             {noLeidas > 9 ? "9+" : noLeidas}
           </span>
         )}
@@ -144,7 +160,7 @@ export function PanelNotificaciones() {
                             {n.cuerpo}
                           </p>
                         )}
-                        <p className="text-[10px] text-muted-foreground mt-1">
+                        <p className="text-[11px] text-muted-foreground mt-1">
                           {formatRelativo(n.creada_en)}
                         </p>
                       </div>
