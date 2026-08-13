@@ -190,8 +190,8 @@ El sistema tiene varias capas de seguimiento, cada una con un propósito distint
 - **Registro abierto pero con aprobación**: cualquiera puede crear una cuenta, pero queda
   en estado `pendiente` hasta que un administrador la activa y le asigna un rol
   (`/pendiente-de-aprobacion`).
-- **Botón "Continuar con Google"**: existe en `/login` pero con una limitación real — ver
-  pendientes.
+- **Botón "Continuar con Google"**: conectado y probado en este entorno (proyecto
+  "SAE-Sistema" en Google Cloud) — ver sección 6 para el detalle de configuración.
 
 ---
 
@@ -199,15 +199,18 @@ El sistema tiene varias capas de seguimiento, cada una con un propósito distint
 
 En orden de lo que más se nota al usar el sistema:
 
-- **Login con Google — lógica lista, falta cargar credenciales.** `auth.ts` ya tiene los
-  callbacks `signIn`/`jwt` que vinculan la cuenta de Google con la fila `usuario` (busca
-  por email; si no existe la crea en estado `pendiente`; si existe pero no está
-  `activo`, redirige a `/pendiente-de-aprobacion`). Lo único que falta es cargar
-  `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` — ver `docs/credenciales-pendientes.md`.
-- **Integración con Google Calendar es de solo lectura y opcional.** Hoy se hace vía
-  `GOOGLE_CALENDAR_API_KEY` + `GOOGLE_CALENDAR_ID` (calendario público, sin OAuth), y en
-  este entorno esas variables no están configuradas (`/admin` muestra "Sin configurar").
-  Lo que falta respecto de la visión original:
+- ~~Login con Google sin credenciales~~ — **resuelto en este entorno**: proyecto
+  "SAE-Sistema" creado en Google Cloud, pantalla de consentimiento OAuth configurada
+  (modo Externo/Prueba) y `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` cargados en
+  `.env.local`. Verificado end-to-end: alta automática en `pendiente`, activación manual
+  y login exitoso a `/hoy`. Mientras la app quede en modo "Prueba", cada persona que se
+  quiera loguear con Google tiene que estar agregada a mano como "usuario de prueba" en
+  Google Auth Platform → Público — o hay que publicar la app (ver
+  `docs/credenciales-pendientes.md`).
+- ~~Google Calendar sin configurar~~ — **resuelto en este entorno**: `GOOGLE_CALENDAR_API_KEY`
+  y `GOOGLE_CALENDAR_ID` cargados y verificados, `/calendario` ya trae los eventos reales
+  del calendario "💙 SAE UTN" en vez de los de ejemplo. Sigue pendiente de la visión
+  original:
   - Escritura hacia Calendar: crear un evento de Google al ponerle fecha a una tarea
     (existe la columna `tarea.google_event_id` en el esquema, pero no se usa en ningún
     lugar del código todavía).

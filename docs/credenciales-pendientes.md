@@ -4,6 +4,12 @@
 > que alguien con acceso a la cuenta de Google de la secretaría genere estas
 > credenciales y las pegue en `.env.local` (desarrollo) o en las variables de entorno
 > del proveedor de hosting (producción). Nada de esto requiere volver a tocar código.
+>
+> **Estado en este entorno de desarrollo (2026-08-13): login con Google y Calendario ya
+> configurados y probados end-to-end**, con el proyecto **"SAE-Sistema"** en Google
+> Cloud. Las instrucciones de abajo quedan igual porque van a hacer falta de nuevo para
+> producción (otro dominio, otro `AUTH_URL`) o si alguien más arma su propio entorno
+> local.
 
 ---
 
@@ -77,6 +83,13 @@ GOOGLE_CALENDAR_ID=<el ID de calendario>
 
 Sin estas variables, `/calendario` sigue funcionando pero solo muestra las tareas del
 sistema, sin eventos de Google.
+
+**Gotcha real que nos pasó al configurarlo:** si restringís la API Key *antes* de haber
+habilitado la Google Calendar API en el proyecto, la API no aparece en la lista para
+marcarla y la clave queda guardada sin ningún permiso — el request falla con
+`API_KEY_SERVICE_BLOCKED` aunque la clave y el calendario estén bien. Solución: habilitar
+primero la API (Biblioteca → Google Calendar API → Habilitar) y **recién después** editar
+la clave y marcarla en Restricciones de API.
 
 ---
 
