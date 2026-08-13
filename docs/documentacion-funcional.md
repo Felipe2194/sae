@@ -73,9 +73,10 @@ Hecha** (a propósito no configurables — evita la complejidad tipo Jira).
 - Tarjetas arrastrables entre columnas (drag-and-drop con `dnd-kit`).
 - Filtros por área, responsable y estado.
 - Cada tarjeta abre un panel lateral con: descripción, tipo (tarea/evento/entrega/
-  reunión), prioridad, fecha de vencimiento, responsable, **subtareas** (checklist),
-  **comentarios**, **adjuntos** (solo enlaces — Drive, links; no hay carga de archivos) y
-  **historial de cambios** (quién cambió qué campo y cuándo, tabla `tarea_log`).
+  reunión), prioridad, fecha de vencimiento, responsable, **horas estimadas/reales**,
+  **subtareas** (checklist), **comentarios**, **adjuntos** (solo enlaces — Drive, links;
+  no hay carga de archivos) y **historial de cambios** (quién cambió qué campo y cuándo,
+  tabla `tarea_log`).
 - Crear tarea en un paso: título + área. El resto es opcional.
 - **Archivar**: en vez de borrar, las tareas se archivan (`archivada = true`). Preserva
   historial y métricas de `/coordinacion`. Hay una vista separada de tareas archivadas
@@ -87,9 +88,12 @@ Listado de las líneas de trabajo temáticas de la secretaría (color, responsab
 descripción, % de tareas completadas). Coordinadores/admins pueden crear, editar y
 archivar áreas.
 
-Al entrar a un área específica: sus tareas agrupadas por estado, y una **bitácora de
-notas del área** (`nota_area`) — un registro de novedades/observaciones libres, separado
-de las tareas puntuales, para dejar contexto que no encaja en una tarea concreta.
+Al entrar a un área específica: sus tareas agrupadas por estado, sus **plantillas de
+tareas** (un nombre + una lista de títulos reutilizable — para procesos que se repiten
+como inscripciones o torneos; "Aplicar" clona esos títulos como tareas reales en
+`por_hacer`), y una **bitácora de notas del área** (`nota_area`) — un registro de
+novedades/observaciones libres, separado de las tareas puntuales, para dejar contexto que
+no encaja en una tarea concreta.
 
 ### 3.4 `/cronograma` — Turnos del equipo
 
@@ -98,6 +102,11 @@ tienen `vigente_desde`/`vigente_hasta`: cuando alguien deja el equipo, el turno 
 **cierra**, no se borra — así el histórico de coordinación de meses anteriores sigue
 siendo correcto. Coordinadores/admins editan; miembros ven en solo lectura. Este cronograma
 alimenta el bloque "En la oficina ahora" de `/hoy`.
+
+**Ausencias**: cualquiera puede marcar su propia ausencia (o un cambio de turno);
+coordinador/admin pueden marcar la de cualquiera. El bloque afectado se ve atenuado con
+borde punteado ese día, y tanto "En la oficina ahora" (cronograma) como "En la oficina
+ahora" de `/hoy` dejan de contar a quien está ausente.
 
 ### 3.5 `/calendario` — Calendario
 
@@ -114,6 +123,8 @@ Vista de métricas para quien coordina el equipo, no para uso diario:
 - Carga de trabajo por persona (abiertas, vencidas, hechas, promedio de días para
   completar).
 - Avance por área con la misma métrica.
+- **Precisión de estimación**: promedio de horas estimadas vs. horas reales, sobre las
+  tareas que tienen ambos datos cargados — solo aparece cuando hay al menos una.
 
 ### 3.7 `/admin` — Administración (solo administrador)
 
@@ -131,7 +142,9 @@ Datos básicos del usuario logueado (nombre, email, rol). Sin edición de datos 
 ### 3.9 Elementos transversales (en el header, en todas las páginas)
 
 - **Búsqueda global** (`Cmd/Ctrl+K`): busca tareas y áreas por texto, navega directo al
-  resultado.
+  resultado. También ofrece **acciones rápidas** (nueva tarea, ir a la bitácora de hoy,
+  cronograma, coordinación/admin según el rol) que aparecen filtradas por lo que se
+  escribe, igual que los resultados de búsqueda.
 - **Notificaciones**: campana con no-leídas. Se generan al asignar una tarea a alguien o
   al comentar en una tarea de la que alguien es responsable. Polling cada 3 min (más
   refresco al volver a la pestaña y al abrir el panel) — no push/websocket.
@@ -147,13 +160,19 @@ El sistema tiene varias capas de seguimiento, cada una con un propósito distint
 2. **Historial por tarea** (`tarea_log`) — cada cambio de campo relevante queda
    registrado con quién y cuándo, visible en el panel lateral de la tarea.
 3. **Bitácora diaria por persona** (`bitacora_diaria`) — registro manual de "qué hice /
-   qué quedó pendiente / observaciones", uno por usuario y por día.
+   qué quedó pendiente / observaciones", uno por usuario y por día. Se prellena sola con
+   tareas completadas, subtareas resueltas y comentarios dejados ese día, para no
+   reescribir a mano lo que ya quedó registrado en otro lado.
 4. **Bitácora de notas por área** (`nota_area`) — novedades a nivel de área, no atadas a
    una tarea puntual.
 5. **Archivado, no borrado** — tanto tareas como áreas se archivan en vez de eliminarse,
    para no perder el histórico que alimenta los reportes.
-6. **Panel de coordinación** — agrega todo lo anterior en métricas: carga por persona,
-   avance por área, antigüedad de tareas sin resolver.
+6. **Duración estimada vs. real** — campo opcional por tarea; agregado (promedio) en el
+   panel de coordinación como una señal temprana de sub/sobre-estimación de carga.
+7. **Excepciones de turno** (`excepcion_turno`) — quedan registradas las ausencias y
+   cambios de turno, así el cronograma y "En la oficina ahora" no dan falsos positivos.
+8. **Panel de coordinación** — agrega todo lo anterior en métricas: carga por persona,
+   avance por área, antigüedad de tareas sin resolver, precisión de estimación.
 
 ---
 
@@ -187,7 +206,9 @@ En orden de lo que más se nota al usar el sistema:
     lugar del código todavía).
   - Autenticación por OAuth de la organización en vez de API Key pública.
 - **Tareas recurrentes**: la columna `tarea.recurrencia` existe en el esquema pero no
-  hay UI ni lógica que la use.
+  hay UI ni lógica que la use. Las **plantillas de tareas por área** (`/areas/[areaId]`)
+  cubren parte de este caso de uso — clonar un conjunto de tareas a demanda — pero no son
+  recurrencia automática por calendario.
 - **Adjuntos son solo enlaces**, no hay carga real de archivos (a propósito, por ahora).
 - **Notificaciones son solo in-app** (con polling de 3 min + refresco al volver a la
   pestaña) — no hay canal de email ni de Telegram, algo que la especificación original
