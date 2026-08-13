@@ -56,10 +56,21 @@ type SidebarUser = {
   email: string;
 };
 
-export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
+const AVATAR_COLOR_DEFAULT = "oklch(0.62 0.19 42)";
+
+export function AppSidebar({
+  user,
+  rol,
+  avatarColor,
+}: {
+  user: SidebarUser;
+  rol: string;
+  avatarColor: string | null;
+}) {
   const pathname = usePathname();
   const inits = iniciales(user.name);
   const items = ITEMS_BASE.filter((item) => item.roles === null || item.roles.includes(rol));
+  const colorFondo = avatarColor ?? AVATAR_COLOR_DEFAULT;
 
   return (
     <Sidebar collapsible="icon">
@@ -123,7 +134,10 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
               </div>
               <div className="flex items-center gap-2">
                 <Avatar className="size-7">
-                  <AvatarFallback className="text-xs font-semibold bg-[oklch(0.62_0.19_42)] text-white">
+                  <AvatarFallback
+                    className="text-xs font-semibold text-white"
+                    style={{ backgroundColor: colorFondo }}
+                  >
                     {inits}
                   </AvatarFallback>
                 </Avatar>
@@ -135,7 +149,10 @@ export function AppSidebar({ user, rol }: { user: SidebarUser; rol: string }) {
             </div>
             {/* Colapsado: solo avatar */}
             <Avatar className="size-6 group-data-[collapsible=icon]:flex hidden">
-              <AvatarFallback className="text-[11px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
+              <AvatarFallback
+                className="text-[11px] font-semibold text-white"
+                style={{ backgroundColor: colorFondo }}
+              >
                 {inits}
               </AvatarFallback>
             </Avatar>

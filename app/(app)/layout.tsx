@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
+import { withUser } from '@/lib/db';
 import {
   SidebarInset,
   SidebarProvider,
@@ -14,11 +15,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await auth();
   if (!session?.user) redirect('/login');
 
+  // Se consulta acá (no vía el JWT de la sesión) para que un cambio de color
+  // en /perfil se vea reflejado al toque, sin esperar a un nuevo login.
+  const [usuario] = await withUser(session.user.id, (tx) =>
+    tx<{ avatar_color: string | null }[]>`
+      select avatar_color from usuario where id = mi_usuario_id()
+    `,
+  );
+
   return (
     <SidebarProvider>
       <AppSidebar
         user={{ name: session.user.name, email: session.user.email }}
         rol={(session.user as { rol: string }).rol}
+        avatarColor={usuario?.avatar_color ?? null}
       />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/80 backdrop-blur-sm px-4">

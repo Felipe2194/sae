@@ -40,12 +40,13 @@ type Props = {
   email: string;
   rol: string;
   playlistUrl: string | null;
+  avatarColor: string | null;
 };
 
-export function PerfilForm({ nombre: nombreInicial, email, rol, playlistUrl }: Props) {
+export function PerfilForm({ nombre: nombreInicial, email, rol, playlistUrl, avatarColor }: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [playlistUrlValue, setPlaylistUrlValue] = useState(playlistUrl ?? "");
-  const [color, setColor] = useState(COLORES[0].hex);
+  const [color, setColor] = useState(avatarColor ?? COLORES[0].hex);
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -151,6 +152,7 @@ export function PerfilForm({ nombre: nombreInicial, email, rol, playlistUrl }: P
         </CardHeader>
         <CardContent>
           <form onSubmit={handleGuardar} className="flex flex-col gap-4">
+            <input type="hidden" name="avatar_color" value={color} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="nombre">Nombre completo</Label>

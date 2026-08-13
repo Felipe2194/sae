@@ -22,10 +22,19 @@ export async function actualizarNombre(formData: FormData) {
     }
   }
 
+  const avatarColorRaw = ((formData.get('avatar_color') as string | null) ?? '').trim();
+  let avatarColor: string | null = null;
+  if (avatarColorRaw) {
+    if (!/^#[0-9a-fA-F]{6}$/.test(avatarColorRaw)) {
+      throw new Error('Color de avatar inválido');
+    }
+    avatarColor = avatarColorRaw;
+  }
+
   await withUser(session.user.id, async (tx) => {
     await tx`
       update usuario
-      set nombre = ${nombre}, playlist_url = ${playlistUrl}
+      set nombre = ${nombre}, playlist_url = ${playlistUrl}, avatar_color = ${avatarColor}
       where id = mi_usuario_id()
     `;
   });
