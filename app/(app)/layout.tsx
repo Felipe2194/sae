@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/sidebar";
 import { BuscadorGlobal } from "@/components/features/buscador-global";
 import { PanelNotificaciones } from "@/components/features/panel-notificaciones";
+import { ThemeToggle } from "@/components/features/theme-toggle";
 import { AppSidebar } from "@/components/features/app-sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="ml-auto flex items-center gap-1">
             <BuscadorGlobal rol={(session.user as { rol: string }).rol} />
             <PanelNotificaciones />
+            <ThemeToggle />
           </div>
         </header>
         <div className="flex-1 p-4 md:p-6">{children}</div>

@@ -30,6 +30,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TareaFila } from "./tarea-fila";
 import { AccesosCard } from "./accesos-card";
 import { BitacoraCard } from "./bitacora-card";
+import { MisTareasHoy } from "./mis-tareas-hoy";
+import { MusicWidget } from "./music-widget";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -348,21 +350,21 @@ export default async function HoyPage() {
                   </Button>
                 </div>
               ) : (
-                paraHoy.map((t) => (
-                  <TareaFila
-                    key={t.id}
-                    id={t.id}
-                    titulo={t.titulo}
-                    estado={t.estado}
-                    prioridad={t.prioridad}
-                    tipo={t.tipo}
-                    areaColor={t.area_color}
-                    areaNombre={t.area_nombre}
-                    fecha={t.fecha_vencimiento}
-                    fechaRelativa={t.fecha_vencimiento ? fechaRelativa(t.fecha_vencimiento, hoyISO) : null}
-                    vencida={false}
-                  />
-                ))
+                <MisTareasHoy
+                  tareas={paraHoy.map((t) => ({
+                    id: t.id,
+                    titulo: t.titulo,
+                    estado: t.estado,
+                    prioridad: t.prioridad,
+                    tipo: t.tipo,
+                    areaColor: t.area_color,
+                    areaNombre: t.area_nombre,
+                    fecha: t.fecha_vencimiento,
+                    fechaRelativa: t.fecha_vencimiento
+                      ? fechaRelativa(t.fecha_vencimiento, hoyISO)
+                      : null,
+                  }))}
+                />
               )}
             </CardContent>
           </Card>
@@ -423,6 +425,9 @@ export default async function HoyPage() {
           <div id="bitacora" className="scroll-mt-4">
             <BitacoraCard bitacoraHoy={bitacoraHoy} prefillHecho={prefillHecho} />
           </div>
+
+          {/* Música de la oficina */}
+          <MusicWidget />
 
           {/* En la oficina ahora */}
           <Card>

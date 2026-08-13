@@ -55,12 +55,16 @@ Lo primero que ve cualquiera al entrar. Busca responder "¿qué tengo que hacer 
 que el usuario tenga que ir a buscarlo.
 
 - **Vencidas**: tareas propias con fecha pasada, resaltadas en rojo — solo aparece si hay alguna.
-- **Mis tareas de hoy**: tareas propias en progreso o con vencimiento hoy.
+- **Mis tareas de hoy**: tareas propias en progreso o con vencimiento hoy. Al dejarla en
+  cero (se completó todo lo de hoy) tira un confetti como feedback — no vuelve a
+  disparar solo por entrar a la página sin nada pendiente.
 - **Próximamente**: tareas propias con vencimiento futuro (colapsable).
 - **Bitácora del día**: campos "qué hice" / "qué quedó pendiente" / "observaciones". Se
   precarga automáticamente con los títulos de las tareas que el usuario completó ese día.
+- **Música de la oficina**: reproductor compacto de una radio lofi (SomaFM) de fondo,
+  sin autoplay — arranca pausado y no requiere ninguna cuenta.
 - **En la oficina ahora**: quién está de turno en este momento, calculado a partir del
-  cronograma (`/cronograma`).
+  cronograma (`/cronograma`), y ya no cuenta a quien marcó ausencia.
 - **Pulso del equipo**: contador de tareas abiertas / en progreso / completadas hoy, a
   nivel de toda la organización (no solo del usuario).
 - **Accesos rápidos**: botones a URLs externas (Drive, Sheets, formularios) configurados
@@ -149,6 +153,8 @@ Datos básicos del usuario logueado (nombre, email, rol). Sin edición de datos 
 - **Notificaciones**: campana con no-leídas. Se generan al asignar una tarea a alguien o
   al comentar en una tarea de la que alguien es responsable. Polling cada 3 min (más
   refresco al volver a la pestaña y al abrir el panel) — no push/websocket.
+- **Modo oscuro por defecto**: toda la app arranca en oscuro (`next-themes`); hay un
+  botón sol/luna en el header para cambiar a claro, y la preferencia queda guardada.
 
 ---
 
@@ -229,6 +235,12 @@ En orden de lo que más se nota al usar el sistema:
 - ~~Sin headers de seguridad~~ — **resuelto**: `next.config.ts` ahora manda CSP (sin
   nonces — ver comentario en el archivo), `X-Frame-Options`, `X-Content-Type-Options`,
   `Referrer-Policy`, `Permissions-Policy` y HSTS en producción.
+- **Rediseño visual (idea 8) — parcial a propósito.** Se implementó lo verificable sin
+  navegador (modo oscuro por defecto, confetti al completar las tareas del día, widget
+  de música): esta sesión no tuvo acceso a un navegador real para revisar visualmente
+  cambios más subjetivos (glow/neumorfismo en elementos interactivos, banner de "frase
+  del día", saludo con ícono de clima, animaciones más amplias con `framer-motion` en el
+  tablero). Quedan como mejora a seguir cuando se pueda iterar mirando la pantalla.
 
 ## 7 . Correcciones a lo realizado y mejoras por hacer.
 Analizando en detalle la arquitectura funcional, el modelo de datos y las limitaciones documentadas de **SAE**, el diseño general es sólido y está bien enfocado: eliminar fricciones, evitar costos por asiento (*per-seat pricing*) de herramientas comerciales como Jira/Asana y mantener la jerarquía simple (Área → Tarea).

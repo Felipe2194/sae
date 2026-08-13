@@ -80,14 +80,26 @@ sistema, sin eventos de Google.
 
 ---
 
-## 3. Pendiente de decidir (se documenta acá cuando se resuelva)
+## 3. Música de la oficina — no requiere credenciales
 
-- **Reproductor de música / Spotify** (idea de diseño, bloque 4): si se opta por mostrar
-  la canción sonando de una cuenta compartida de Spotify, va a hacer falta un
-  `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` desde
-  [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) y un
-  refresh token de la cuenta que se use como "radio de la oficina". Se completa esta
-  sección cuando se decida ese enfoque.
+El widget "Música de la oficina" de `/hoy` quedó resuelto con una radio lofi pública
+(SomaFM, streaming directo por `<audio>`) que funciona sin ninguna cuenta ni clave. Es
+configurable si se quiere apuntar a otra emisora, pero no hace falta tocar nada para que
+funcione:
+
+```
+NEXT_PUBLIC_RADIO_STREAM_URL=<url de streaming mp3/ogg directo>
+NEXT_PUBLIC_RADIO_NOMBRE=<nombre a mostrar>
+```
+
+Si más adelante se quiere integrar con una cuenta de Spotify compartida (mostrar/
+controlar lo que suena ahí en vez de una radio fija), va a hacer falta un
+`SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` desde
+[developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) y un refresh
+token de esa cuenta — no está implementado, es un upgrade posible a futuro.
+
+## 4. Pendiente de decidir (se documenta acá cuando se resuelva)
+
 - **Despliegue en producción**: cuando se elija proveedor de Postgres gestionado (Neon,
   Supabase Cloud, etc. — Vercel ya no ofrece Postgres propio), va a hacer falta la
   connection string de ese proveedor como `DATABASE_URL` en las env vars de producción,

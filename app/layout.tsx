@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -20,10 +21,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} h-full antialiased`}>
+    <html
+      lang="es"
+      className={`${inter.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <body className="flex min-h-full flex-col">
-        <TooltipProvider>{children}</TooltipProvider>
-        <Toaster />
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          <TooltipProvider>{children}</TooltipProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
