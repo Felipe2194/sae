@@ -14,11 +14,11 @@ const cspHeader = `
   style-src 'self' 'unsafe-inline';
   img-src 'self' blob: data:;
   font-src 'self';
+  media-src 'self';
   object-src 'none';
   base-uri 'self';
   form-action 'self';
-  frame-ancestors 'none';
-  upgrade-insecure-requests;
+  frame-ancestors 'none';${isDev ? "" : "\n  upgrade-insecure-requests;"}
 `
   .replace(/\s{2,}/g, " ")
   .trim();

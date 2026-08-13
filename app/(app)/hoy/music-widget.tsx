@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 // Radio de fondo para la oficina — no requiere ninguna cuenta ni credencial.
-// Configurable por si se quiere apuntar a otra emisora sin tocar código.
-const STREAM_URL =
-  process.env.NEXT_PUBLIC_RADIO_STREAM_URL ?? "https://ice1.somafm.com/groovesalad-128-mp3";
+// Va a través de /api/radio-proxy (server-to-server) en vez de apuntar
+// directo al proveedor: algunos streams (SomaFM incluido) devuelven 403 a
+// pedidos que vienen del navegador. La URL real se configura server-side
+// vía NEXT_PUBLIC_RADIO_STREAM_URL — acá solo el nombre a mostrar.
 const NOMBRE_ESTACION = process.env.NEXT_PUBLIC_RADIO_NOMBRE ?? "Groove Salad · SomaFM (lofi)";
 
 export function MusicWidget() {
@@ -91,7 +92,7 @@ export function MusicWidget() {
 
         {/* Stream en vivo sin pista de texto disponible */}
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <audio ref={audioRef} src={STREAM_URL} preload="none" />
+        <audio ref={audioRef} src="/api/radio-proxy" preload="none" />
       </CardContent>
     </Card>
   );

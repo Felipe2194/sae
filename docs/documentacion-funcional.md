@@ -66,7 +66,10 @@ que el usuario tenga que ir a buscarlo.
 - **Bitácora del día**: campos "qué hice" / "qué quedó pendiente" / "observaciones". Se
   precarga automáticamente con los títulos de las tareas que el usuario completó ese día.
 - **Música de la oficina**: reproductor compacto de una radio lofi (SomaFM) de fondo,
-  sin autoplay — arranca pausado y no requiere ninguna cuenta.
+  sin autoplay — arranca pausado y no requiere ninguna cuenta. El audio pasa por
+  `/api/radio-proxy` (nuestro servidor reenvía el stream) en vez de que el navegador
+  apunte directo al proveedor externo — SomaFM devuelve 403 a pedidos que vienen de un
+  navegador real, aunque el mismo pedido server-to-server funciona sin problema.
 - **En la oficina ahora**: quién está de turno en este momento, calculado a partir del
   cronograma (`/cronograma`), y ya no cuenta a quien marcó ausencia.
 - **Pulso del equipo**: contador de tareas abiertas / en progreso / completadas hoy, a
