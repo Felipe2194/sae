@@ -8,6 +8,7 @@
 > - [`contexto.md`](./contexto.md) — especificación de producto original (visión completa, incluye cosas aún no construidas).
 > - [`estado-del-proyecto.md`](./estado-del-proyecto.md) — estado técnico/de implementación, decisiones de stack, checklist de despliegue.
 > - [`planes_extraidos/plan-de-construccion.md`](./planes_extraidos/plan-de-construccion.md) — plan paso a paso original.
+> - [`credenciales-pendientes.md`](./credenciales-pendientes.md) — qué credenciales faltan cargar (Google OAuth, Google Calendar) y dónde conseguirlas.
 >
 > Este archivo es el complemento **funcional**: qué existe, sección por sección, y qué
 > puede hacer cada rol de usuario.
@@ -219,12 +220,15 @@ En orden de lo que más se nota al usar el sistema:
 - **Despliegue (M0.4)**: falta elegir proveedor de Postgres gestionado (Vercel ya no
   ofrece Postgres propio, se provisiona vía Marketplace: Neon, Supabase Cloud, etc.) y
   hacer el primer deploy real. Hoy todo corre local con Docker.
-- **Sin tests automatizados ni CI**: nada impide que un commit con código roto llegue a
-  `main`.
+- **Tests automatizados: arrancaron, pero son mínimos.** Hay `vitest` configurado
+  (`npm test`) y un test de aislamiento RLS — nada de UI ni de los demás flujos. Sigue
+  sin haber CI (`.github/`): nada impide que un commit con código roto llegue a `main`
+  salvo correrlo a mano antes de pushear.
 - **Sin observabilidad**: no hay logging estructurado, Sentry, ni endpoint de
   health-check.
-- **Sin headers de seguridad** (CSP, HSTS, X-Frame-Options) configurados en
-  `next.config.ts`.
+- ~~Sin headers de seguridad~~ — **resuelto**: `next.config.ts` ahora manda CSP (sin
+  nonces — ver comentario en el archivo), `X-Frame-Options`, `X-Content-Type-Options`,
+  `Referrer-Policy`, `Permissions-Policy` y HSTS en producción.
 
 ## 7 . Correcciones a lo realizado y mejoras por hacer.
 Analizando en detalle la arquitectura funcional, el modelo de datos y las limitaciones documentadas de **SAE**, el diseño general es sólido y está bien enfocado: eliminar fricciones, evitar costos por asiento (*per-seat pricing*) de herramientas comerciales como Jira/Asana y mantener la jerarquía simple (Área → Tarea).
