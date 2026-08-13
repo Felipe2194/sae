@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, CalendarDays, MessageSquare, CheckSquare } from "lucide-react";
+import { GripVertical, CalendarDays, MessageSquare, CheckSquare, Repeat } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -104,7 +104,13 @@ export function TareaCardItem({
             <span
               className={`mt-[5px] size-2 shrink-0 rounded-full ${PRIORIDAD_COLOR[tarea.prioridad] ?? "bg-slate-300"}`}
             />
-            <p className="text-sm leading-snug font-medium">{tarea.titulo}</p>
+            <p className="text-sm leading-snug font-medium flex-1">{tarea.titulo}</p>
+            {tarea.recurrencia && (
+              <Repeat
+                className="mt-0.5 size-3 shrink-0 text-muted-foreground"
+                aria-label="Tarea recurrente"
+              />
+            )}
           </div>
 
           {/* Footer */}

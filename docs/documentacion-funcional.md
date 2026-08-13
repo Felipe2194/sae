@@ -78,10 +78,15 @@ Hecha** (a propósito no configurables — evita la complejidad tipo Jira).
 - Tarjetas arrastrables entre columnas (drag-and-drop con `dnd-kit`).
 - Filtros por área, responsable y estado.
 - Cada tarjeta abre un panel lateral con: descripción, tipo (tarea/evento/entrega/
-  reunión), prioridad, fecha de vencimiento, responsable, **horas estimadas/reales**,
-  **subtareas** (checklist), **comentarios**, **adjuntos** (solo enlaces — Drive, links;
-  no hay carga de archivos) y **historial de cambios** (quién cambió qué campo y cuándo,
-  tabla `tarea_log`).
+  reunión), prioridad, fecha de vencimiento, **repetición** (diaria/semanal/mensual),
+  responsable, **horas estimadas/reales**, **subtareas** (checklist), **comentarios**,
+  **adjuntos** (solo enlaces — Drive, links; no hay carga de archivos) y **historial de
+  cambios** (quién cambió qué campo y cuándo, tabla `tarea_log`).
+- **Tareas recurrentes**: si una tarea tiene repetición configurada (y fecha de
+  vencimiento), al marcarla "Hecha" se clona automáticamente la siguiente ocurrencia en
+  `por_hacer` con la fecha corrida (día, semana o mes). Cálculo al vuelo, no se generan
+  instancias futuras por adelantado. Se identifican en el tablero con un ícono de
+  repetición junto al título.
 - Crear tarea en un paso: título + área. El resto es opcional.
 - **Archivar**: en vez de borrar, las tareas se archivan (`archivada = true`). Preserva
   historial y métricas de `/coordinacion`. Hay una vista separada de tareas archivadas
@@ -217,10 +222,9 @@ En orden de lo que más se nota al usar el sistema:
     (existe la columna `tarea.google_event_id` en el esquema, pero no se usa en ningún
     lugar del código todavía).
   - Autenticación por OAuth de la organización en vez de API Key pública.
-- **Tareas recurrentes**: la columna `tarea.recurrencia` existe en el esquema pero no
-  hay UI ni lógica que la use. Las **plantillas de tareas por área** (`/areas/[areaId]`)
-  cubren parte de este caso de uso — clonar un conjunto de tareas a demanda — pero no son
-  recurrencia automática por calendario.
+- ~~Tareas recurrentes sin usar~~ — **resuelto**: ver sección 3.2. Queda como
+  simplificación consciente que no generamos instancias futuras por adelantado (cálculo
+  al vuelo, una a la vez, al completar la anterior).
 - **Adjuntos son solo enlaces**, no hay carga real de archivos (a propósito, por ahora).
 - **Notificaciones**: in-app (polling de 3 min + refresco al volver a la pestaña) +
   **Telegram opcional** (`lib/telegram.ts` — un mensaje al grupo del equipo al asignar

@@ -12,6 +12,75 @@ async function requireAuth() {
   return session;
 }
 
+// ── Tareas recurrentes ───────────────────────────────────────────────────────
+// Cálculo al vuelo, no generación anticipada: al completar una tarea con
+// recurrencia, se clona la siguiente ocurrencia en ese momento (no se crean
+// instancias futuras por adelantado). Más simple y no ensucia el tablero con
+// tareas de fechas lejanas que capaz nunca hacen falta.
+
+type Frecuencia = 'diaria' | 'semanal' | 'mensual';
+type Recurrencia = { frecuencia: Frecuencia } | null;
+
+function calcularSiguienteFecha(fechaISO: string, frecuencia: Frecuencia): string {
+  const [y, m, d] = fechaISO.split('-').map(Number);
+  const fecha = new Date(y, m - 1, d);
+
+  if (frecuencia === 'diaria') {
+    fecha.setDate(fecha.getDate() + 1);
+  } else if (frecuencia === 'semanal') {
+    fecha.setDate(fecha.getDate() + 7);
+  } else {
+    // Clamp al último día del mes destino — evita que "setMonth" desborde
+    // al mes siguiente (31 ene + 1 mes = 3 mar sin este ajuste, no 28/29 feb).
+    const mesDestino = fecha.getMonth() + 1;
+    const ultimoDiaMesDestino = new Date(fecha.getFullYear(), mesDestino + 1, 0).getDate();
+    fecha.setDate(1);
+    fecha.setMonth(mesDestino);
+    fecha.setDate(Math.min(d, ultimoDiaMesDestino));
+  }
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+async function generarSiguienteOcurrencia(tx: any, tareaId: string) {
+  const [tarea] = await tx<
+    {
+      area_id: string;
+      titulo: string;
+      descripcion: string | null;
+      tipo: string;
+      prioridad: string;
+      responsable_id: string | null;
+      fecha_vencimiento: string | null;
+      recurrencia: Recurrencia;
+    }[]
+  >`
+    select
+      area_id, titulo, descripcion, tipo::text, prioridad::text,
+      responsable_id, fecha_vencimiento::text, recurrencia
+    from tarea where id = ${tareaId}
+  `;
+
+  if (!tarea?.recurrencia || !tarea.fecha_vencimiento) return;
+
+  const siguiente = calcularSiguienteFecha(tarea.fecha_vencimiento, tarea.recurrencia.frecuencia);
+
+  await tx`
+    insert into tarea (
+      organizacion_id, area_id, titulo, descripcion, tipo, prioridad,
+      responsable_id, fecha_vencimiento, recurrencia, estado, creada_por, orden
+    )
+    values (
+      mi_organizacion_id(), ${tarea.area_id}, ${tarea.titulo}, ${tarea.descripcion},
+      ${tarea.tipo}::tipo_tarea, ${tarea.prioridad}::prioridad_tarea,
+      ${tarea.responsable_id}, ${siguiente}, ${JSON.stringify(tarea.recurrencia)}::jsonb,
+      'por_hacer', mi_usuario_id(), 0
+    )
+  `;
+}
+
 // ── Tarea ─────────────────────────────────────────────────────────────────────
 
 export async function crearTarea(input: {
@@ -64,6 +133,7 @@ export async function actualizarTarea(
     estado: string;
     duracion_estimada_hs?: number | null;
     duracion_real_hs?: number | null;
+    recurrencia?: Recurrencia;
   },
   prev?: {
     titulo: string;
@@ -91,7 +161,8 @@ export async function actualizarTarea(
         estado               = ${data.estado}::estado_tarea,
         completada_en        = ${completada_en},
         duracion_estimada_hs = ${data.duracion_estimada_hs ?? null},
-        duracion_real_hs     = ${data.duracion_real_hs ?? null}
+        duracion_real_hs     = ${data.duracion_real_hs ?? null},
+        recurrencia          = ${data.recurrencia ? JSON.stringify(data.recurrencia) : null}::jsonb
       where id = ${tareaId}
         and organizacion_id = mi_organizacion_id()
     `;
@@ -99,6 +170,11 @@ export async function actualizarTarea(
     // Notificar al nuevo responsable si cambió
     if (prev && data.responsable_id && data.responsable_id !== prev.responsable_id) {
       await notificarAsignacion(tx, data.responsable_id, data.titulo);
+    }
+
+    // Tarea recurrente que se acaba de completar -> clonar la siguiente ocurrencia
+    if (data.estado === 'hecha' && prev?.estado !== 'hecha') {
+      await generarSiguienteOcurrencia(tx, tareaId);
     }
 
     // Registrar cambios en el log
@@ -145,6 +221,13 @@ export async function moverEstadoTarea(tareaId: string, estado: string) {
       select ${tareaId}, mi_usuario_id(), 'Estado', estado::text, ${estado}
       from tarea where id = ${tareaId}
     `;
+
+    // El drag-and-drop del lado del cliente ya evita llamar acá si no hubo
+    // cambio real de estado, así que llegar con 'hecha' implica que antes no
+    // lo estaba.
+    if (estado === 'hecha') {
+      await generarSiguienteOcurrencia(tx, tareaId);
+    }
   });
   revalidatePath('/tablero');
   revalidatePath('/hoy');
@@ -197,6 +280,7 @@ export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
         t.archivada,
         t.duracion_estimada_hs,
         t.duracion_real_hs,
+        t.recurrencia,
         a.nombre  as area_nombre,
         a.color   as area_color,
         u.nombre  as responsable_nombre,

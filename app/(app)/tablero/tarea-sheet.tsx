@@ -64,11 +64,19 @@ const ESTADO_OPTS = [
   { value: "hecha", label: "Hecha" },
 ];
 
+const REPETIR_OPTS = [
+  { value: "_nunca", label: "No se repite" },
+  { value: "diaria", label: "Todos los días" },
+  { value: "semanal", label: "Todas las semanas" },
+  { value: "mensual", label: "Todos los meses" },
+];
+
 // Base UI necesita `items` para poder mostrar la etiqueta del valor
 // seleccionado sin haber abierto el popup todavía (si no, muestra el value crudo).
 const TIPO_ITEMS = Object.fromEntries(TIPO_OPTS.map((o) => [o.value, o.label]));
 const PRIORIDAD_ITEMS = Object.fromEntries(PRIORIDAD_OPTS.map((o) => [o.value, o.label]));
 const ESTADO_ITEMS = Object.fromEntries(ESTADO_OPTS.map((o) => [o.value, o.label]));
+const REPETIR_ITEMS = Object.fromEntries(REPETIR_OPTS.map((o) => [o.value, o.label]));
 
 const PRIORIDAD_COLOR: Record<string, string> = {
   baja: "bg-slate-300",
@@ -130,6 +138,7 @@ export function TareaSheet({
   const [duracionReal, setDuracionReal] = useState(
     tarea.duracion_real_hs != null ? String(tarea.duracion_real_hs) : "",
   );
+  const [repetir, setRepetir] = useState(tarea.recurrencia?.frecuencia ?? "_nunca");
 
   // ── Detalle (subtareas + comentarios + adjuntos + log) ──────────────────────
   const [subtareas, setSubtareas] = useState<SubtareaRow[]>([]);
@@ -221,6 +230,10 @@ export function TareaSheet({
           estado,
           duracion_estimada_hs: duracionEstimada.trim() ? Number(duracionEstimada) : null,
           duracion_real_hs: duracionReal.trim() ? Number(duracionReal) : null,
+          recurrencia:
+            repetir === "_nunca"
+              ? null
+              : { frecuencia: repetir as "diaria" | "semanal" | "mensual" },
         },
         prev,
       );
@@ -477,6 +490,29 @@ export function TareaSheet({
                   onChange={(e) => setFechaVencimiento(e.target.value)}
                   className="h-8"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Repetir</Label>
+                <Select value={repetir} onValueChange={(v) => setRepetir(v ?? "_nunca")} items={REPETIR_ITEMS}>
+                  <SelectTrigger className="w-full h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REPETIR_OPTS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {repetir !== "_nunca" && !fechaVencimiento && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Necesita fecha de vencimiento para generar la próxima.
+                  </p>
+                )}
               </div>
             </div>
 

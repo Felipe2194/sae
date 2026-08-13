@@ -23,6 +23,7 @@ export type TareaCard = {
   archivada: boolean;
   duracion_estimada_hs: number | null;
   duracion_real_hs: number | null;
+  recurrencia: { frecuencia: "diaria" | "semanal" | "mensual" } | null;
 };
 
 export type AreaOption = { id: string; nombre: string; color: string };
@@ -48,6 +49,7 @@ export default async function TableroPage() {
         t.archivada,
         t.duracion_estimada_hs,
         t.duracion_real_hs,
+        t.recurrencia,
         a.nombre  as area_nombre,
         a.color   as area_color,
         u.nombre  as responsable_nombre,
