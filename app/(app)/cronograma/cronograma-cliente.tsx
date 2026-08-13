@@ -20,7 +20,7 @@ const DIAS = [
   { dia: 4, label: "Viernes",   abrev: "Vie" },
 ];
 
-const PX_POR_HORA = 40;
+const PX_POR_HORA = 48;
 
 const PALETTE = [
   "#ef4444", "#f97316", "#eab308", "#22c55e",
@@ -104,6 +104,10 @@ type Props = {
 
 export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuarioId, canManage }: Props) {
   const [lunes, setLunes] = useState(() => lunesDe(new Date()));
+  const [diaSeleccionado, setDiaSeleccionado] = useState(() => {
+    const dow = (new Date().getDay() + 6) % 7; // 0=Lun…6=Dom
+    return dow < 5 ? dow : 0;
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [turnoEditar, setTurnoEditar] = useState<TurnoData | null>(null);
   const [ausenciaDialogOpen, setAusenciaDialogOpen] = useState(false);
@@ -194,7 +198,34 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
     d.setDate(d.getDate() + 7);
     setLunes(d);
   };
-  const irAHoy = () => setLunes(lunesDe(new Date()));
+  const irAHoy = () => {
+    setLunes(lunesDe(new Date()));
+    setDiaSeleccionado(diaHoy < 5 ? diaHoy : 0);
+  };
+
+  const diaAnterior = () => {
+    if (diaSeleccionado === 0) {
+      semanaAnterior();
+      setDiaSeleccionado(4);
+    } else {
+      setDiaSeleccionado(diaSeleccionado - 1);
+    }
+  };
+  const diaSiguiente = () => {
+    if (diaSeleccionado === 4) {
+      semanaSiguiente();
+      setDiaSeleccionado(0);
+    } else {
+      setDiaSeleccionado(diaSeleccionado + 1);
+    }
+  };
+
+  const fechaSeleccionada = fechaDia(lunes, diaSeleccionado);
+  const fechaSeleccionadaISO = fechaSeleccionada.toISOString().slice(0, 10);
+  const esHoySeleccionado = fechaSeleccionadaISO === hoyISO;
+  const turnosDelDia = turnos
+    .filter((t) => t.dia_semana === diaSeleccionado)
+    .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
 
   const horaLabels = Array.from(
     { length: totalHoras + 1 },
@@ -236,15 +267,17 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={semanaAnterior}>
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={irAHoy}>
-            Hoy
-          </Button>
-          <Button variant="outline" size="sm" onClick={semanaSiguiente}>
-            <ChevronRight className="size-4" />
-          </Button>
+          <div className="hidden md:flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={semanaAnterior}>
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={irAHoy}>
+              Hoy
+            </Button>
+            <Button variant="outline" size="sm" onClick={semanaSiguiente}>
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
           {canManage && (
             <Button size="sm" onClick={abrirNuevo} className="gap-1.5">
               <Plus className="size-4" />
@@ -269,7 +302,8 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
           )}
         </div>
       ) : (
-        <Card>
+        <>
+        <Card className="hidden md:block">
           <CardContent className="p-0 overflow-x-auto">
             <div className="min-w-[580px]">
 
@@ -389,21 +423,19 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                                 : `${t.usuario_nombre} · ${t.hora_inicio}–${t.hora_fin}`
                             }
                           >
-                            <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden group/bloque">
-                              <div className="flex items-center gap-1">
-                                {esMio && (
-                                  <span
-                                    className="size-3.5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-                                    style={{ backgroundColor: color }}
-                                  >
-                                    {iniciales(t.usuario_nombre).slice(0, 1)}
-                                  </span>
-                                )}
+                            <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden group/bloque min-h-0">
+                              <div className="flex items-center gap-1 min-w-0">
+                                <span
+                                  className="size-3.5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+                                  style={{ backgroundColor: color }}
+                                >
+                                  {iniciales(t.usuario_nombre).slice(0, 1)}
+                                </span>
                                 <p
-                                  className="text-[12px] font-semibold truncate leading-tight flex-1"
+                                  className="text-[12px] font-semibold truncate leading-tight flex-1 min-w-0"
                                   style={{ color }}
                                 >
-                                  {esMio ? "Vos" : iniciales(t.usuario_nombre)}
+                                  {esMio ? "Vos" : t.usuario_nombre.split(" ")[0]}
                                 </p>
                                 {canManage && (
                                   <div className="hidden group-hover/bloque:flex items-center gap-0.5 shrink-0">
@@ -440,6 +472,110 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
             </div>
           </CardContent>
         </Card>
+
+        {/* ── Agenda del día (mobile) ────────────────────────────────────────── */}
+        <div className="md:hidden flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <Button variant="outline" size="icon" onClick={diaAnterior} className="shrink-0">
+              <ChevronLeft className="size-4" />
+            </Button>
+            <div className="flex flex-col items-center">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {DIAS[diaSeleccionado].label}
+              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xl font-bold leading-tight">
+                  {fechaSeleccionada.toLocaleDateString("es-AR", { day: "numeric", month: "long" })}
+                </p>
+                {esHoySeleccionado && (
+                  <Badge className="text-[10px]">Hoy</Badge>
+                )}
+              </div>
+              {!esHoySeleccionado && (
+                <button
+                  onClick={irAHoy}
+                  className="text-[11px] text-primary underline underline-offset-2 mt-0.5"
+                >
+                  Volver a hoy
+                </button>
+              )}
+            </div>
+            <Button variant="outline" size="icon" onClick={diaSiguiente} className="shrink-0">
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+
+          {turnosDelDia.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-12 text-center rounded-xl border border-dashed">
+              <Users className="size-7 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">Sin turnos para este día.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {turnosDelDia.map((t) => {
+                const color = colorMap.get(t.usuario_nombre) ?? "#94a3b8";
+                const esMio = t.usuario_id === sesionUsuarioId;
+                const ausente = ausenciasPorUsuario.get(t.usuario_id)?.has(fechaSeleccionadaISO) ?? false;
+                const enCurso =
+                  esHoySeleccionado &&
+                  !ausente &&
+                  horaANum(t.hora_inicio) <= horaActual &&
+                  horaANum(t.hora_fin) > horaActual;
+
+                return (
+                  <div
+                    key={t.id}
+                    className={`flex items-center gap-3 rounded-xl border p-3 transition-opacity ${ausente ? "opacity-60" : ""} ${esMio ? "bg-primary/[0.04]" : ""}`}
+                    style={{
+                      borderLeftWidth: 4,
+                      borderLeftColor: ausente ? "#94a3b8" : color,
+                      borderLeftStyle: ausente ? "dashed" : "solid",
+                    }}
+                  >
+                    <div
+                      className="size-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                      style={{ backgroundColor: ausente ? "#94a3b8" : color }}
+                    >
+                      {iniciales(t.usuario_nombre)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">
+                        {esMio ? `${t.usuario_nombre} (vos)` : t.usuario_nombre}
+                      </p>
+                      <p className="text-muted-foreground text-sm">
+                        {ausente ? "Ausente" : `${t.hora_inicio} – ${t.hora_fin}`}
+                      </p>
+                    </div>
+                    {enCurso && (
+                      <Badge variant="outline" className="shrink-0 border-primary/30 text-primary text-[10px]">
+                        En curso
+                      </Badge>
+                    )}
+                    {canManage && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => abrirEditar(t)}
+                          className="rounded-md p-1.5 hover:bg-black/5 transition-colors"
+                          title="Editar turno"
+                        >
+                          <Pencil className="size-4 text-muted-foreground" />
+                        </button>
+                        <button
+                          onClick={() => handleEliminar(t.id)}
+                          className="rounded-md p-1.5 hover:bg-black/5 transition-colors"
+                          title="Eliminar turno"
+                        >
+                          <Trash2 className="size-4 text-muted-foreground" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        </>
       )}
 
       {/* ── Leyenda ─────────────────────────────────────────────────────────── */}
