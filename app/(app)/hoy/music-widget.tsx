@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Music2 } from "lucide-react";
+import { Music2, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
@@ -81,16 +81,23 @@ export function MusicWidget({ playlists, usuarioActualId }: Props) {
   const actual = opciones.find((o) => o.value === seleccion) ?? opciones[0];
   const items = Object.fromEntries(opciones.map((o) => [o.value, o.label]));
 
+  const [abierto, setAbierto] = useState(false);
+
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={abierto} onOpenChange={setAbierto}>
       <Card>
         <CollapsibleTrigger
           nativeButton={false}
           render={<CardHeader className="cursor-pointer select-none pb-2 pt-4 px-4" />}
         >
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Music2 className="size-3.5 text-muted-foreground" />
-            Música de la oficina
+          <CardTitle className="flex items-center justify-between gap-1.5 text-sm font-semibold">
+            <span className="flex items-center gap-1.5 min-w-0">
+              <Music2 className="size-3.5 text-muted-foreground shrink-0" />
+              <span className="truncate">Música</span>
+            </span>
+            <ChevronDown
+              className={`size-3.5 text-muted-foreground shrink-0 transition-transform ${abierto ? "rotate-180" : ""}`}
+            />
           </CardTitle>
         </CollapsibleTrigger>
         <CollapsibleContent>

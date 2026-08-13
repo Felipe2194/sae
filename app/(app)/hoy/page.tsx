@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   Collapsible,
   CollapsibleContent,
@@ -374,7 +373,7 @@ export default async function HoyPage() {
       )}
 
       {/* ── Body 2-col ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_260px]">
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_320px]">
 
         {/* ── Columna izquierda ─────────────────────────────────────────────── */}
         <div className="flex flex-col gap-4">
@@ -506,11 +505,44 @@ export default async function HoyPage() {
             <BitacoraCard bitacoraHoy={bitacoraHoy} prefillHecho={prefillHecho} />
           </div>
 
-          {/* Música de la oficina */}
-          <MusicWidget
-            playlists={playlists.map((p) => ({ usuarioId: p.usuario_id, nombre: p.nombre, url: p.url }))}
-            usuarioActualId={session.user.id}
-          />
+          {/* Música + Pulso del equipo: dos tarjetas compactas lado a lado
+              en vez de apiladas — el objetivo es que toda la columna entre
+              en pantalla sin scrollear. */}
+          <div className="grid grid-cols-2 gap-4">
+            <MusicWidget
+              playlists={playlists.map((p) => ({ usuarioId: p.usuario_id, nombre: p.nombre, url: p.url }))}
+              usuarioActualId={session.user.id}
+            />
+
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold">Pulso</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                    <ListTodo className="size-3 shrink-0" />
+                    Abiertas
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums">{stats.abiertas}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                    <Clock className="size-3 shrink-0" />
+                    En progreso
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-blue-600">{stats.en_progreso}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                    <CheckCircle2 className="size-3 shrink-0" />
+                    Hoy
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-green-600">{stats.completadas_hoy}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* En la oficina ahora */}
           <Card>
@@ -544,40 +576,6 @@ export default async function HoyPage() {
                   </p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Stats del equipo */}
-          <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm font-semibold">
-                Pulso del equipo
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-muted-foreground text-xs">
-                  <ListTodo className="size-3.5" />
-                  Abiertas
-                </span>
-                <span className="font-semibold tabular-nums">{stats.abiertas}</span>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-muted-foreground text-xs">
-                  <Clock className="size-3.5" />
-                  En progreso
-                </span>
-                <span className="font-semibold tabular-nums text-blue-600">{stats.en_progreso}</span>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-muted-foreground text-xs">
-                  <CheckCircle2 className="size-3.5" />
-                  Completadas hoy
-                </span>
-                <span className="font-semibold tabular-nums text-green-600">{stats.completadas_hoy}</span>
-              </div>
             </CardContent>
           </Card>
 
