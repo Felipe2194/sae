@@ -6,7 +6,7 @@ const RUTAS_PUBLICAS = ['/login', '/registro', '/pendiente-de-aprobacion'];
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
-  const isPublica = RUTAS_PUBLICAS.some((r) => pathname.startsWith(r));
+  const isPublica = pathname === '/' || RUTAS_PUBLICAS.some((r) => pathname.startsWith(r));
 
   if (!isLoggedIn && !isPublica) {
     return NextResponse.redirect(new URL('/login', req.url));
