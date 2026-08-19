@@ -12,12 +12,14 @@ const isDev = process.env.NODE_ENV === "development";
 // (components/features/music-player.tsx), y drive/docs.google.com para el
 // selector y la vista previa de Drive (app/(app)/tablero/drive-picker-button.tsx,
 // tarea-sheet.tsx) — frame-ancestors sigue en 'none' porque eso controla lo
-// contrario (quién puede embeber ESTA app). script-src/connect-src suman los
-// hosts de Google Identity Services y la Picker API, que se cargan como
-// <script> dinámico (no npm) y hacen sus propios fetch a googleapis.com.
+// contrario (quién puede embeber ESTA app). script-src suma youtube.com para
+// el loader de la IFrame Player API (obligatorio para setShuffle — no hay
+// parámetro de URL que baraje una playlist) y los hosts de Google Identity
+// Services / Picker API, que también se cargan como <script> dinámico (no
+// npm) y hacen sus propios fetch a googleapis.com vía connect-src.
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com${isDev ? " 'unsafe-eval'" : ""};
+  script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://www.youtube.com${isDev ? " 'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline';
   img-src 'self' blob: data:;
   font-src 'self';

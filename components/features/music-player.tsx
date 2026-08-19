@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Music2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,22 +13,69 @@ import {
 
 // Reproductor global de música de fondo — vive en el layout de (app), no en
 // una página puntual, para que sobreviva la navegación entre secciones. El
-// iframe nunca se desmonta: minimizar solo lo encoge a 0×0 con overflow
+// player nunca se desmonta: minimizar solo lo encoge a 0×0 con overflow
 // hidden (nunca display:none ni un render condicional), así YouTube sigue
-// reproduciendo aunque no se vea. Embeds oficiales en modo privacy-enhanced
-// (youtube-nocookie.com) — no requiere cuenta ni credencial, y usa los
-// controles nativos del reproductor.
+// reproduciendo aunque no se vea.
+//
+// El orden aleatorio de una playlist NO existe como parámetro de URL del
+// embed (no hay "?shuffle=1" — se probó y no hace nada, YouTube no lo
+// documenta). Lo único que lo habilita es la IFrame Player API
+// (`player.setShuffle(true)`), así que el player se crea con
+// `new YT.Player(...)` en vez de un <iframe src> estático.
+//
+// Las APIs de YouTube no traen tipos oficiales; se cargan como script
+// global, no como paquete npm.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type YTGlobal = any;
+declare global {
+  interface Window {
+    YT?: YTGlobal;
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
 const DEFAULT_ID = process.env.NEXT_PUBLIC_YOUTUBE_EMBED_ID ?? "PLOr_yJOt73B0";
 const DEFAULT_NOMBRE = process.env.NEXT_PUBLIC_YOUTUBE_EMBED_NOMBRE ?? "Playlist de la SAE";
 
-// Los IDs de playlist empiezan con "PL" y usan un formato de embed distinto
-// al de un video/transmisión suelta — se detecta solo. shuffle=1 hace que
-// cada playlist arranque en orden aleatorio en vez de repetir siempre el
-// mismo primer tema.
-function embedSrcDesdeId(id: string): string {
-  return id.startsWith("PL")
-    ? `https://www.youtube-nocookie.com/embed/videoseries?list=${id}&shuffle=1`
-    : `https://www.youtube-nocookie.com/embed/${id}?rel=0`;
+// Tamaño fijo del embed — el panel flotante no es responsive (siempre w-72),
+// así que le pasamos a la API el mismo tamaño en vez de dejar el default de
+// YouTube (640x390, que desbordaría el panel).
+const ANCHO = 288;
+const ALTO = Math.round((ANCHO * 9) / 16);
+
+let iframeApiPromise: Promise<void> | null = null;
+function cargarIframeApi(): Promise<void> {
+  if (window.YT?.Player) return Promise.resolve();
+  if (iframeApiPromise) return iframeApiPromise;
+  iframeApiPromise = new Promise((resolve) => {
+    const anterior = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      anterior?.();
+      resolve();
+    };
+    const script = document.createElement("script");
+    script.src = "https://www.youtube.com/iframe_api";
+    script.async = true;
+    document.head.appendChild(script);
+  });
+  return iframeApiPromise;
+}
+
+// Los IDs de playlist empiezan con "PL" y se cargan distinto a un video o
+// transmisión suelta — se detecta solo.
+function esPlaylist(id: string): boolean {
+  return id.startsWith("PL");
+}
+
+function cuearOpcion(player: YTGlobal, embedId: string) {
+  if (esPlaylist(embedId)) {
+    player.cuePlaylist({ listType: "playlist", list: embedId });
+    // No persiste entre cuePlaylist/loadPlaylist — hay que reafirmarlo cada
+    // vez que se carga una playlist nueva (incluida la primera).
+    player.setShuffle(true);
+  } else {
+    player.cueVideoById(embedId);
+  }
 }
 
 // Extrae el ID de video o playlist de una URL de YouTube / YouTube Music en
@@ -82,6 +129,42 @@ export function MusicPlayer({ playlists, usuarioActualId }: Props) {
 
   const [abierto, setAbierto] = useState(false);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<YTGlobal>(null);
+
+  // Crea el player una sola vez (persiste mientras dure la sesión, no se
+  // recrea al cambiar de playlist ni al navegar entre páginas).
+  useEffect(() => {
+    let cancelado = false;
+    cargarIframeApi().then(() => {
+      if (cancelado || !containerRef.current) return;
+      playerRef.current = new window.YT.Player(containerRef.current, {
+        width: ANCHO,
+        height: ALTO,
+        host: "https://www.youtube-nocookie.com",
+        playerVars: { rel: 0 },
+        events: {
+          onReady: (e: { target: YTGlobal }) => cuearOpcion(e.target, actual.embedId),
+        },
+      });
+    });
+    return () => {
+      cancelado = true;
+      playerRef.current?.destroy?.();
+      playerRef.current = null;
+    };
+    // Solo al montar: cambiar de playlist se maneja en el efecto de abajo
+    // sobre el player ya creado, no recreándolo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cambiar de selección: recarga el player existente en vez de recrearlo.
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player?.cuePlaylist) return; // todavía no está listo — onReady se ocupa
+    cuearOpcion(player, actual.embedId);
+  }, [actual.embedId]);
+
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
       <div
@@ -108,15 +191,11 @@ export function MusicPlayer({ playlists, usuarioActualId }: Props) {
               </SelectContent>
             </Select>
           )}
-          <div className="aspect-video w-full overflow-hidden rounded-md">
-            <iframe
-              key={actual.embedId}
-              className="size-full"
-              src={embedSrcDesdeId(actual.embedId)}
-              title={actual.label}
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            />
+          <div
+            className="overflow-hidden rounded-md"
+            style={{ width: ANCHO, height: ALTO }}
+          >
+            <div ref={containerRef} />
           </div>
         </div>
       </div>
