@@ -64,15 +64,18 @@ export function AppSidebar({
   user,
   rol,
   avatarColor,
+  logoUrl,
 }: {
   user: SidebarUser;
   rol: string;
   avatarColor: string | null;
+  logoUrl?: string | null;
 }) {
   const pathname = usePathname();
   const inits = iniciales(user.name);
   const items = ITEMS_BASE.filter((item) => item.roles === null || item.roles.includes(rol));
   const colorFondo = avatarColor ?? AVATAR_COLOR_DEFAULT;
+  const logo = logoUrl || "/LogoUTN.png";
 
   return (
     <Sidebar collapsible="icon">
@@ -81,7 +84,7 @@ export function AppSidebar({
         <div className="group-data-[collapsible=icon]:hidden px-3 py-3 flex flex-col gap-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/LogoUTN.png"
+            src={logo}
             alt="UTN Villa María"
             width={170}
             style={{ objectFit: "contain", objectPosition: "left", display: "block" }}
@@ -114,7 +117,7 @@ export function AppSidebar({
                     isActive={pathname.startsWith(item.href)}
                     tooltip={item.label}
                     size="lg"
-                    className="text-base"
+                    className="text-base gap-3 px-3"
                   >
                     <item.icon className="size-5 shrink-0" />
                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>

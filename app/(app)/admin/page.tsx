@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Link2, Trash2, Calendar, CheckSquare, ExternalLink, Users } from "lucide-react";
+import { Link2, Trash2, Calendar, CheckSquare, ExternalLink, Users, Building2 } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { AsignarSelect } from "./asignar-select";
 import { crearAcceso, eliminarAcceso } from "./actions";
 import { UsuariosTable, type UsuarioFila } from "./usuarios-table";
+import { OrganizacionForm } from "./organizacion-form";
 
 type UsuarioRow = UsuarioFila;
 
@@ -46,7 +47,7 @@ export default async function AdminPage() {
   const rol = (session.user as { rol: string }).rol;
   if (rol !== "administrador") redirect("/hoy");
 
-  const { tareas, usuarios, todosUsuarios, accesos } = await withUser(session.user.id, async (tx) => {
+  const { tareas, usuarios, todosUsuarios, accesos, organizacion } = await withUser(session.user.id, async (tx) => {
     const tareas = await tx<TareaRow[]>`
       select
         t.id,
@@ -82,7 +83,15 @@ export default async function AdminPage() {
       order by orden asc
     `;
 
-    return { tareas, usuarios, todosUsuarios, accesos };
+    const [organizacion] = await tx<
+      { nombre: string; logo_url: string | null; color_principal: string | null; zona_horaria: string }[]
+    >`
+      select nombre, logo_url, color_principal, zona_horaria
+      from organizacion
+      where id = mi_organizacion_id()
+    `;
+
+    return { tareas, usuarios, todosUsuarios, accesos, organizacion };
   });
 
   const tieneCalendar =
@@ -96,6 +105,19 @@ export default async function AdminPage() {
           Configuración del sistema y gestión de recursos.
         </p>
       </div>
+
+      {/* ── Organización ─────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <Building2 className="text-muted-foreground size-4" />
+          <h2 className="font-semibold">Organización</h2>
+        </div>
+        <Card>
+          <CardContent className="pt-4">
+            <OrganizacionForm organizacion={organizacion} />
+          </CardContent>
+        </Card>
+      </section>
 
       {/* ── Gestión de usuarios ──────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">

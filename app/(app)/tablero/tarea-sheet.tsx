@@ -38,6 +38,7 @@ import {
   eliminarAdjunto,
   fetchAdjuntos,
 } from "./actions";
+import { DrivePickerButton } from "./drive-picker-button";
 import type {
   TareaCard,
   AreaOption,
@@ -51,6 +52,11 @@ const TIPO_OPTS = [
   { value: "entrega", label: "Entrega" },
   { value: "reunion", label: "Reunión" },
 ];
+
+function extraerDriveFileId(url: string): string | null {
+  const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  return m ? m[1] : null;
+}
 
 const PRIORIDAD_OPTS = [
   { value: "baja", label: "Baja" },
@@ -152,6 +158,7 @@ export function TareaSheet({
   const [nuevoAdjUrl, setNuevoAdjUrl] = useState("");
   const [showAdjForm, setShowAdjForm] = useState(false);
   const [isPendingAdj, startAdj] = useTransition();
+  const [previewAbierto, setPreviewAbierto] = useState<string | null>(null);
 
   // ── Acciones ─────────────────────────────────────────────────────────────
   const [isPendingSave, startSave] = useTransition();
@@ -202,6 +209,14 @@ export function TareaSheet({
     startAdj(async () => {
       await eliminarAdjunto(adjId);
       setAdjuntos((prev) => prev.filter((a) => a.id !== adjId));
+    });
+  }
+
+  function handlePickDrive(archivo: { nombre: string; url: string }) {
+    startAdj(async () => {
+      await crearAdjunto(tarea.id, archivo);
+      const updated = await fetchAdjuntos(tarea.id);
+      setAdjuntos(updated);
     });
   }
 
@@ -647,13 +662,16 @@ export function TareaSheet({
                   <span className="text-muted-foreground font-normal ml-0.5">{adjuntos.length}</span>
                 )}
               </h3>
-              <button
-                onClick={() => setShowAdjForm((v) => !v)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-              >
-                <Plus className="size-3" />
-                Enlace
-              </button>
+              <div className="flex items-center gap-3">
+                <DrivePickerButton onPicked={handlePickDrive} />
+                <button
+                  onClick={() => setShowAdjForm((v) => !v)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  <Plus className="size-3" />
+                  Enlace
+                </button>
+              </div>
             </div>
 
             {showAdjForm && (
@@ -682,25 +700,46 @@ export function TareaSheet({
 
             {adjuntos.length > 0 && (
               <div className="flex flex-col gap-1.5">
-                {adjuntos.map((a) => (
-                  <div key={a.id} className="group flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-muted/50 transition-colors">
-                    <ExternalLink className="size-3.5 text-muted-foreground shrink-0" />
-                    <a
-                      href={a.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 text-sm truncate hover:underline"
-                    >
-                      {a.nombre}
-                    </a>
-                    <button
-                      onClick={() => handleDeleteAdjunto(a.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ))}
+                {adjuntos.map((a) => {
+                  const driveFileId = extraerDriveFileId(a.url);
+                  return (
+                    <div key={a.id} className="flex flex-col gap-1.5">
+                      <div className="group flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-muted/50 transition-colors">
+                        <ExternalLink className="size-3.5 text-muted-foreground shrink-0" />
+                        <a
+                          href={a.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 text-sm truncate hover:underline"
+                        >
+                          {a.nombre}
+                        </a>
+                        {driveFileId && (
+                          <button
+                            onClick={() => setPreviewAbierto((prev) => (prev === a.id ? null : a.id))}
+                            className="text-muted-foreground hover:text-foreground text-xs shrink-0"
+                          >
+                            {previewAbierto === a.id ? "Ocultar" : "Ver"}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteAdjunto(a.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                      {driveFileId && previewAbierto === a.id && (
+                        <iframe
+                          src={`https://drive.google.com/file/d/${driveFileId}/preview`}
+                          className="w-full rounded-md border"
+                          height={300}
+                          allow="autoplay"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -8,7 +8,8 @@
 > - [`contexto.md`](./contexto.md) — especificación de producto original (visión completa, incluye cosas aún no construidas).
 > - [`estado-del-proyecto.md`](./estado-del-proyecto.md) — estado técnico/de implementación, decisiones de stack, checklist de despliegue.
 > - [`planes_extraidos/plan-de-construccion.md`](./planes_extraidos/plan-de-construccion.md) — plan paso a paso original.
-> - [`credenciales-pendientes.md`](./credenciales-pendientes.md) — qué credenciales faltan cargar (Google OAuth, Google Calendar) y dónde conseguirlas.
+> - [`credenciales-pendientes.md`](./credenciales-pendientes.md) — qué credenciales faltan cargar (Google OAuth, Google Calendar, Drive) y dónde conseguirlas.
+> - [`manual-de-usuario.md`](./manual-de-usuario.md) — la misma información de la sección 3 de abajo, pero en tono instructivo para quien usa el sistema (no para retomar desarrollo).
 >
 > Este archivo es el complemento **funcional**: qué existe, sección por sección, y qué
 > puede hacer cada rol de usuario.
@@ -98,8 +99,10 @@ Hecha** (a propósito no configurables — evita la complejidad tipo Jira).
 - Cada tarjeta abre un panel lateral con: descripción, tipo (tarea/evento/entrega/
   reunión), prioridad, fecha de vencimiento, **repetición** (diaria/semanal/mensual),
   responsable, **horas estimadas/reales**, **subtareas** (checklist), **comentarios**,
-  **adjuntos** (solo enlaces — Drive, links; no hay carga de archivos) y **historial de
-  cambios** (quién cambió qué campo y cuándo, tabla `tarea_log`).
+  **adjuntos** (enlaces — a mano, o elegidos directamente del Drive del usuario con el
+  botón "Drive"; no hay carga real de archivos, ver sección 6) con **vista previa
+  embebida** para los adjuntos de Drive, y **historial de cambios** (quién cambió qué
+  campo y cuándo, tabla `tarea_log`).
 - **Tareas recurrentes**: si una tarea tiene repetición configurada (y fecha de
   vencimiento), al marcarla "Hecha" se clona automáticamente la siguiente ocurrencia en
   `por_hacer` con la fecha corrida (día, semana o mes). Cálculo al vuelo, no se generan
@@ -175,6 +178,10 @@ Complementa a `/coordinacion` (que mira el estado *actual* del trabajo) con una 
 
 ### 3.8 `/admin` — Administración (solo administrador)
 
+- **Organización**: nombre, logo, color principal y zona horaria de la organización.
+  El color tiñe `--primary` en toda la app (sidebar, botones); la zona horaria se aplica
+  a nivel de sesión de Postgres en `withUser()`, así que afecta cualquier cálculo de
+  "hoy" del lado del servidor (bitácora, "en la oficina ahora", informes).
 - **Usuarios**: aprobar registros pendientes, cambiar rol, activar/desactivar cuentas.
 - **Asignar tareas**: listado de tareas abiertas sin dueño (o para reasignar) con un
   selector de responsable.
@@ -272,7 +279,9 @@ En orden de lo que más se nota al usar el sistema:
 - ~~Tareas recurrentes sin usar~~ — **resuelto**: ver sección 3.2. Queda como
   simplificación consciente que no generamos instancias futuras por adelantado (cálculo
   al vuelo, una a la vez, al completar la anterior).
-- **Adjuntos son solo enlaces**, no hay carga real de archivos (a propósito, por ahora).
+- **Adjuntos son solo enlaces**, no hay carga real de archivos — a propósito por ahora
+  (requeriría provisionar Vercel Blob u otro storage, pospuesto). El selector de Drive
+  (sección 3.2/3.8) no cambia esto: guarda el link del archivo, no una copia.
 - **Notificaciones**: in-app (polling de 3 min + refresco al volver a la pestaña) +
   **Telegram opcional** (`lib/telegram.ts` — un mensaje al grupo del equipo al asignar
   una tarea o comentar; requiere `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`, ver

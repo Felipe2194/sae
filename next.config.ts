@@ -9,15 +9,20 @@ const isDev = process.env.NODE_ENV === "development";
 // scripts/objetos/frames de terceros, que es el riesgo real para una app
 // interna sin CDN de anuncios ni contenido de usuarios no confiable.
 // frame-src abre youtube-nocookie.com puntualmente para el embed de música
-// de /hoy (app/(app)/hoy/music-widget.tsx) — frame-ancestors sigue en 'none'
-// porque eso controla lo contrario (quién puede embeber ESTA app).
+// de /hoy (app/(app)/hoy/music-widget.tsx), y drive/docs.google.com para el
+// selector y la vista previa de Drive (app/(app)/tablero/drive-picker-button.tsx,
+// tarea-sheet.tsx) — frame-ancestors sigue en 'none' porque eso controla lo
+// contrario (quién puede embeber ESTA app). script-src/connect-src suman los
+// hosts de Google Identity Services y la Picker API, que se cargan como
+// <script> dinámico (no npm) y hacen sus propios fetch a googleapis.com.
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
+  script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com${isDev ? " 'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline';
   img-src 'self' blob: data:;
   font-src 'self';
-  frame-src https://www.youtube-nocookie.com;
+  frame-src https://www.youtube-nocookie.com https://drive.google.com https://docs.google.com;
+  connect-src 'self' https://www.googleapis.com https://content.googleapis.com;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
@@ -27,6 +32,10 @@ const cspHeader = `
   .trim();
 
 const nextConfig: NextConfig = {
+  // "standalone" arma un bundle self-contained en .next/standalone — lo usa
+  // el Dockerfile para self-hosting (ver docs/migracion-servidores-propios.md).
+  // No afecta el deploy en Vercel, que ignora esta opción.
+  output: "standalone",
   async headers() {
     return [
       {

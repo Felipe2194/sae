@@ -17,6 +17,7 @@ export interface OrganizacionRow {
   slug: string;
   logo_url: string | null;
   zona_horaria: string;
+  color_principal: string | null;
   creada_en: string;
 }
 
@@ -26,6 +27,7 @@ export interface OrganizacionInsert {
   slug: string;
   logo_url?: string | null;
   zona_horaria?: string;
+  color_principal?: string | null;
 }
 
 export type OrganizacionUpdate = Partial<OrganizacionInsert>;

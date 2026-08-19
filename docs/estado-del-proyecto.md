@@ -4,7 +4,9 @@
 > de producto completa está en [`contexto.md`](./contexto.md) y el plan de trabajo
 > paso a paso en [`planes_extraidos/plan-de-construccion.md`](./planes_extraidos/plan-de-construccion.md).
 > Este archivo es el complemento: qué se decidió al implementar, qué está hecho y
-> cómo retomarlo.
+> cómo retomarlo. Para el detalle técnico completo del repo tal como quedó, ver
+> [`documentacion-tecnica.md`](./documentacion-tecnica.md); para instalar una
+> instancia nueva, [`guia-instalacion.md`](./guia-instalacion.md).
 
 ---
 
@@ -120,6 +122,24 @@ página). Todo el front lee/escribe contra Postgres vía `withUser()`:
   (`lib/rate-limit.ts`, tabla `intento_auth`).
 - Notificaciones in-app (polling cada 30s — no escala mucho más allá de un
   puñado de usuarios simultáneos, pero alcanza para el uso actual).
+
+### Etapa 4 (parcial) — personalización, Drive y documentación
+
+Sin M4.1 (alta autogestionada de organizaciones — no aplica sin una segunda
+organización real usando el sistema):
+
+- **M4.2 Personalización**: `/admin` → sección "Organización" para nombre,
+  logo, color principal y zona horaria. `withUser()` (`lib/db.ts`) aplica la
+  zona horaria configurada a la sesión de Postgres, así `current_date`/
+  `current_time` (bitácora, "en la oficina ahora", informes) quedan en la
+  hora real de la organización en vez de la del contenedor.
+- **M4.3 Drive**: botón "Drive" al adjuntar un archivo en `/tablero` (Google
+  Picker, scope `drive.file`, sin guardar tokens en el servidor) + vista
+  previa embebida de adjuntos de Drive. Requiere credenciales opcionales,
+  ver `credenciales-pendientes.md` sección 6.
+- **M4.4 Documentación**: manual de usuario, documentación técnica, guía de
+  instalación e instructivo de migración a servidores propios — los cuatro
+  nuevos en `docs/`.
 
 ---
 

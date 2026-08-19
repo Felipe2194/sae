@@ -90,6 +90,29 @@ export async function asignarTarea(tareaId: string, usuarioId: string | null) {
   revalidatePath('/tablero');
 }
 
+// ── Organización ──────────────────────────────────────────────────────────────
+
+export async function actualizarOrganizacion(data: {
+  nombre: string;
+  logo_url: string | null;
+  color_principal: string | null;
+  zona_horaria: string;
+}) {
+  const session = await requireAdmin();
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      update organizacion
+      set nombre = ${data.nombre},
+        logo_url = ${data.logo_url},
+        color_principal = ${data.color_principal},
+        zona_horaria = ${data.zona_horaria}
+      where id = mi_organizacion_id()
+    `;
+  });
+  revalidatePath('/admin');
+  revalidatePath('/', 'layout');
+}
+
 // ── Accesos rápidos ───────────────────────────────────────────────────────────
 
 export async function crearAcceso(formData: FormData) {

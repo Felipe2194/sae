@@ -173,7 +173,46 @@ estructurado que ya corre en `lib/logger.ts`), hace falta:
 SENTRY_DSN=<el DSN del proyecto>
 ```
 
-## 6. Pendiente de decidir (se documenta acá cuando se resuelva)
+## 6. Selector de archivos de Drive (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY`)
+
+Habilita el botón "Drive" al adjuntar un archivo a una tarea en `/tablero`: abre
+el selector oficial de Google (Picker) para elegir un archivo del Drive
+personal de quien está logueado, y lo adjunta como enlace (mismo modelo que un
+adjunto manual — nombre + URL, sin subir ni copiar el archivo a ningún lado).
+También habilita la vista previa embebida de esos adjuntos.
+
+A diferencia del login y de Calendar, esto **no** usa el flujo de Auth.js: pide
+un token de acceso efímero directamente en el navegador (Google Identity
+Services), que vive solo mientras el picker está abierto y nunca se guarda en
+el servidor. El usuario da acceso únicamente a los archivos que abre desde el
+picker (scope `drive.file`), no a todo su Drive.
+
+**Dónde conseguirlo:** mismo proyecto de Google Cloud ("SAE-Sistema") ya usado
+para el login y Calendar.
+
+1. En **APIs y servicios → Biblioteca**, activar **Google Drive API** y
+   **Google Picker API**.
+2. `NEXT_PUBLIC_GOOGLE_CLIENT_ID`: mismo valor que `AUTH_GOOGLE_ID` (sección 1
+   de este documento). El client ID de OAuth no es secreto — solo el
+   `AUTH_GOOGLE_SECRET` lo es — así que es seguro exponerlo con el prefijo
+   `NEXT_PUBLIC_`. Los "Orígenes de JavaScript autorizados" que ya se
+   configuraron para el login sirven igual para esto.
+3. `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY`: crear una **API Key nueva** en
+   **Credenciales → Crear credenciales → Clave de API**, y restringirla a la
+   **Picker API** únicamente. No reusar `GOOGLE_CALENDAR_API_KEY`: esa ya está
+   restringida solo a Calendar y el request de Picker fallaría.
+
+**Dónde pegarlo:**
+
+```
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=<mismo valor que AUTH_GOOGLE_ID>
+NEXT_PUBLIC_GOOGLE_PICKER_API_KEY=<la API key nueva>
+```
+
+Sin estas variables, el botón "Drive" simplemente no aparece — el adjunto
+manual por nombre+URL sigue funcionando igual.
+
+## 7. Pendiente de decidir (se documenta acá cuando se resuelva)
 
 - **Despliegue en producción**: cuando se elija proveedor de Postgres gestionado (Neon,
   Supabase Cloud, etc. — Vercel ya no ofrece Postgres propio), va a hacer falta la

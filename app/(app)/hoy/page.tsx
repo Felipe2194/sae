@@ -448,6 +448,80 @@ export default async function HoyPage() {
             </CardContent>
           </Card>
 
+          {/* Música + Pulso + En la oficina ahora + Accesos rápidos: fila
+              horizontal debajo de las tareas de hoy en vez de apiladas. */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <MusicWidget
+              playlists={playlists.map((p) => ({ usuarioId: p.usuario_id, nombre: p.nombre, url: p.url }))}
+              usuarioActualId={session.user.id}
+            />
+
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold">Pulso</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                    <ListTodo className="size-3 shrink-0" />
+                    Abiertas
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums">{stats.abiertas}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                    <Clock className="size-3 shrink-0" />
+                    En progreso
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-blue-600">{stats.en_progreso}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                    <CheckCircle2 className="size-3 shrink-0" />
+                    Hoy
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-green-600">{stats.completadas_hoy}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <span className={`size-2 rounded-full ${enOficina.length > 0 ? "bg-green-500" : "bg-muted-foreground/40"}`} />
+                  En la oficina
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                {enOficina.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Fuera del horario de oficina.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {enOficina.map((p) => (
+                        <Avatar key={p.nombre} className="size-8">
+                          <AvatarFallback
+                            className="text-[11px] font-semibold text-white"
+                            style={{ backgroundColor: colorParaNombre(p.nombre, nombresPaleta) }}
+                          >
+                            {iniciales(p.nombre)}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {enOficina.map((p) => p.nombre.split(" ")[0]).join(", ")}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <AccesosCard accesos={accesos} canManage={canManage} />
+          </div>
+
           {/* Próximamente */}
           {proximas.length > 0 && (
             <Collapsible defaultOpen={proximas.length <= 5}>
@@ -504,83 +578,6 @@ export default async function HoyPage() {
           <div id="bitacora" className="scroll-mt-4">
             <BitacoraCard bitacoraHoy={bitacoraHoy} prefillHecho={prefillHecho} />
           </div>
-
-          {/* Música + Pulso del equipo: dos tarjetas compactas lado a lado
-              en vez de apiladas — el objetivo es que toda la columna entre
-              en pantalla sin scrollear. */}
-          <div className="grid grid-cols-2 gap-4">
-            <MusicWidget
-              playlists={playlists.map((p) => ({ usuarioId: p.usuario_id, nombre: p.nombre, url: p.url }))}
-              usuarioActualId={session.user.id}
-            />
-
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold">Pulso</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
-                    <ListTodo className="size-3 shrink-0" />
-                    Abiertas
-                  </span>
-                  <span className="text-xs font-semibold tabular-nums">{stats.abiertas}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
-                    <Clock className="size-3 shrink-0" />
-                    En progreso
-                  </span>
-                  <span className="text-xs font-semibold tabular-nums text-blue-600">{stats.en_progreso}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
-                    <CheckCircle2 className="size-3 shrink-0" />
-                    Hoy
-                  </span>
-                  <span className="text-xs font-semibold tabular-nums text-green-600">{stats.completadas_hoy}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* En la oficina ahora */}
-          <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <span className={`size-2 rounded-full ${enOficina.length > 0 ? "bg-green-500" : "bg-muted-foreground/40"}`} />
-                En la oficina ahora
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              {enOficina.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Fuera del horario de oficina.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {enOficina.map((p) => (
-                      <Avatar key={p.nombre} className="size-8">
-                        <AvatarFallback
-                          className="text-[11px] font-semibold text-white"
-                          style={{ backgroundColor: colorParaNombre(p.nombre, nombresPaleta) }}
-                        >
-                          {iniciales(p.nombre)}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {enOficina.map((p) => p.nombre.split(" ")[0]).join(", ")}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Accesos rápidos */}
-          <AccesosCard accesos={accesos} canManage={canManage} />
 
         </div>
       </div>

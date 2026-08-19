@@ -6,7 +6,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { BuscadorGlobal } from "@/components/features/buscador-global";
 import { PanelNotificaciones } from "@/components/features/panel-notificaciones";
 import { ThemeToggle } from "@/components/features/theme-toggle";
 import { AppSidebar } from "@/components/features/app-sidebar";
@@ -16,26 +15,32 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session?.user) redirect('/login');
 
   // Se consulta acá (no vía el JWT de la sesión) para que un cambio de color
-  // en /perfil se vea reflejado al toque, sin esperar a un nuevo login.
-  const [usuario] = await withUser(session.user.id, (tx) =>
-    tx<{ avatar_color: string | null }[]>`
-      select avatar_color from usuario where id = mi_usuario_id()
+  // en /perfil o de branding en /admin se vea reflejado al toque, sin
+  // esperar a un nuevo login.
+  const [fila] = await withUser(session.user.id, (tx) =>
+    tx<{ avatar_color: string | null; logo_url: string | null; color_principal: string | null }[]>`
+      select u.avatar_color, o.logo_url, o.color_principal
+      from usuario u
+      join organizacion o on o.id = u.organizacion_id
+      where u.id = mi_usuario_id()
     `,
   );
 
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      style={fila?.color_principal ? ({ "--primary": fila.color_principal } as React.CSSProperties) : undefined}
+    >
       <AppSidebar
         user={{ name: session.user.name, email: session.user.email }}
         rol={(session.user as { rol: string }).rol}
-        avatarColor={usuario?.avatar_color ?? null}
+        avatarColor={fila?.avatar_color ?? null}
+        logoUrl={fila?.logo_url ?? null}
       />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/80 backdrop-blur-sm px-4">
           <SidebarTrigger className="size-9" />
           <span className="text-muted-foreground text-sm font-medium">SAE · UTN FRVM</span>
           <div className="ml-auto flex items-center gap-1">
-            <BuscadorGlobal rol={(session.user as { rol: string }).rol} />
             <PanelNotificaciones />
             <ThemeToggle />
           </div>
