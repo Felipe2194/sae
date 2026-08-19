@@ -34,7 +34,6 @@ import { TareaFila } from "./tarea-fila";
 import { AccesosCard } from "./accesos-card";
 import { BitacoraCard } from "./bitacora-card";
 import { MisTareasHoy } from "./mis-tareas-hoy";
-import { MusicWidget } from "./music-widget";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -162,7 +161,7 @@ export default async function HoyPage() {
   const canManage = rol === "coordinador" || rol === "administrador";
   const hoyISO = new Date().toISOString().slice(0, 10);
 
-  const { tareas, stats, enOficina, accesos, bitacoraHoy, prefillHecho, novedad, playlists } = await withUser(
+  const { tareas, stats, enOficina, accesos, bitacoraHoy, prefillHecho, novedad } = await withUser(
     session.user.id,
     async (tx) => {
       const tareas = await tx<TareaRow[]>`
@@ -237,17 +236,6 @@ export default async function HoyPage() {
         limit 1
       `;
 
-      // Playlists que la gente cargó en su perfil, para elegir en el widget
-      // de música.
-      const playlists = await tx<{ usuario_id: string; nombre: string; url: string }[]>`
-        select id as usuario_id, nombre, playlist_url as url
-        from usuario
-        where organizacion_id = mi_organizacion_id()
-          and estado = 'activo'
-          and playlist_url is not null
-        order by nombre asc
-      `;
-
       const [bitacoraHoy] = await tx<BitacoraHoyRow[]>`
         select hecho, pendiente, observaciones
         from bitacora_diaria
@@ -307,7 +295,6 @@ export default async function HoyPage() {
         bitacoraHoy: bitacoraHoy ?? null,
         prefillHecho: lineasHecho.join("\n"),
         novedad: novedad ?? null,
-        playlists: [...playlists],
       };
     },
   );
@@ -448,14 +435,10 @@ export default async function HoyPage() {
             </CardContent>
           </Card>
 
-          {/* Música + Pulso + En la oficina ahora + Accesos rápidos: fila
-              horizontal debajo de las tareas de hoy en vez de apiladas. */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <MusicWidget
-              playlists={playlists.map((p) => ({ usuarioId: p.usuario_id, nombre: p.nombre, url: p.url }))}
-              usuarioActualId={session.user.id}
-            />
-
+          {/* Pulso + En la oficina ahora + Accesos rápidos: fila horizontal
+              debajo de las tareas de hoy en vez de apiladas. La música ahora
+              vive en un reproductor global (ver components/features/music-player.tsx). */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Card>
               <CardHeader className="pb-2 pt-4 px-4">
                 <CardTitle className="text-sm font-semibold">Pulso</CardTitle>

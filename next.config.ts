@@ -9,7 +9,7 @@ const isDev = process.env.NODE_ENV === "development";
 // scripts/objetos/frames de terceros, que es el riesgo real para una app
 // interna sin CDN de anuncios ni contenido de usuarios no confiable.
 // frame-src abre youtube-nocookie.com puntualmente para el embed de música
-// de /hoy (app/(app)/hoy/music-widget.tsx), y drive/docs.google.com para el
+// (components/features/music-player.tsx), y drive/docs.google.com para el
 // selector y la vista previa de Drive (app/(app)/tablero/drive-picker-button.tsx,
 // tarea-sheet.tsx) — frame-ancestors sigue en 'none' porque eso controla lo
 // contrario (quién puede embeber ESTA app). script-src/connect-src suman los
