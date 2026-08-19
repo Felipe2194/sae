@@ -84,7 +84,16 @@ export function MusicWidget({ playlists, usuarioActualId }: Props) {
   const [abierto, setAbierto] = useState(false);
 
   return (
-    <Collapsible open={abierto} onOpenChange={setAbierto}>
+    <Collapsible
+      open={abierto}
+      onOpenChange={setAbierto}
+      // Colapsado, ocupa una celda de la grilla como el resto de las
+      // tarjetas de esta fila. Abierto, se expande a todo el ancho de la
+      // fila — si no, el video quedaba en una celda de ~180px y los
+      // controles nativos de YouTube (play, barra, volumen) se solapaban
+      // entre sí por falta de espacio.
+      className={abierto ? "col-span-2 sm:col-span-4" : ""}
+    >
       <Card>
         <CollapsibleTrigger
           nativeButton={false}
