@@ -19,6 +19,10 @@ export const proxy = auth((req) => {
 
 export const config = {
   // api/health queda afuera a propósito: lo pegan monitores externos sin
-  // sesión (uptime checks, balanceadores de carga).
-  matcher: ['/((?!api/auth|api/health|_next/static|_next/image|favicon\\.ico).*)'],
+  // sesión (uptime checks, balanceadores de carga). El patrón final excluye
+  // cualquier archivo de /public (contiene un punto: logo.png, icon.jpg,
+  // etc.) — antes solo favicon.ico estaba exceptuado, así que el resto de
+  // los assets públicos (p. ej. el logo de la landing) quedaban atrapados
+  // por el redirect a /login para visitantes sin sesión.
+  matcher: ['/((?!api/auth|api/health|_next/static|_next/image|.*\\..*).*)'],
 };
