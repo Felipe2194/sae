@@ -14,6 +14,7 @@ import {
   CircleUser,
   LogOut,
   BarChart3,
+  UserRoundCog,
 } from "lucide-react";
 import {
   Sidebar,
@@ -65,11 +66,13 @@ export function AppSidebar({
   rol,
   avatarColor,
   logoUrl,
+  puedeCambiarPerfil,
 }: {
   user: SidebarUser;
   rol: string;
   avatarColor: string | null;
   logoUrl?: string | null;
+  puedeCambiarPerfil?: boolean;
 }) {
   const pathname = usePathname();
   const inits = iniciales(user.name);
@@ -170,6 +173,15 @@ export function AppSidebar({
               <CircleUser className="size-4" />
               Mi perfil
             </DropdownMenuItem>
+            {puedeCambiarPerfil && (
+              <DropdownMenuItem
+                nativeButton={false}
+                render={<Link href="/cambiar-perfil" />}
+              >
+                <UserRoundCog className="size-4" />
+                Cambiar de perfil
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => (document.getElementById("signout-form") as HTMLFormElement)?.requestSubmit()}>
               <LogOut className="size-4" />

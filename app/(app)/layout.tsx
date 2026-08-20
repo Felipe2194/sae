@@ -15,6 +15,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await auth();
   if (!session?.user) redirect('/login');
 
+  // Login con la cuenta genérica de oficina: todavía no se eligió con qué
+  // integrante se está trabajando, así que no hay tareas/música propias que
+  // mostrar acá — se manda directo al selector de perfil.
+  if (session.user.esCuentaGenerica) {
+    redirect('/cambiar-perfil');
+  }
+
   // Se consulta acá (no vía el JWT de la sesión) para que un cambio de color
   // en /perfil o de branding en /admin se vea reflejado al toque, sin
   // esperar a un nuevo login.
@@ -52,6 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         rol={(session.user as { rol: string }).rol}
         avatarColor={fila?.avatar_color ?? null}
         logoUrl={fila?.logo_url ?? null}
+        puedeCambiarPerfil={session.user.puedeCambiarPerfil}
       />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/80 backdrop-blur-sm px-4">

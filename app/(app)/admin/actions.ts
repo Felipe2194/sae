@@ -55,6 +55,20 @@ export async function cambiarRolUsuario(userId: string, rol: string) {
   revalidatePath('/admin');
 }
 
+export async function marcarCuentaGenerica(userId: string, valor: boolean) {
+  const session = await requireAdmin();
+  if (userId === session.user.id) throw new Error('No podés marcar tu propia cuenta como genérica');
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      update usuario
+      set es_cuenta_generica = ${valor}
+      where id = ${userId}
+        and organizacion_id = mi_organizacion_id()
+    `;
+  });
+  revalidatePath('/admin');
+}
+
 export async function resetearPassword(userId: string): Promise<{ passwordTemporal: string }> {
   const session = await requireAdmin();
   if (userId === session.user.id) throw new Error('No podés resetear tu propia contraseña');

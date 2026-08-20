@@ -1,10 +1,12 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
+import { getToken } from 'next-auth/jwt';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { sql } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import type { RolUsuario } from '@/types/database';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -29,9 +31,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             rol: 'miembro' | 'coordinador' | 'administrador';
             estado: string;
             organizacion_id: string;
+            es_cuenta_generica: boolean;
           }[]
         >`
-          select id, nombre, email, password_hash, rol, estado, organizacion_id
+          select id, nombre, email, password_hash, rol, estado, organizacion_id, es_cuenta_generica
           from usuario
           where email = ${credentials.email as string}
           limit 1
@@ -54,6 +57,64 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: usuario.email,
           rol: usuario.rol,
           organizacion_id: usuario.organizacion_id,
+          esCuentaGenerica: usuario.es_cuenta_generica,
+        };
+      },
+    }),
+
+    // Cambio rápido de perfil en computadoras compartidas de oficina: no pide
+    // contraseña, pero solo funciona si la sesión que hace el pedido ya viene
+    // de una cuenta genérica (login normal con la cuenta compartida, o un
+    // switch previo). authorize() lee la cookie de sesión actual con
+    // getToken() porque acá no hay `auth()` de por medio — quien dispara esto
+    // es el propio signIn('quick-switch', ...), no un usuario nuevo.
+    Credentials({
+      id: 'quick-switch',
+      name: 'Cambiar de perfil',
+      credentials: {
+        usuarioId: { label: 'Usuario', type: 'text' },
+      },
+      async authorize(credentials, request) {
+        const usuarioId = credentials?.usuarioId as string | undefined;
+        if (!usuarioId) return null;
+
+        const tokenActual = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+        if (!tokenActual) return null;
+
+        const origenGenericoId = tokenActual.esCuentaGenerica
+          ? (tokenActual.id as string)
+          : (tokenActual.origenGenericoId as string | undefined);
+        if (!origenGenericoId) return null;
+
+        const [origen] = await sql<{ organizacion_id: string }[]>`
+          select organizacion_id from usuario
+          where id = ${origenGenericoId} and es_cuenta_generica = true and estado = 'activo'
+          limit 1
+        `;
+        if (!origen) return null;
+
+        const [destino] = await sql<
+          { id: string; nombre: string; email: string; rol: RolUsuario; organizacion_id: string }[]
+        >`
+          select id, nombre, email, rol, organizacion_id
+          from usuario
+          where id = ${usuarioId}
+            and organizacion_id = ${origen.organizacion_id}
+            and estado = 'activo'
+            and es_cuenta_generica = false
+          limit 1
+        `;
+        if (!destino) return null;
+
+        await sql`update usuario set ultimo_login = now() where id = ${destino.id}`;
+
+        return {
+          id: destino.id,
+          name: destino.nombre,
+          email: destino.email,
+          rol: destino.rol,
+          organizacion_id: destino.organizacion_id,
+          origenGenericoId,
         };
       },
     }),
@@ -109,31 +170,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, user, account }) {
       if (user && account?.provider === 'credentials') {
-        token.id = user.id;
-        token.rol = (user as { rol: string }).rol;
-        token.organizacion_id = (user as { organizacion_id: string }).organizacion_id;
+        token.id = user.id as string;
+        token.rol = user.rol;
+        token.organizacion_id = user.organizacion_id;
+        token.esCuentaGenerica = user.esCuentaGenerica ?? false;
+        delete token.origenGenericoId;
       } else if (user && account?.provider === 'google' && user.email) {
         // Volver a buscar el usuario acá porque el `user` que entrega el
         // provider de Google no trae rol/organizacion_id (no son parte del
         // perfil de OAuth) — son propios de nuestra tabla `usuario`.
         const [usuario] = await sql<
-          { id: string; rol: string; organizacion_id: string }[]
+          { id: string; rol: RolUsuario; organizacion_id: string; es_cuenta_generica: boolean }[]
         >`
-          select id, rol, organizacion_id from usuario where email = ${user.email} limit 1
+          select id, rol, organizacion_id, es_cuenta_generica from usuario where email = ${user.email} limit 1
         `;
         if (usuario) {
           token.id = usuario.id;
           token.rol = usuario.rol;
           token.organizacion_id = usuario.organizacion_id;
+          token.esCuentaGenerica = usuario.es_cuenta_generica;
+          delete token.origenGenericoId;
         }
+      } else if (user && account?.provider === 'quick-switch') {
+        token.id = user.id as string;
+        token.rol = user.rol;
+        token.organizacion_id = user.organizacion_id;
+        token.esCuentaGenerica = false;
+        token.origenGenericoId = user.origenGenericoId;
       }
       return token;
     },
     session({ session, token }) {
-      session.user.id = token.id as string;
-      (session.user as { rol: string }).rol = token.rol as string;
-      (session.user as { organizacion_id: string }).organizacion_id =
-        token.organizacion_id as string;
+      session.user.id = token.id;
+      session.user.rol = token.rol;
+      session.user.organizacion_id = token.organizacion_id;
+      session.user.esCuentaGenerica = Boolean(token.esCuentaGenerica);
+      session.user.puedeCambiarPerfil = Boolean(
+        token.esCuentaGenerica || token.origenGenericoId,
+      );
       return session;
     },
   },

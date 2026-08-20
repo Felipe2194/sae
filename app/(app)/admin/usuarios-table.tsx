@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Monitor } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cambiarEstadoUsuario, cambiarRolUsuario, resetearPassword } from "./actions";
+import {
+  cambiarEstadoUsuario,
+  cambiarRolUsuario,
+  marcarCuentaGenerica,
+  resetearPassword,
+} from "./actions";
 
 export type UsuarioFila = {
   id: string;
@@ -27,6 +32,7 @@ export type UsuarioFila = {
   rol: "miembro" | "coordinador" | "administrador";
   estado: "pendiente" | "activo" | "inactivo";
   creada_en: string;
+  es_cuenta_generica: boolean;
 };
 
 const ESTADO_BADGE: Record<
@@ -78,6 +84,10 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
     startTransition(() => cambiarRolUsuario(usuario.id, rol));
   }
 
+  function toggleCuentaGenerica() {
+    startTransition(() => marcarCuentaGenerica(usuario.id, !usuario.es_cuenta_generica));
+  }
+
   function resetPassword() {
     if (!confirmReset) {
       setConfirmReset(true);
@@ -109,6 +119,7 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
     desactivar,
     reactivar,
     onRolChange,
+    toggleCuentaGenerica,
     resetPassword,
     copiarPassword,
   };
@@ -184,6 +195,23 @@ function AccionesUsuario({
           className="h-8 text-xs"
         >
           Reactivar
+        </Button>
+      )}
+
+      {usuario.estado === "activo" && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className={`h-8 text-xs ${usuario.es_cuenta_generica ? "text-primary" : "text-muted-foreground"}`}
+          onClick={a.toggleCuentaGenerica}
+          disabled={a.pending}
+          title={
+            usuario.es_cuenta_generica
+              ? "Cuenta genérica de oficina — click para desmarcar"
+              : "Marcar como cuenta genérica de oficina (para el selector de perfil rápido)"
+          }
+        >
+          <Monitor className="size-3.5" />
         </Button>
       )}
 
@@ -277,6 +305,11 @@ function UsuarioRow({
               (vos)
             </span>
           )}
+          {usuario.es_cuenta_generica && (
+            <Badge variant="outline" className="ml-2 align-middle text-[10px]">
+              Cuenta de oficina
+            </Badge>
+          )}
         </p>
         <p className="text-xs text-muted-foreground">{usuario.email}</p>
       </td>
@@ -321,6 +354,11 @@ function UsuarioCard({
               <span className="ml-2 text-[11px] text-muted-foreground font-normal">
                 (vos)
               </span>
+            )}
+            {usuario.es_cuenta_generica && (
+              <Badge variant="outline" className="ml-2 align-middle text-[10px]">
+                Cuenta de oficina
+              </Badge>
             )}
           </p>
           <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>

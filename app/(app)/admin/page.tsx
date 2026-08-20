@@ -70,7 +70,7 @@ export default async function AdminPage() {
     `;
 
     const todosUsuarios = await tx<UsuarioRow[]>`
-      select id, nombre, email, rol::text as rol, estado::text as estado, creada_en::text as creada_en
+      select id, nombre, email, rol::text as rol, estado::text as estado, creada_en::text as creada_en, es_cuenta_generica
       from usuario
       order by
         case estado when 'pendiente' then 0 when 'activo' then 1 else 2 end,

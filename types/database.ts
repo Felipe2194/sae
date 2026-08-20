@@ -47,6 +47,7 @@ export interface UsuarioRow {
   playlist_url: string | null;
   avatar_color: string | null;
   ultimo_login: string | null;
+  es_cuenta_generica: boolean;
 }
 
 export interface UsuarioInsert {
@@ -60,6 +61,7 @@ export interface UsuarioInsert {
   estado?: EstadoUsuario;
   playlist_url?: string | null;
   avatar_color?: string | null;
+  es_cuenta_generica?: boolean;
 }
 
 export type UsuarioUpdate = Partial<Omit<UsuarioInsert, 'organizacion_id'>>;
