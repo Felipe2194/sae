@@ -23,6 +23,15 @@ import {
 // (`player.setShuffle(true)`), así que el player se crea con
 // `new YT.Player(...)` en vez de un <iframe src> estático.
 //
+// setShuffle() no hace nada si se llama mientras el player todavía está
+// cargando el primer video de la playlist (documentado: "This function has
+// no effect if you call it while the video player is loading the first
+// video in the playlist") — y cuePlaylist() dispara esa carga de forma
+// asíncrona, así que llamarlo justo después, en el mismo tick, cae siempre
+// en esa ventana muerta. Por eso el fix anterior (setShuffle pegado a
+// cuePlaylist) no cambiaba nada. Se llama en cambio desde onStateChange,
+// cuando el player realmente ya llegó al estado "cued" (5).
+//
 // Las APIs de YouTube no traen tipos oficiales; se cargan como script
 // global, no como paquete npm.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,9 +79,6 @@ function esPlaylist(id: string): boolean {
 function cuearOpcion(player: YTGlobal, embedId: string) {
   if (esPlaylist(embedId)) {
     player.cuePlaylist({ listType: "playlist", list: embedId });
-    // No persiste entre cuePlaylist/loadPlaylist — hay que reafirmarlo cada
-    // vez que se carga una playlist nueva (incluida la primera).
-    player.setShuffle(true);
   } else {
     player.cueVideoById(embedId);
   }
@@ -145,6 +151,25 @@ export function MusicPlayer({ playlists, usuarioActualId }: Props) {
         playerVars: { rel: 0 },
         events: {
           onReady: (e: { target: YTGlobal }) => cuearOpcion(e.target, actual.embedId),
+          // No en onReady/cuePlaylist: ver comentario sobre setShuffle más
+          // arriba. Se reafirma cada vez que se vuelve a este estado (cada
+          // cuePlaylist nuevo, incluido un cambio de selección).
+          //
+          // setShuffle(true) por sí solo NO alcanza para que arranque en un
+          // tema al azar: solo reordena qué sigue después del video ya
+          // cueado (que cuePlaylist siempre deja en el índice 0 — se probó
+          // recargando varias veces, siempre el mismo primer tema). Para que
+          // el arranque también sea al azar hay que saltar nosotros a un
+          // índice random con playVideoAt() una vez que getPlaylist() ya
+          // tiene la lista cargada.
+          onStateChange: (e: { data: number; target: YTGlobal }) => {
+            if (e.data !== window.YT.PlayerState.CUED) return;
+            e.target.setShuffle(true);
+            const lista = e.target.getPlaylist?.();
+            if (Array.isArray(lista) && lista.length > 1) {
+              e.target.playVideoAt(Math.floor(Math.random() * lista.length));
+            }
+          },
         },
       });
     });
