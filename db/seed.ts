@@ -1,5 +1,6 @@
 // Inserta datos de prueba: una organización, 13 áreas, 3 usuarios de auth,
-// 8 integrantes del equipo con sus turnos reales y 15 tareas.
+// 11 integrantes del equipo (8 con turnos reales en el cronograma + 3 que
+// solo reciben tareas) y 15 tareas.
 // Uso: npm run db:seed
 // Requiere que las migraciones ya estén aplicadas (npm run db:migrate).
 
@@ -61,11 +62,16 @@ async function seed() {
     const joaId  = await insertMiembro('Joaco',  'joaco@sae.test');
     const canId  = await insertMiembro('Cande',  'cande@sae.test');
     const milId  = await insertMiembro('Mili',   'mili@sae.test');
-    const vicId  = await insertMiembro('Vicky',  'vicky@sae.test');
+    const vicId  = await insertMiembro('Viki',   'vicky@sae.test');
     const lucId  = await insertMiembro('Luchi',  'luchi@sae.test');
-    const felId  = await insertMiembro('Feli',   'feli@sae.test');
+    const felId  = await insertMiembro('Felipe', 'feli@sae.test');
     const leoId  = await insertMiembro('Leo',    'leo@sae.test');
     const camId  = await insertMiembro('Cami',   'cami@sae.test');
+
+    // Reciben tareas pero no tienen turno fijo en el cartel de oficina.
+    await insertMiembro('Julian', 'julian@sae.test');
+    await insertMiembro('Edu',    'edu@sae.test');
+    await insertMiembro('Agus',   'agus@sae.test');
 
     // ── Áreas ─────────────────────────────────────────────────────────────────
     const nombresAreas = [
@@ -126,63 +132,52 @@ async function seed() {
     // ── Turnos reales de la oficina ───────────────────────────────────────────
     // dia_semana: 0=Lun, 1=Mar, 2=Mié, 3=Jue, 4=Vie
     //
-    // Franjas de referencia:
-    //   Mañana: 08:00–12:00 (bloque único)
-    //   Tarde:  14:00–18:00 (franjas de 1 h)
-    //   Noche:  18:00–21:00 (franjas de 1 h)
-    //
     // Se almacenan bloques contiguos por persona+día.
     // La UI expande al momento de mostrar comparando overlap de rango.
     //
-    // Fuente: imagen "Horarios de la Oficina" 2025/2026.
+    // Fuente: cartel "Horario de Oficina" (turno mañana 08–12 + turno tarde,
+    // actualizado 2026).
 
     type T = [string, number, string, string]; // [userId, dia, inicio, fin]
     const turnos: T[] = [
-      // ── Joaco: mañana todos los días
+      // ── Lunes
       [joaId, 0, '08:00', '12:00'],
-      [joaId, 1, '08:00', '12:00'],
-      [joaId, 2, '08:00', '12:00'],
-      [joaId, 3, '08:00', '12:00'],
-      [joaId, 4, '08:00', '12:00'],
-
-      // ── Cande: lunes mañana; mar noche parcial; mié–vie noche completa
       [canId, 0, '08:00', '12:00'],
-      [canId, 1, '18:00', '20:00'], // 18–19, 19–20 con Leo (no 20–21)
-      [canId, 2, '18:00', '21:00'], // 18–19, 19–20 con Feli; 20–21 sola
-      [canId, 3, '18:00', '21:00'], // con Luchi
-      [canId, 4, '18:00', '21:00'], // con Cami
-
-      // ── Mili: mañana mar/jue/vie; tarde lun/mié
-      [milId, 1, '08:00', '12:00'],
-      [milId, 3, '08:00', '12:00'],
-      [milId, 4, '08:00', '12:00'],
       [milId, 0, '14:00', '18:00'],
-      [milId, 2, '14:00', '18:00'],
-
-      // ── Vicky: mañana mié; tarde jue
-      [vicId, 2, '08:00', '12:00'],
-      [vicId, 3, '14:00', '18:00'],
-
-      // ── Luchi: tarde mar/mié/vie; noche lun/jue
-      [lucId, 1, '14:00', '18:00'],
-      [lucId, 2, '14:00', '18:00'],
-      [lucId, 4, '14:00', '18:00'],
-      [lucId, 0, '18:00', '21:00'],
-      [lucId, 3, '18:00', '21:00'],
-
-      // ── Feli: lun tarde; mar tarde parcial + noche parcial; mié tarde/noche; jue/vie tarde
-      [felId, 0, '14:00', '18:00'],
-      [felId, 1, '16:00', '18:00'], // se une tarde a Luchi desde las 16
-      [felId, 1, '20:00', '21:00'], // noche del martes solo Feli
-      [felId, 2, '16:00', '20:00'], // tarde 16–18 + noche 18–20 (contiguos)
-      [felId, 3, '14:00', '18:00'],
-      [felId, 4, '14:00', '18:00'],
-
-      // ── Leo: martes noche
-      [leoId, 1, '18:00', '20:00'],
-
-      // ── Cami: lunes y viernes noche
+      [felId, 0, '16:00', '17:00'],
+      [lucId, 0, '17:00', '21:00'],
       [camId, 0, '18:00', '21:00'],
+
+      // ── Martes
+      [joaId, 1, '08:00', '12:00'],
+      [milId, 1, '08:00', '12:00'],
+      [canId, 1, '14:00', '15:00'],
+      [lucId, 1, '14:00', '18:00'],
+      [felId, 1, '17:00', '20:00'],
+      [leoId, 1, '18:00', '20:00'],
+      [canId, 1, '18:00', '21:00'],
+
+      // ── Miércoles
+      [joaId, 2, '08:00', '12:00'],
+      [vicId, 2, '08:00', '12:00'],
+      [milId, 2, '14:00', '18:00'],
+      [lucId, 2, '14:00', '18:00'],
+      [felId, 2, '17:00', '20:00'],
+      [canId, 2, '18:00', '21:00'],
+
+      // ── Jueves
+      [joaId, 3, '08:00', '12:00'],
+      [milId, 3, '08:00', '12:00'],
+      [vicId, 3, '14:00', '18:00'],
+      [canId, 3, '14:00', '16:00'],
+      [felId, 3, '14:00', '18:00'],
+      [lucId, 3, '17:00', '21:00'],
+
+      // ── Viernes
+      [joaId, 4, '08:00', '12:00'],
+      [milId, 4, '08:00', '12:00'],
+      [lucId, 4, '14:00', '18:00'],
+      [canId, 4, '18:00', '21:00'],
       [camId, 4, '18:00', '21:00'],
     ];
 
@@ -199,7 +194,8 @@ async function seed() {
     console.log(`    admin@sae.test       (administrador) id: ${admin.id}`);
     console.log(`    coordinador@sae.test (coordinador)   id: ${coord.id}`);
     console.log(`    miembro@sae.test     (miembro)       id: ${miembro.id}`);
-    console.log('  integrantes: Joaco, Cande, Mili, Vicky, Luchi, Feli, Leo, Cami');
+    console.log('  integrantes con turno: Joaco, Cande, Mili, Viki, Luchi, Felipe, Leo, Cami');
+    console.log('  integrantes sin turno (reciben tareas): Julian, Edu, Agus');
     console.log(`  áreas   : ${nombresAreas.length}`);
     console.log('  tareas  : 15');
     console.log(`  turnos  : ${turnos.length}`);

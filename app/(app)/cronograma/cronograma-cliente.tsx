@@ -66,30 +66,73 @@ function iniciales(nombre: string): string {
   return (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
 
-// ── Overlap: asigna lanes a turnos que se solapan ─────────────────────────────
+// ── Overlap: parte cada turno en segmentos según quién esté activo a cada
+// momento, para que una franja sin superposición ocupe el ancho completo de
+// la columna aunque el mismo turno se solape con otro en otro tramo ─────────
 
-type TurnoConLane = TurnoData & { lane: number; totalLanes: number };
+type Segmento = {
+  turno: TurnoData;
+  hora_inicio: string;
+  hora_fin: string;
+  rank: number; // posición entre los activos de este tramo (0 = más a la izquierda)
+  total: number; // cuántos están activos en este tramo
+  esPrimero: boolean; // primer segmento del turno (donde se muestra el texto)
+};
 
-function asignarLanes(turnos: TurnoData[]): TurnoConLane[] {
+// Orden estable (por lane) para decidir quién va más a la izquierda cuando
+// varios turnos están activos al mismo tiempo.
+function asignarLane(turnos: TurnoData[]): (TurnoData & { lane: number })[] {
   const sorted = [...turnos].sort((a, b) =>
     a.hora_inicio.localeCompare(b.hora_inicio),
   );
-  const lanes: string[] = []; // last fin de cada lane
-  const asignados: (TurnoData & { lane: number })[] = [];
-
-  for (const t of sorted) {
-    let lane = lanes.findIndex((fin) => fin <= t.hora_inicio);
+  const finPorLane: string[] = [];
+  return sorted.map((t) => {
+    let lane = finPorLane.findIndex((fin) => fin <= t.hora_inicio);
     if (lane === -1) {
-      lane = lanes.length;
-      lanes.push(t.hora_fin);
+      lane = finPorLane.length;
+      finPorLane.push(t.hora_fin);
     } else {
-      lanes[lane] = t.hora_fin;
+      finPorLane[lane] = t.hora_fin;
     }
-    asignados.push({ ...t, lane });
+    return { ...t, lane };
+  });
+}
+
+function construirSegmentos(turnosDia: TurnoData[]): Segmento[] {
+  if (turnosDia.length === 0) return [];
+  const conLane = asignarLane(turnosDia);
+
+  const boundaries = [
+    ...new Set(conLane.flatMap((t) => [t.hora_inicio, t.hora_fin])),
+  ].sort();
+
+  const segmentos: Segmento[] = [];
+
+  for (const t of conLane) {
+    let actual: Segmento | null = null;
+
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const ini = boundaries[i];
+      const fin = boundaries[i + 1];
+      if (ini < t.hora_inicio || fin > t.hora_fin) continue;
+
+      const activos = conLane
+        .filter((o) => o.hora_inicio <= ini && o.hora_fin >= fin)
+        .sort((a, b) => a.lane - b.lane);
+      const rank = activos.findIndex((o) => o.id === t.id);
+      const total = activos.length;
+
+      if (actual && actual.rank === rank && actual.total === total && actual.hora_fin === ini) {
+        actual.hora_fin = fin;
+      } else {
+        if (actual) segmentos.push(actual);
+        actual = { turno: t, hora_inicio: ini, hora_fin: fin, rank, total, esPrimero: ini === t.hora_inicio };
+      }
+    }
+    if (actual) segmentos.push(actual);
   }
 
-  const totalLanes = Math.max(1, lanes.length);
-  return asignados.map((t) => ({ ...t, totalLanes }));
+  return segmentos;
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
@@ -233,7 +276,7 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
   );
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-3">
+    <div className="mx-auto flex max-w-7xl flex-col gap-3">
 
       {/* ── Encabezado + ahora en línea ─────────────────────────────────────── */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -360,7 +403,7 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                   const fechaISO = fecha.toISOString().slice(0, 10);
                   const esHoy = fechaISO === hoyISO;
                   const turnosDia = turnos.filter((t) => t.dia_semana === dia);
-                  const conLanes = asignarLanes(turnosDia);
+                  const segmentos = construirSegmentos(turnosDia);
 
                   return (
                     <div
@@ -387,10 +430,11 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                         </div>
                       )}
 
-                      {/* Bloques de turno */}
-                      {conLanes.map((t) => {
-                        const inicio = horaANum(t.hora_inicio);
-                        const fin = horaANum(t.hora_fin);
+                      {/* Bloques de turno (uno o más segmentos por turno) */}
+                      {segmentos.map((seg) => {
+                        const t = seg.turno;
+                        const inicio = horaANum(seg.hora_inicio);
+                        const fin = horaANum(seg.hora_fin);
                         if (inicio >= horaMax || fin <= horaMin) return null;
 
                         const top = (Math.max(inicio, horaMin) - horaMin) * PX_POR_HORA;
@@ -398,14 +442,15 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                         const color = colorMap.get(t.usuario_nombre) ?? "#94a3b8";
                         const esMio = t.usuario_id === sesionUsuarioId;
                         const ausente = ausenciasPorUsuario.get(t.usuario_id)?.has(fechaISO) ?? false;
+                        const angosto = seg.total >= 3;
 
-                        const laneW = 100 / t.totalLanes;
-                        const left = `calc(${t.lane * laneW}% + 3px)`;
-                        const width = `calc(${laneW}% - 6px)`;
+                        const anchoLane = 100 / seg.total;
+                        const left = `calc(${seg.rank * anchoLane}% + 3px)`;
+                        const width = `calc(${anchoLane}% - 6px)`;
 
                         return (
                           <div
-                            key={`${t.usuario_nombre}-${t.dia_semana}-${t.hora_inicio}`}
+                            key={`${t.id}-${seg.hora_inicio}`}
                             className={`absolute rounded-md overflow-hidden transition-opacity ${ausente ? "opacity-40" : ""}`}
                             style={{
                               top: `${top + 2}px`,
@@ -423,16 +468,10 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                                 : `${t.usuario_nombre} · ${t.hora_inicio}–${t.hora_fin}`
                             }
                           >
-                            <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden group/bloque min-h-0">
+                            <div className={`h-full flex flex-col justify-start overflow-hidden group/bloque min-h-0 ${angosto ? "px-1 py-0.5" : "px-1.5 py-1"}`}>
                               <div className="flex items-center gap-1 min-w-0">
-                                <span
-                                  className="size-3.5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-                                  style={{ backgroundColor: color }}
-                                >
-                                  {iniciales(t.usuario_nombre).slice(0, 1)}
-                                </span>
                                 <p
-                                  className="text-[12px] font-semibold truncate leading-tight flex-1 min-w-0"
+                                  className={`font-semibold leading-tight flex-1 min-w-0 truncate ${angosto ? "text-[10px]" : "text-[12px]"}`}
                                   style={{ color }}
                                 >
                                   {esMio ? "Vos" : t.usuario_nombre.split(" ")[0]}
@@ -456,7 +495,7 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                                   </div>
                                 )}
                               </div>
-                              {height >= PX_POR_HORA && (
+                              {seg.esPrimero && height >= PX_POR_HORA && !angosto && (
                                 <p className="text-[11px] leading-tight mt-0.5 truncate opacity-70" style={{ color }}>
                                   {ausente ? "Ausente" : `${t.hora_inicio}–${t.hora_fin}`}
                                 </p>
