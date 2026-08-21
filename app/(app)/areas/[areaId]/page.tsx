@@ -27,6 +27,7 @@ type AreaRow = {
   responsable_id: string | null;
   responsable_nombre: string | null;
   activa: boolean;
+  asignados: { id: string; nombre: string; avatar_color: string | null }[];
   tareas_total: number;
   tareas_hechas: number;
   tareas_abiertas: number;
@@ -43,7 +44,7 @@ type TareaRow = {
   responsable_nombre: string | null;
 };
 
-type UsuarioRow = { id: string; nombre: string };
+type UsuarioRow = { id: string; nombre: string; avatar_color: string | null };
 
 const PRIORIDAD_COLOR: Record<string, string> = {
   baja: "#94a3b8",
@@ -86,6 +87,15 @@ export default async function AreaDetallePage({
       select
         a.id, a.nombre, a.color, a.descripcion, a.responsable_id, a.activa,
         u.nombre  as responsable_nombre,
+        coalesce(
+          (
+            select json_agg(json_build_object('id', u2.id, 'nombre', u2.nombre, 'avatar_color', u2.avatar_color))
+            from area_asignado aa
+            join usuario u2 on u2.id = aa.usuario_id
+            where aa.area_id = a.id
+          ),
+          '[]'
+        ) as asignados,
         count(t.id)::int                                    as tareas_total,
         count(t.id) filter (where t.estado = 'hecha')::int   as tareas_hechas,
         count(t.id) filter (where t.estado != 'hecha')::int  as tareas_abiertas
@@ -121,7 +131,7 @@ export default async function AreaDetallePage({
 
     const usuarios = canManage
       ? await tx<UsuarioRow[]>`
-          select id, nombre from usuario
+          select id, nombre, avatar_color from usuario
           where organizacion_id = mi_organizacion_id() and estado = 'activo'
           order by nombre asc
         `
@@ -185,6 +195,7 @@ export default async function AreaDetallePage({
             color: area.color,
             responsable_id: area.responsable_id,
             activa: area.activa,
+            asignados: area.asignados,
           }}
           usuarios={usuarios}
           canManage={canManage}

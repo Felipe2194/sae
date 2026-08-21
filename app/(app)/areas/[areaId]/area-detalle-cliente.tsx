@@ -14,6 +14,7 @@ type Props = {
     color: string;
     responsable_id: string | null;
     activa: boolean;
+    asignados: { id: string; nombre: string; avatar_color: string | null }[];
   };
   usuarios: UsuarioOption[];
   canManage: boolean;

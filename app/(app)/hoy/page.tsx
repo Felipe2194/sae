@@ -176,7 +176,10 @@ export default async function HoyPage() {
           a.nombre as area_nombre
         from tarea t
         left join area a on a.id = t.area_id
-        where t.responsable_id = mi_usuario_id()
+        where (
+            t.responsable_id = mi_usuario_id()
+            or exists (select 1 from tarea_asignado ta where ta.tarea_id = t.id and ta.usuario_id = mi_usuario_id())
+          )
           and t.estado != 'hecha'
           and t.archivada = false
         order by t.fecha_vencimiento asc nulls last, t.orden asc
@@ -244,12 +247,15 @@ export default async function HoyPage() {
 
       const tareasCompletadasHoy = await tx<{ titulo: string }[]>`
         select titulo
-        from tarea
-        where responsable_id = mi_usuario_id()
-          and estado = 'hecha'
-          and completada_en::date = current_date
-          and archivada = false
-        order by completada_en asc
+        from tarea t
+        where (
+            t.responsable_id = mi_usuario_id()
+            or exists (select 1 from tarea_asignado ta where ta.tarea_id = t.id and ta.usuario_id = mi_usuario_id())
+          )
+          and t.estado = 'hecha'
+          and t.completada_en::date = current_date
+          and t.archivada = false
+        order by t.completada_en asc
       `;
 
       // Subtareas que el usuario resolvió hoy en sus propias tareas — evita
@@ -258,7 +264,10 @@ export default async function HoyPage() {
         select s.titulo, t.titulo as tarea_titulo
         from subtarea s
         join tarea t on t.id = s.tarea_id
-        where t.responsable_id = mi_usuario_id()
+        where (
+            t.responsable_id = mi_usuario_id()
+            or exists (select 1 from tarea_asignado ta where ta.tarea_id = t.id and ta.usuario_id = mi_usuario_id())
+          )
           and s.hecha = true
           and s.completada_en::date = current_date
         order by s.completada_en asc

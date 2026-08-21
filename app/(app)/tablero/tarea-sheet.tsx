@@ -21,8 +21,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { UserAvatar } from "@/components/features/user-avatar";
+import { AsignadosPicker } from "@/components/features/asignados-picker";
 import {
   actualizarTarea,
   archivarTarea,
@@ -90,12 +91,6 @@ const PRIORIDAD_COLOR: Record<string, string> = {
   alta: "bg-red-500",
 };
 
-function iniciales(nombre: string): string {
-  const partes = nombre.trim().split(/\s+/);
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
-}
-
 function formatRelativo(fechaISO: string): string {
   const ahora = new Date();
   const fecha = new Date(fechaISO);
@@ -133,6 +128,9 @@ export function TareaSheet({
   const [areaId, setAreaId] = useState(tarea.area_id);
   const [responsableId, setResponsableId] = useState(
     tarea.responsable_id ?? "",
+  );
+  const [asignadosIds, setAsignadosIds] = useState<string[]>(
+    tarea.asignados.map((a) => a.id),
   );
   const [fechaVencimiento, setFechaVencimiento] = useState(
     tarea.fecha_vencimiento ?? "",
@@ -241,6 +239,7 @@ export function TareaSheet({
           prioridad,
           area_id: areaId,
           responsable_id: responsableId || null,
+          asignados_ids: asignadosIds,
           fecha_vencimiento: fechaVencimiento || null,
           estado,
           duracion_estimada_hs: duracionEstimada.trim() ? Number(duracionEstimada) : null,
@@ -308,6 +307,7 @@ export function TareaSheet({
       id: crypto.randomUUID(),
       contenido: c,
       autor_nombre: "Vos",
+      autor_avatar_color: null,
       creado_en: new Date().toISOString(),
       es_propio: true,
     };
@@ -479,6 +479,16 @@ export function TareaSheet({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Colaboradores</Label>
+              <AsignadosPicker
+                usuarios={usuarios}
+                selectedIds={asignadosIds}
+                onChange={setAsignadosIds}
+                placeholder="Sin colaboradores adicionales"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -761,11 +771,12 @@ export function TareaSheet({
               <div className="flex flex-col gap-3">
                 {comentarios.map((c) => (
                   <div key={c.id} className="flex gap-2.5 group">
-                    <Avatar className="size-6 shrink-0 mt-0.5">
-                      <AvatarFallback className="text-[10px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
-                        {iniciales(c.autor_nombre)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <UserAvatar
+                      nombre={c.autor_nombre}
+                      avatarColor={c.autor_avatar_color}
+                      size="sm"
+                      className="mt-0.5 shrink-0"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-xs font-medium">{c.autor_nombre}</span>

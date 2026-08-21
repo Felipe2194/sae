@@ -83,6 +83,19 @@ async function generarSiguienteOcurrencia(tx: any, tareaId: string) {
 
 // ── Tarea ─────────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+async function sincronizarAsignados(tx: any, tareaId: string, asignadosIds: string[]) {
+  // Reemplazo completo: se borra todo y se vuelve a insertar el set nuevo.
+  // Simple y suficiente — la cantidad de asignados por tarea siempre es chica.
+  await tx`delete from tarea_asignado where tarea_id = ${tareaId}`;
+  for (const usuarioId of new Set(asignadosIds)) {
+    await tx`
+      insert into tarea_asignado (tarea_id, usuario_id)
+      values (${tareaId}, ${usuarioId})
+    `;
+  }
+}
+
 export async function crearTarea(input: {
   titulo: string;
   descripcion: string;
@@ -90,12 +103,13 @@ export async function crearTarea(input: {
   prioridad: string;
   area_id: string;
   responsable_id: string | null;
+  asignados_ids?: string[];
   fecha_vencimiento: string | null;
   estado: string;
 }) {
   const session = await requireAuth();
   await withUser(session.user.id, async (tx) => {
-    await tx`
+    const [{ id }] = await tx<[{ id: string }]>`
       insert into tarea (
         organizacion_id, area_id, titulo, descripcion, tipo, prioridad,
         responsable_id, fecha_vencimiento, estado, creada_por, orden
@@ -113,7 +127,9 @@ export async function crearTarea(input: {
         mi_usuario_id(),
         0
       )
+      returning id
     `;
+    await sincronizarAsignados(tx, id, input.asignados_ids ?? []);
   });
   revalidatePath('/tablero');
   revalidatePath('/hoy');
@@ -129,6 +145,7 @@ export async function actualizarTarea(
     prioridad: string;
     area_id: string;
     responsable_id: string | null;
+    asignados_ids?: string[];
     fecha_vencimiento: string | null;
     estado: string;
     duracion_estimada_hs?: number | null;
@@ -166,6 +183,10 @@ export async function actualizarTarea(
       where id = ${tareaId}
         and organizacion_id = mi_organizacion_id()
     `;
+
+    if (data.asignados_ids !== undefined) {
+      await sincronizarAsignados(tx, tareaId, data.asignados_ids);
+    }
 
     // Notificar al nuevo responsable si cambió
     if (prev && data.responsable_id && data.responsable_id !== prev.responsable_id) {
@@ -284,6 +305,16 @@ export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
         a.nombre  as area_nombre,
         a.color   as area_color,
         u.nombre  as responsable_nombre,
+        u.avatar_color as responsable_avatar_color,
+        coalesce(
+          (
+            select json_agg(json_build_object('id', u2.id, 'nombre', u2.nombre, 'avatar_color', u2.avatar_color))
+            from tarea_asignado ta
+            join usuario u2 on u2.id = ta.usuario_id
+            where ta.tarea_id = t.id
+          ),
+          '[]'
+        ) as asignados,
         coalesce((select count(*)::int from subtarea s where s.tarea_id = t.id), 0)              as subtarea_total,
         coalesce((select count(*)::int from subtarea s where s.tarea_id = t.id and s.hecha), 0)  as subtarea_hecha,
         coalesce((select count(*)::int from comentario c where c.tarea_id = t.id), 0)            as comentario_count
@@ -310,6 +341,7 @@ export type ComentarioRow = {
   id: string;
   contenido: string;
   autor_nombre: string;
+  autor_avatar_color: string | null;
   creado_en: string;
   es_propio: boolean;
 };
@@ -331,6 +363,7 @@ export async function fetchTareaDetalle(tareaId: string): Promise<{
         c.id,
         c.contenido,
         u.nombre as autor_nombre,
+        u.avatar_color as autor_avatar_color,
         c.creado_en::text,
         (c.autor_id = mi_usuario_id()) as es_propio
       from comentario c

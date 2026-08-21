@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { AsignadosPicker } from "@/components/features/asignados-picker";
 import { crearArea, actualizarArea } from "./actions";
 
 export const AREA_COLORS = [
@@ -27,7 +28,7 @@ export const AREA_COLORS = [
   "#8b5cf6", "#a855f7", "#ec4899", "#64748b",
 ];
 
-export type UsuarioOption = { id: string; nombre: string };
+export type UsuarioOption = { id: string; nombre: string; avatar_color: string | null };
 
 type Props = {
   open: boolean;
@@ -40,6 +41,7 @@ type Props = {
     descripcion: string | null;
     color: string;
     responsable_id: string | null;
+    asignados: { id: string; nombre: string; avatar_color: string | null }[];
   };
 };
 
@@ -51,6 +53,9 @@ export function AreaDialog({ open, onOpenChange, usuarios, areaInicial }: Props)
   const [descripcion, setDescripcion] = useState(areaInicial?.descripcion ?? "");
   const [color, setColor] = useState(areaInicial?.color ?? AREA_COLORS[5]);
   const [responsableId, setResponsableId] = useState(areaInicial?.responsable_id ?? "");
+  const [asignadosIds, setAsignadosIds] = useState<string[]>(
+    areaInicial?.asignados.map((a) => a.id) ?? [],
+  );
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,6 +67,7 @@ export function AreaDialog({ open, onOpenChange, usuarios, areaInicial }: Props)
           descripcion: descripcion.trim() || null,
           color,
           responsable_id: responsableId || null,
+          asignados_ids: asignadosIds,
         });
       } else {
         await crearArea({
@@ -69,6 +75,7 @@ export function AreaDialog({ open, onOpenChange, usuarios, areaInicial }: Props)
           descripcion: descripcion.trim(),
           color,
           responsable_id: responsableId || null,
+          asignados_ids: asignadosIds,
         });
       }
       onOpenChange(false);
@@ -145,6 +152,16 @@ export function AreaDialog({ open, onOpenChange, usuarios, areaInicial }: Props)
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Colaboradores</Label>
+            <AsignadosPicker
+              usuarios={usuarios}
+              selectedIds={asignadosIds}
+              onChange={setAsignadosIds}
+              placeholder="Sin colaboradores adicionales"
+            />
           </div>
 
           <DialogFooter>

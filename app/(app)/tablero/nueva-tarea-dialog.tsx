@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { AsignadosPicker } from "@/components/features/asignados-picker";
 import { crearTarea } from "./actions";
 import type { AreaOption, UsuarioOption } from "./page";
 
@@ -60,6 +61,7 @@ export function NuevaTareaDialog({
   const [prioridad, setPrioridad] = useState("media");
   const [areaId, setAreaId] = useState(areas[0]?.id ?? "");
   const [responsableId, setResponsableId] = useState("");
+  const [asignadosIds, setAsignadosIds] = useState<string[]>([]);
   const [fechaVencimiento, setFechaVencimiento] = useState("");
 
   const AREA_ITEMS = Object.fromEntries(areas.map((a) => [a.id, a.nombre]));
@@ -75,6 +77,7 @@ export function NuevaTareaDialog({
     setPrioridad("media");
     setAreaId(areas[0]?.id ?? "");
     setResponsableId("");
+    setAsignadosIds([]);
     setFechaVencimiento("");
   }
 
@@ -89,6 +92,7 @@ export function NuevaTareaDialog({
         prioridad,
         area_id: areaId,
         responsable_id: responsableId || null,
+        asignados_ids: asignadosIds,
         fecha_vencimiento: fechaVencimiento || null,
         estado: estadoInicial,
       });
@@ -207,6 +211,16 @@ export function NuevaTareaDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Colaboradores</Label>
+            <AsignadosPicker
+              usuarios={usuarios}
+              selectedIds={asignadosIds}
+              onChange={setAsignadosIds}
+              placeholder="Sin colaboradores adicionales"
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

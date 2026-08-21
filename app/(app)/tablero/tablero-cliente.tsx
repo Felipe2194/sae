@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useTransition, useOptimistic } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Plus, X, SlidersHorizontal, Archive } from "lucide-react";
+import { Plus, X, SlidersHorizontal, Archive, ChevronsLeft, ChevronsRight } from "lucide-react";
 import {
   DndContext,
   DragEndEvent,
@@ -66,6 +66,8 @@ function Columna({
   titulo,
   tareas,
   hayFiltros,
+  colapsada,
+  onToggleColapsar,
   onNueva,
   onAbrirSheet,
 }: {
@@ -73,26 +75,65 @@ function Columna({
   titulo: string;
   tareas: TareaCard[];
   hayFiltros: boolean;
+  colapsada: boolean;
+  onToggleColapsar: () => void;
   onNueva: () => void;
   onAbrirSheet: (t: TareaCard) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: estado });
 
+  if (colapsada) {
+    // Franja angosta — el droppable sigue activo para poder soltar una
+    // tarea acá sin tener que expandir la columna primero.
+    return (
+      <div
+        ref={setNodeRef}
+        className={`flex w-[52px] shrink-0 flex-col items-center gap-3 rounded-xl border py-3 transition-colors ${
+          isOver ? "bg-primary/5 ring-1 ring-primary/20" : "bg-muted/30"
+        }`}
+      >
+        <button
+          onClick={onToggleColapsar}
+          className="text-muted-foreground hover:text-foreground rounded-md p-1 transition-colors"
+          aria-label={`Expandir columna ${titulo}`}
+        >
+          <ChevronsRight className="size-4" />
+        </button>
+        <Badge variant="outline">{tareas.length}</Badge>
+        <span
+          className="text-muted-foreground mt-1 text-sm font-medium whitespace-nowrap [writing-mode:vertical-rl]"
+        >
+          {titulo}
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="bg-muted/30 flex min-w-0 flex-1 flex-col gap-3 rounded-2xl p-2 transition-all duration-200">
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-medium">{titulo}</h2>
           <Badge variant="outline">{tareas.length}</Badge>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onNueva}
-          aria-label={`Nueva tarea en ${titulo}`}
-        >
-          <Plus className="size-4" />
-        </Button>
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onNueva}
+            aria-label={`Nueva tarea en ${titulo}`}
+          >
+            <Plus className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onToggleColapsar}
+            aria-label={`Colapsar columna ${titulo}`}
+          >
+            <ChevronsLeft className="size-4" />
+          </Button>
+        </div>
       </div>
 
       <div
@@ -127,6 +168,8 @@ function Columna({
   );
 }
 
+const LS_COLUMNAS_COLAPSADAS = "tablero-columnas-colapsadas";
+
 export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, currentUserId }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -145,6 +188,35 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
   const [showArchivadas, setShowArchivadas] = useState(false);
   const [archivadas, setArchivadas] = useState<TareaCard[] | null>(null);
   const [, startArchivadasTransition] = useTransition();
+
+  // Preferencia personal de UI, no dato de la organización — se guarda en
+  // localStorage, no en la base. Arranca vacío (igual en server y cliente,
+  // sin mismatch de hidratación) y se hidrata desde localStorage recién
+  // después de montar.
+  const [colapsadas, setColapsadas] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(LS_COLUMNAS_COLAPSADAS);
+      if (raw) setColapsadas(new Set(JSON.parse(raw)));
+    } catch {
+      // localStorage no disponible o valor corrupto — se queda con columnas expandidas.
+    }
+  }, []);
+
+  function toggleColapsada(estado: string) {
+    setColapsadas((prev) => {
+      const next = new Set(prev);
+      if (next.has(estado)) next.delete(estado);
+      else next.add(estado);
+      try {
+        window.localStorage.setItem(LS_COLUMNAS_COLAPSADAS, JSON.stringify([...next]));
+      } catch {
+        // localStorage no disponible — la preferencia no persiste, pero no rompe nada.
+      }
+      return next;
+    });
+  }
 
   // Atajo desde el buscador global (Cmd/Ctrl+K → "Nueva tarea"): /tablero?nueva=1
   useEffect(() => {
@@ -332,7 +404,7 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveDragId(null)}
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="flex flex-col gap-4 md:flex-row">
           {COLUMNAS.map((col) => {
             const tareasColumna = tareasFiltradas.filter((t) => t.estado === col.estado);
             return (
@@ -342,6 +414,8 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
                 titulo={col.titulo}
                 tareas={tareasColumna}
                 hayFiltros={hayFiltros}
+                colapsada={colapsadas.has(col.estado)}
+                onToggleColapsar={() => toggleColapsada(col.estado)}
                 onNueva={() => abrirDialog(col.estado)}
                 onAbrirSheet={abrirSheet}
               />
@@ -351,7 +425,7 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
 
         <DragOverlay>
           {activeTarea && (
-            <div className="rotate-2 opacity-90 shadow-xl">
+            <div className="rotate-[1.5deg] opacity-90 shadow-2xl">
               <TareaCardItem tarea={activeTarea} onClick={() => {}} />
             </div>
           )}

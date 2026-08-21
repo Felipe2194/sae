@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, CalendarDays, MessageSquare, CheckSquare, Repeat } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatarStack } from "@/components/features/user-avatar";
 import type { TareaCard } from "./page";
 
 const TIPO_LABEL: Record<string, string> = {
@@ -21,12 +21,6 @@ const PRIORIDAD_COLOR: Record<string, string> = {
   media: "bg-amber-400",
   alta: "bg-red-500",
 };
-
-function iniciales(nombre: string): string {
-  const partes = nombre.trim().split(/\s+/);
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
-}
 
 export function TareaCardItem({
   tarea,
@@ -56,22 +50,36 @@ export function TareaCardItem({
     tarea.estado !== "hecha" &&
     new Date(tarea.fecha_vencimiento + "T00:00:00") < new Date();
 
+  // Responsable + co-asignados, sin duplicados, en un solo stack de avatares.
+  const asignados = useMemo(() => {
+    const lista = [...tarea.asignados];
+    if (tarea.responsable_id && tarea.responsable_nombre && !lista.some((a) => a.id === tarea.responsable_id)) {
+      lista.unshift({ id: tarea.responsable_id, nombre: tarea.responsable_nombre, avatar_color: tarea.responsable_avatar_color });
+    }
+    return lista;
+  }, [tarea.asignados, tarea.responsable_id, tarea.responsable_nombre, tarea.responsable_avatar_color]);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
+      // El arrastre se activa desde cualquier parte de la card — PointerSensor
+      // ya exige 8px de movimiento antes de considerarlo drag, así que un
+      // click normal (sin mover el mouse) sigue abriendo el detalle.
+      {...(mounted && !overlay ? listeners : undefined)}
+      {...(mounted && !overlay ? attributes : undefined)}
       className={isDragging ? "opacity-40" : ""}
     >
       <Card
-        className={`gap-0 py-0 hover:shadow-md transition-shadow select-none cursor-pointer ${
+        className={`gap-0 py-0 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 select-none cursor-grab active:cursor-grabbing ${
           tarea.prioridad === "alta" && tarea.estado !== "hecha"
             ? "ring-1 ring-red-500/25"
             : ""
         }`}
         onClick={onClick}
       >
-        <CardContent className="flex flex-col gap-2 p-3">
-          {/* Área + tipo + drag handle */}
+        <CardContent className="flex flex-col gap-2 p-3.5">
+          {/* Área + tipo + grip decorativo */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
               <span
@@ -88,17 +96,11 @@ export function TareaCardItem({
                   {TIPO_LABEL[tarea.tipo] ?? tarea.tipo}
                 </Badge>
               )}
-              {/* Drag handle — solo aquí se inicia el drag */}
               {!overlay && (
-                <span
-                  {...(mounted ? listeners : undefined)}
-                  {...(mounted ? attributes : undefined)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors p-0.5 -mr-1 rounded"
-                  aria-label="Arrastrar tarea"
-                >
-                  <GripVertical className="size-3.5" />
-                </span>
+                <GripVertical
+                  className="size-3.5 pointer-events-none text-muted-foreground/30"
+                  aria-hidden
+                />
               )}
             </div>
           </div>
@@ -146,13 +148,7 @@ export function TareaCardItem({
                 </span>
               )}
             </div>
-            {tarea.responsable_nombre && (
-              <Avatar className="size-5 shrink-0">
-                <AvatarFallback className="text-[10px] font-semibold bg-[oklch(0.62_0.19_42)] text-white">
-                  {iniciales(tarea.responsable_nombre)}
-                </AvatarFallback>
-              </Avatar>
-            )}
+            <UserAvatarStack usuarios={asignados} size="sm" max={3} />
           </div>
         </CardContent>
       </Card>

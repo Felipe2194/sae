@@ -20,18 +20,32 @@ async function requireCoord() {
   return session;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+async function sincronizarColaboradores(tx: any, areaId: string, asignadosIds: string[]) {
+  await tx`delete from area_asignado where area_id = ${areaId}`;
+  for (const usuarioId of new Set(asignadosIds)) {
+    await tx`
+      insert into area_asignado (area_id, usuario_id)
+      values (${areaId}, ${usuarioId})
+    `;
+  }
+}
+
 export async function crearArea(data: {
   nombre: string;
   descripcion: string;
   color: string;
   responsable_id: string | null;
+  asignados_ids?: string[];
 }) {
   const session = await requireCoord();
   await withUser(session.user.id, async (tx) => {
-    await tx`
+    const [{ id }] = await tx<[{ id: string }]>`
       insert into area (organizacion_id, nombre, descripcion, color, responsable_id)
       values (mi_organizacion_id(), ${data.nombre}, ${data.descripcion || null}, ${data.color}, ${data.responsable_id})
+      returning id
     `;
+    await sincronizarColaboradores(tx, id, data.asignados_ids ?? []);
   });
   revalidatePath('/areas');
   revalidatePath('/coordinacion');
@@ -212,6 +226,7 @@ export async function actualizarArea(
     descripcion: string | null;
     color: string;
     responsable_id: string | null;
+    asignados_ids?: string[];
   },
 ) {
   const session = await requireCoord();
@@ -225,6 +240,9 @@ export async function actualizarArea(
       where id = ${areaId}
         and organizacion_id = mi_organizacion_id()
     `;
+    if (data.asignados_ids !== undefined) {
+      await sincronizarColaboradores(tx, areaId, data.asignados_ids);
+    }
   });
   revalidatePath('/areas');
   revalidatePath(`/areas/${areaId}`);

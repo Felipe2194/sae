@@ -16,6 +16,8 @@ export type TareaCard = {
   area_color: string | null;
   responsable_id: string | null;
   responsable_nombre: string | null;
+  responsable_avatar_color: string | null;
+  asignados: { id: string; nombre: string; avatar_color: string | null }[];
   subtarea_total: number;
   subtarea_hecha: number;
   comentario_count: number;
@@ -27,7 +29,7 @@ export type TareaCard = {
 };
 
 export type AreaOption = { id: string; nombre: string; color: string };
-export type UsuarioOption = { id: string; nombre: string };
+export type UsuarioOption = { id: string; nombre: string; avatar_color: string | null };
 
 export default async function TableroPage() {
   const session = await auth();
@@ -53,6 +55,16 @@ export default async function TableroPage() {
         a.nombre  as area_nombre,
         a.color   as area_color,
         u.nombre  as responsable_nombre,
+        u.avatar_color as responsable_avatar_color,
+        coalesce(
+          (
+            select json_agg(json_build_object('id', u2.id, 'nombre', u2.nombre, 'avatar_color', u2.avatar_color))
+            from tarea_asignado ta
+            join usuario u2 on u2.id = ta.usuario_id
+            where ta.tarea_id = t.id
+          ),
+          '[]'
+        ) as asignados,
         coalesce((select count(*)::int from subtarea s where s.tarea_id = t.id), 0)              as subtarea_total,
         coalesce((select count(*)::int from subtarea s where s.tarea_id = t.id and s.hecha), 0)  as subtarea_hecha,
         coalesce((select count(*)::int from comentario c where c.tarea_id = t.id), 0)            as comentario_count
@@ -71,7 +83,7 @@ export default async function TableroPage() {
     `;
 
     const usuarios = await tx<UsuarioOption[]>`
-      select id, nombre
+      select id, nombre, avatar_color
       from usuario
       where organizacion_id = mi_organizacion_id() and estado = 'activo'
       order by nombre asc
