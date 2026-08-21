@@ -197,29 +197,33 @@ export function MusicPlayer({ playlists, usuarioActualId }: Props) {
           abierto ? "w-72 h-auto opacity-100" : "size-0 border-transparent opacity-0"
         }`}
       >
-        <div className="flex w-72 flex-col gap-2 p-3">
+        <div className="w-72">
           {opciones.length > 1 && (
-            <Select
-              value={seleccion}
-              onValueChange={(v) => setSeleccion(v ?? "_default")}
-              items={items}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {opciones.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="p-3 pb-2">
+              <Select
+                value={seleccion}
+                onValueChange={(v) => setSeleccion(v ?? "_default")}
+                items={items}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {opciones.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
-          <div
-            className="overflow-hidden rounded-md"
-            style={{ width: ANCHO, height: ALTO }}
-          >
+          {/* Sin padding: el video va al ras de los bordes del panel (ANCHO
+              coincide con el w-72 del panel — si tuviera el mismo padding
+              que el selector, el iframe de 288px se desbordaría del
+              contenedor de 264px de contenido y quedaría recortado y
+              descentrado por el overflow-hidden del panel). */}
+          <div style={{ width: ANCHO, height: ALTO }}>
             <div ref={containerRef} />
           </div>
         </div>
