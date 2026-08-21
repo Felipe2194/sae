@@ -15,6 +15,7 @@ import {
   LogOut,
   BarChart3,
   UserRoundCog,
+  StickyNote,
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,11 +41,12 @@ import { signOut } from "@/app/(app)/actions";
 const ITEMS_BASE: { href: string; label: string; icon: React.ElementType; roles: string[] | null }[] = [
   { href: "/hoy", label: "Hoy", icon: Sparkles, roles: null },
   { href: "/tablero", label: "Tablero", icon: LayoutDashboard, roles: null },
+  { href: "/pizarra", label: "Pizarra", icon: StickyNote, roles: null },
   { href: "/calendario", label: "Calendario", icon: Calendar, roles: null },
   { href: "/cronograma", label: "Cronograma", icon: CalendarRange, roles: null },
   { href: "/areas", label: "Áreas", icon: Layers3, roles: null },
   { href: "/coordinacion", label: "Coordinación", icon: UsersRound, roles: ["coordinador", "administrador"] },
-  { href: "/informes", label: "Informes", icon: BarChart3, roles: ["coordinador", "administrador"] },
+  { href: "/informes", label: "Informes", icon: BarChart3, roles: ["administrador"] },
   { href: "/admin", label: "Admin", icon: ShieldCheck, roles: ["administrador"] },
 ];
 

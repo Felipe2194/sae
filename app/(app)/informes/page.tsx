@@ -107,7 +107,7 @@ export default async function InformesPage() {
   if (!session?.user) redirect("/login");
 
   const rol = (session.user as { rol: string }).rol;
-  if (rol === "miembro") redirect("/hoy");
+  if (rol !== "administrador") redirect("/hoy");
 
   const {
     semanas,
