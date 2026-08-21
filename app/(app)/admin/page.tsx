@@ -84,9 +84,16 @@ export default async function AdminPage() {
     `;
 
     const [organizacion] = await tx<
-      { nombre: string; logo_url: string | null; color_principal: string | null; zona_horaria: string }[]
+      {
+        nombre: string;
+        logo_url: string | null;
+        color_principal: string | null;
+        zona_horaria: string;
+        fondo_tipo: "gradiente" | "imagen" | null;
+        fondo_valor: string | null;
+      }[]
     >`
-      select nombre, logo_url, color_principal, zona_horaria
+      select nombre, logo_url, color_principal, zona_horaria, fondo_tipo, fondo_valor
       from organizacion
       where id = mi_organizacion_id()
     `;

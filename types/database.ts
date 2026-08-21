@@ -18,6 +18,8 @@ export interface OrganizacionRow {
   logo_url: string | null;
   zona_horaria: string;
   color_principal: string | null;
+  fondo_tipo: 'gradiente' | 'imagen' | null;
+  fondo_valor: string | null;
   creada_en: string;
 }
 
@@ -28,6 +30,8 @@ export interface OrganizacionInsert {
   logo_url?: string | null;
   zona_horaria?: string;
   color_principal?: string | null;
+  fondo_tipo?: 'gradiente' | 'imagen' | null;
+  fondo_valor?: string | null;
 }
 
 export type OrganizacionUpdate = Partial<OrganizacionInsert>;
