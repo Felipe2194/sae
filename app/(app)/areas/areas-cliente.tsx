@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Plus, User, Archive, ArchiveRestore, AlertTriangle } from "lucide-react";
+import { Plus, User, Archive, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AreaDialog, type UsuarioOption } from "./area-dialog";
-import { fetchAreasArchivadas, reactivarArea, type AreaArchivadaRow } from "./actions";
+import { ReactivarAreaBoton } from "./reactivar-area-boton";
+import { fetchAreasArchivadas, type AreaArchivadaRow } from "./actions";
 
 type Area = {
   id: string;
@@ -66,9 +67,8 @@ export function AreasCliente({ areas, usuarios, canManage }: Props) {
     }
   }
 
-  function handleReactivar(areaId: string) {
+  function handleReactivada(areaId: string) {
     setArchivadas((prev) => prev?.filter((a) => a.id !== areaId) ?? prev);
-    startTransition(() => reactivarArea(areaId));
   }
 
   return (
@@ -241,15 +241,15 @@ export function AreasCliente({ areas, usuarios, canManage }: Props) {
                     >
                       {a.nombre}
                     </Link>
-                    <Button
+                    <ReactivarAreaBoton
+                      areaId={a.id}
+                      label="Reactivar"
+                      labelPendiente="Reactivar"
                       variant="ghost"
                       size="sm"
                       className="h-7 shrink-0 text-xs"
-                      onClick={() => handleReactivar(a.id)}
-                    >
-                      <ArchiveRestore className="size-3.5" />
-                      Reactivar
-                    </Button>
+                      onReactivada={() => handleReactivada(a.id)}
+                    />
                   </div>
                 ))
               )}

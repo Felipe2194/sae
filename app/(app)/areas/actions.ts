@@ -88,29 +88,81 @@ export type AreaArchivadaRow = {
   descripcion: string | null;
 };
 
+// Cierre de temporada: archivar un área archiva con ella (no borra) sus
+// tareas que no estén ya 'hecha' — si no, quedaban huérfanas viviendo en el
+// tablero activo sin ningún indicio de que su área ya se había cerrado.
+// area.archivada_en y las tarea.archivada_en de este cierre quedan con el
+// mismo now() de esta transacción — eso es lo que permite después ofrecerlas
+// como sugerencia puntual de "esto se cerró la última vez" al reactivar
+// (ver fetchTareasCierre), sin mezclarlas con archivados de otro momento.
 export async function archivarArea(areaId: string) {
   const session = await requireCoord();
   await withUser(session.user.id, async (tx) => {
     await tx`
-      update area set activa = false
+      update area set activa = false, archivada_en = now()
       where id = ${areaId} and organizacion_id = mi_organizacion_id()
+    `;
+    await tx`
+      update tarea set archivada = true, archivada_en = now()
+      where area_id = ${areaId}
+        and organizacion_id = mi_organizacion_id()
+        and archivada = false
+        and estado != 'hecha'
     `;
   });
   revalidatePath('/areas');
   revalidatePath(`/areas/${areaId}`);
+  revalidatePath('/tablero');
   revalidatePath('/coordinacion');
 }
 
-export async function reactivarArea(areaId: string) {
+export type TareaCierreRow = { id: string; titulo: string };
+
+// Tareas que se archivaron junto con el área la última vez que se cerró —
+// para sugerirlas al reactivar el área una temporada nueva ("¿repetimos
+// estas o arrancamos en blanco?"). Si el área nunca se cerró con este
+// mecanismo (o se archivó con la versión vieja de archivarArea, antes de
+// esta migración), area.archivada_en es null y esto devuelve vacío — la
+// UI de reactivar, en ese caso, no ofrece nada para elegir.
+export async function fetchTareasCierre(areaId: string): Promise<TareaCierreRow[]> {
+  const session = await requireAuth();
+  return withUser(session.user.id, async (tx) => {
+    const rows = await tx<TareaCierreRow[]>`
+      select t.id, t.titulo
+      from tarea t
+      join area a on a.id = t.area_id
+      where t.area_id = ${areaId}
+        and t.organizacion_id = mi_organizacion_id()
+        and t.archivada = true
+        and a.archivada_en is not null
+        and t.archivada_en = a.archivada_en
+      order by t.orden asc, t.creada_en asc
+    `;
+    return [...rows];
+  });
+}
+
+// titulosNuevos: los títulos elegidos de fetchTareasCierre() para recrear
+// como tareas frescas en 'por_hacer' al reactivar — vacío si se eligió
+// arrancar la temporada en blanco.
+export async function reactivarArea(areaId: string, titulosNuevos: string[] = []) {
   const session = await requireCoord();
   await withUser(session.user.id, async (tx) => {
     await tx`
       update area set activa = true
       where id = ${areaId} and organizacion_id = mi_organizacion_id()
     `;
+    for (const titulo of titulosNuevos) {
+      if (!titulo.trim()) continue;
+      await tx`
+        insert into tarea (organizacion_id, area_id, titulo, creada_por, orden)
+        values (mi_organizacion_id(), ${areaId}, ${titulo.trim()}, mi_usuario_id(), 0)
+      `;
+    }
   });
   revalidatePath('/areas');
   revalidatePath(`/areas/${areaId}`);
+  revalidatePath('/tablero');
   revalidatePath('/coordinacion');
 }
 

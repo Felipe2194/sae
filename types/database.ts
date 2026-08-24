@@ -81,6 +81,7 @@ export interface AreaRow {
   responsable_id: string | null;
   activa: boolean;
   creada_en: string;
+  archivada_en: string | null;
 }
 
 export interface AreaInsert {
@@ -114,6 +115,7 @@ export interface TareaRow {
   completada_en: string | null;
   orden: number;
   archivada: boolean;
+  archivada_en: string | null;
   duracion_estimada_hs: number | null;
   duracion_real_hs: number | null;
 }

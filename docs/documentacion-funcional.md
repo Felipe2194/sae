@@ -119,6 +119,13 @@ Listado de las líneas de trabajo temáticas de la secretaría (color, responsab
 descripción, % de tareas completadas). Coordinadores/admins pueden crear, editar y
 archivar áreas.
 
+**Cierre de temporada**: archivar un área archiva con ella (no borra) sus tareas que
+todavía no estén en "Hecha" — así no quedan huérfanas viviendo en el tablero activo con
+el área ya cerrada. Al reactivar un área que se cerró así, el sistema ofrece un diálogo
+con las tareas de ese cierre para elegir cuáles recrear como tareas nuevas de la
+temporada que arranca, o empezar en blanco sin ninguna. Si el área nunca se archivó con
+este mecanismo, reactivar no ofrece nada para elegir y arranca directo en blanco.
+
 Al entrar a un área específica: sus tareas agrupadas por estado, sus **plantillas de
 tareas** (un nombre + una lista de títulos reutilizable — para procesos que se repiten
 como inscripciones o torneos; "Aplicar" clona esos títulos como tareas reales en

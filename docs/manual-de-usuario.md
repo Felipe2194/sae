@@ -85,6 +85,12 @@ Kanban con tres columnas fijas: **Por hacer · En progreso · Hecha**.
 Tarjetas con color, responsable y % de tareas completadas por área. Si sos
 coordinador o admin, podés crear, editar o archivar áreas.
 
+**Cerrar la temporada de un área**: al archivarla, sus tareas que no estén
+"Hecha" se archivan junto con ella — no quedan dando vueltas en el tablero
+de un área ya cerrada. Cuando la reactivés (por ejemplo, al arrancar el
+año siguiente), el sistema te muestra esas tareas y te deja elegir cuáles
+recrear para la temporada nueva, o arrancar directamente en blanco.
+
 Al entrar a una área específica:
 - Sus tareas, agrupadas por estado.
 - **Plantillas**: un nombre + una lista de títulos reutilizable, para

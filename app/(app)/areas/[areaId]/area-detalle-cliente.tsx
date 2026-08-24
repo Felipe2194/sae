@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pencil, Archive, ArchiveRestore } from "lucide-react";
+import { Pencil, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AreaDialog, type UsuarioOption } from "../area-dialog";
-import { archivarArea, reactivarArea } from "../actions";
+import { ReactivarAreaBoton } from "../reactivar-area-boton";
+import { archivarArea } from "../actions";
 
 type Props = {
   area: {
@@ -38,10 +39,6 @@ export function AreaDetalleCliente({ area, usuarios, canManage }: Props) {
     });
   }
 
-  function handleReactivar() {
-    startTransition(() => reactivarArea(area.id));
-  }
-
   return (
     <>
       <div className="flex items-center gap-2">
@@ -53,7 +50,9 @@ export function AreaDetalleCliente({ area, usuarios, canManage }: Props) {
         {area.activa ? (
           confirmArchivar ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">¿Archivar área?</span>
+              <span className="text-sm text-muted-foreground">
+                ¿Archivar área? Sus tareas sin terminar se archivan con ella.
+              </span>
               <Button variant="outline" size="sm" onClick={() => setConfirmArchivar(false)}>
                 Cancelar
               </Button>
@@ -73,10 +72,11 @@ export function AreaDetalleCliente({ area, usuarios, canManage }: Props) {
             </Button>
           )
         ) : (
-          <Button variant="outline" size="sm" onClick={handleReactivar} disabled={isPending}>
-            <ArchiveRestore className="size-3.5" />
-            {isPending ? "Reactivando..." : "Reactivar área"}
-          </Button>
+          <ReactivarAreaBoton
+            areaId={area.id}
+            label="Reactivar área"
+            labelPendiente="Reactivando..."
+          />
         )}
       </div>
 
