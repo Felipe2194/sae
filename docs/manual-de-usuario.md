@@ -52,6 +52,10 @@ Responde "¿qué tengo que hacer hoy?" sin que tengas que ir a buscarlo:
 - **Bitácora del día**: contá qué hiciste, qué quedó pendiente y
   observaciones. Se precarga sola con lo que ya completaste ese día, para
   que no tengas que reescribirlo.
+- **Bitácora del equipo**: debajo, lo que cargó el resto del equipo hoy —
+  así ves qué hizo el turno anterior y qué te queda por retomar, sin tener
+  que preguntar por WhatsApp. Cualquiera puede leer la bitácora de
+  cualquiera; cada quien sigue editando solo la propia.
 - **Música de la oficina**: un reproductor de YouTube de fondo. Podés elegir
   entre la playlist de la organización o la tuya propia (configurable en
   `/perfil`).

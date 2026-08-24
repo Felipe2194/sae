@@ -66,6 +66,11 @@ que el usuario tenga que ir a buscarlo.
 - **Próximamente**: tareas propias con vencimiento futuro (colapsable).
 - **Bitácora del día**: campos "qué hice" / "qué quedó pendiente" / "observaciones". Se
   precarga automáticamente con los títulos de las tareas que el usuario completó ese día.
+- **Bitácora del equipo**: debajo de la propia, lo que cargó el resto del equipo hoy (hora,
+  qué hizo, qué quedó pendiente, observaciones) — para que el turno siguiente lo lea acá en
+  vez de por un mensaje aparte al grupo de WhatsApp. Cualquier persona de la organización
+  puede leer la bitácora de cualquier otra (antes solo el propio autor, coordinador o
+  administrador podían); seguir editando solo la propia no cambió.
 - **Música de la oficina**: embed oficial de YouTube (`youtube-nocookie.com`, colapsado
   por defecto), con los controles nativos del reproductor de YouTube. No requiere cuenta
   ni credencial. Un selector permite elegir entre la playlist por defecto de la
