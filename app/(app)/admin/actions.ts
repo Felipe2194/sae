@@ -111,8 +111,6 @@ export async function actualizarOrganizacion(data: {
   logo_url: string | null;
   color_principal: string | null;
   zona_horaria: string;
-  fondo_tipo: 'gradiente' | 'imagen' | null;
-  fondo_valor: string | null;
 }) {
   const session = await requireAdmin();
   await withUser(session.user.id, async (tx) => {
@@ -121,9 +119,7 @@ export async function actualizarOrganizacion(data: {
       set nombre = ${data.nombre},
         logo_url = ${data.logo_url},
         color_principal = ${data.color_principal},
-        zona_horaria = ${data.zona_horaria},
-        fondo_tipo = ${data.fondo_tipo},
-        fondo_valor = ${data.fondo_valor}
+        zona_horaria = ${data.zona_horaria}
       where id = mi_organizacion_id()
     `;
   });

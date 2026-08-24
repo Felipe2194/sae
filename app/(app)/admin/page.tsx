@@ -89,11 +89,9 @@ export default async function AdminPage() {
         logo_url: string | null;
         color_principal: string | null;
         zona_horaria: string;
-        fondo_tipo: "gradiente" | "imagen" | null;
-        fondo_valor: string | null;
       }[]
     >`
-      select nombre, logo_url, color_principal, zona_horaria, fondo_tipo, fondo_valor
+      select nombre, logo_url, color_principal, zona_horaria
       from organizacion
       where id = mi_organizacion_id()
     `;

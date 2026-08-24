@@ -1,6 +1,6 @@
-// Gradientes predefinidos para el fondo "glass" de la app — elegidos por el
-// admin en /admin → Organización. Compartido entre el picker (organizacion-form)
-// y el layout que pinta el fondo real, para que ambos usen el mismo CSS.
+// Gradientes predefinidos para el fondo "glass" de la app — cada persona
+// elige el suyo en /perfil. Compartido entre el picker (perfil-form) y el
+// layout que pinta el fondo real, para que ambos usen el mismo CSS.
 
 export const GRADIENTES_FONDO = {
   aurora: { label: 'Aurora', css: 'linear-gradient(135deg, #a8edea 0%, #d5b8f0 50%, #fed6e3 100%)' },
@@ -15,8 +15,8 @@ export const GRADIENTES_FONDO = {
 
 export type GradienteFondoKey = keyof typeof GRADIENTES_FONDO;
 
-/** CSS `background` a partir de lo guardado en `organizacion` — null = sin fondo custom. */
-export function cssFondoOrganizacion(
+/** CSS `background` a partir de lo guardado en `usuario` — null = sin fondo custom. */
+export function cssFondo(
   fondoTipo: 'gradiente' | 'imagen' | null,
   fondoValor: string | null,
 ): string | null {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Check, Camera } from "lucide-react";
 import {
   Card,
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { GRADIENTES_FONDO, type GradienteFondoKey } from "@/lib/fondos";
 import { actualizarNombre } from "./actions";
 
 const COLORES = [
@@ -41,15 +42,77 @@ type Props = {
   rol: string;
   playlistUrl: string | null;
   avatarColor: string | null;
+  fondoTipo: "gradiente" | "imagen" | null;
+  fondoValor: string | null;
 };
 
-export function PerfilForm({ nombre: nombreInicial, email, rol, playlistUrl, avatarColor }: Props) {
+export function PerfilForm({
+  nombre: nombreInicial,
+  email,
+  rol,
+  playlistUrl,
+  avatarColor,
+  fondoTipo: fondoTipoInicial,
+  fondoValor: fondoValorInicial,
+}: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [playlistUrlValue, setPlaylistUrlValue] = useState(playlistUrl ?? "");
   const [color, setColor] = useState(avatarColor ?? COLORES[0].hex);
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const [fondoTipo, setFondoTipo] = useState<"ninguno" | "gradiente" | "imagen">(
+    fondoTipoInicial ?? "ninguno",
+  );
+  const [fondoGradiente, setFondoGradiente] = useState<GradienteFondoKey | null>(
+    fondoTipoInicial === "gradiente" ? (fondoValorInicial as GradienteFondoKey) : null,
+  );
+  const [fondoImagenUrl, setFondoImagenUrl] = useState(
+    fondoTipoInicial === "imagen" ? (fondoValorInicial ?? "") : "",
+  );
+
+  // Vista previa en vivo del fondo (sin guardar): se pinta directo sobre el
+  // wrapper del sidebar, el mismo nodo donde el layout aplica el fondo real
+  // (ver app/(app)/layout.tsx). Al guardar, el revalidate del server action
+  // pisa este estilo manual con el valor confirmado — no hace falta limpiarlo
+  // a mano. Si se navega afuera sin guardar, el cleanup del primer efecto lo
+  // restaura al valor original.
+  const fondoWrapperRef = useRef<HTMLElement | null>(null);
+  const fondoOriginalRef = useRef<string>("");
+
+  useEffect(() => {
+    const el = document.querySelector<HTMLElement>('[data-slot="sidebar-wrapper"]');
+    fondoWrapperRef.current = el;
+    fondoOriginalRef.current = el?.style.background ?? "";
+    return () => {
+      if (fondoWrapperRef.current) fondoWrapperRef.current.style.background = fondoOriginalRef.current;
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = fondoWrapperRef.current;
+    if (!el) return;
+    if (fondoTipo === "gradiente" && fondoGradiente) {
+      el.style.background = GRADIENTES_FONDO[fondoGradiente].css;
+    } else if (fondoTipo === "ninguno") {
+      el.style.background = "";
+    }
+  }, [fondoTipo, fondoGradiente]);
+
+  // Imagen aparte y con debounce: sin esto, cada tecla tipeada dispara una
+  // carga de imagen con la URL a medio escribir — además de inútil, algunos
+  // hosts (ej. Imgur) empiezan a devolver 429/503 si les llegan demasiados
+  // pedidos fallidos seguidos por el mismo recurso.
+  useEffect(() => {
+    if (fondoTipo !== "imagen") return;
+    const el = fondoWrapperRef.current;
+    if (!el || !fondoImagenUrl.trim()) return;
+    const id = setTimeout(() => {
+      el.style.background = `url("${fondoImagenUrl.trim()}") center / cover no-repeat fixed`;
+    }, 600);
+    return () => clearTimeout(id);
+  }, [fondoTipo, fondoImagenUrl]);
 
   const iniciales = nombre
     .trim()
@@ -142,6 +205,76 @@ export function PerfilForm({ nombre: nombreInicial, email, rol, playlistUrl, ava
         </CardContent>
       </Card>
 
+      {/* Fondo (efecto glass) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Fondo</CardTitle>
+          <CardDescription>
+            Se pinta detrás de toda la app cuando entrás vos — las tarjetas quedan
+            translúcidas por encima. Es solo tuyo, no lo ven las demás personas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                { value: "ninguno", label: "Ninguno" },
+                { value: "gradiente", label: "Gradiente" },
+                { value: "imagen", label: "Imagen propia" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  setFondoTipo(opt.value);
+                  // Sin esto, pasar a "Gradiente" sin elegir ninguno todavía
+                  // guardaba fondo_valor null — quedaba sin fondo, en silencio.
+                  if (opt.value === "gradiente" && !fondoGradiente) {
+                    setFondoGradiente(Object.keys(GRADIENTES_FONDO)[0] as GradienteFondoKey);
+                  }
+                }}
+                className={`h-8 rounded-md border px-3 text-xs font-medium transition-colors ${
+                  fondoTipo === opt.value
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {fondoTipo === "gradiente" && (
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+              {Object.entries(GRADIENTES_FONDO).map(([key, g]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setFondoGradiente(key as GradienteFondoKey)}
+                  className={`h-12 rounded-lg transition-all hover:scale-105 ${
+                    fondoGradiente === key ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
+                  }`}
+                  style={{ background: g.css }}
+                  aria-label={g.label}
+                  title={g.label}
+                />
+              ))}
+            </div>
+          )}
+
+          {fondoTipo === "imagen" && (
+            <Input
+              value={fondoImagenUrl}
+              onChange={(e) => setFondoImagenUrl(e.target.value)}
+              type="url"
+              placeholder="https://..."
+              className="h-9"
+            />
+          )}
+        </CardContent>
+      </Card>
+
       {/* Información personal */}
       <Card>
         <CardHeader>
@@ -153,6 +286,22 @@ export function PerfilForm({ nombre: nombreInicial, email, rol, playlistUrl, ava
         <CardContent>
           <form onSubmit={handleGuardar} className="flex flex-col gap-4">
             <input type="hidden" name="avatar_color" value={color} />
+            <input
+              type="hidden"
+              name="fondo_tipo"
+              value={fondoTipo === "ninguno" ? "" : fondoTipo}
+            />
+            <input
+              type="hidden"
+              name="fondo_valor"
+              value={
+                fondoTipo === "gradiente"
+                  ? (fondoGradiente ?? "")
+                  : fondoTipo === "imagen"
+                    ? fondoImagenUrl
+                    : ""
+              }
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="nombre">Nombre completo</Label>

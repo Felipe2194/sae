@@ -209,9 +209,14 @@ Complementa a `/coordinacion` (que mira el estado *actual* del trabajo) con una 
 ### 3.9 `/perfil`
 
 Datos básicos del usuario logueado (nombre, email, rol — sin edición de datos sensibles),
-color de avatar (se guarda al toque, sin re-login para verlo reflejado en el sidebar) y un
+color de avatar (se guarda al toque, sin re-login para verlo reflejado en el sidebar), un
 link opcional a una playlist de YouTube/YouTube Music propia, que después aparece como
-opción en el widget "Música de la oficina" de `/hoy`.
+opción en el widget "Música de la oficina" de `/hoy`, y un **fondo personal** (gradiente
+predefinido o imagen propia por URL, efecto "glass" con las tarjetas translúcidas por
+encima) — es preferencia de cada usuario (`usuario.fondo_tipo`/`fondo_valor`), no de la
+organización: cada persona ve el suyo, nadie más lo ve. Antes vivía en `/admin` como
+configuración única para toda la organización; se movió acá para que cada quien elija el
+propio.
 
 ### 3.10 Elementos transversales (en el header, en todas las páginas)
 

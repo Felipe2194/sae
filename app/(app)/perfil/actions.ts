@@ -31,14 +31,41 @@ export async function actualizarNombre(formData: FormData) {
     avatarColor = avatarColorRaw;
   }
 
+  const fondoTipoRaw = (formData.get('fondo_tipo') as string | null) ?? '';
+  let fondoTipo: 'gradiente' | 'imagen' | null = null;
+  if (fondoTipoRaw === 'gradiente' || fondoTipoRaw === 'imagen') {
+    fondoTipo = fondoTipoRaw;
+  }
+
+  const fondoValorRaw = ((formData.get('fondo_valor') as string | null) ?? '').trim();
+  let fondoValor: string | null = fondoValorRaw || null;
+  if (fondoTipo === 'imagen' && fondoValor) {
+    try {
+      new URL(fondoValor);
+    } catch {
+      throw new Error('La URL del fondo no es válida');
+    }
+  }
+  // Sin tipo elegido, o sin valor cargado para ese tipo (ej. "Gradiente" sin
+  // tocar ningún swatch todavía) -> sin fondo, no un tipo huérfano sin valor.
+  if (!fondoTipo || !fondoValor) {
+    fondoTipo = null;
+    fondoValor = null;
+  }
+
   await withUser(session.user.id, async (tx) => {
     await tx`
       update usuario
-      set nombre = ${nombre}, playlist_url = ${playlistUrl}, avatar_color = ${avatarColor}
+      set nombre = ${nombre},
+        playlist_url = ${playlistUrl},
+        avatar_color = ${avatarColor},
+        fondo_tipo = ${fondoTipo},
+        fondo_valor = ${fondoValor}
       where id = mi_usuario_id()
     `;
   });
 
   revalidatePath('/perfil');
   revalidatePath('/hoy');
+  revalidatePath('/', 'layout');
 }

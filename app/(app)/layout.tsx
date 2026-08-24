@@ -11,7 +11,7 @@ import { PanelNotificaciones } from "@/components/features/panel-notificaciones"
 import { ThemeToggle } from "@/components/features/theme-toggle";
 import { AppSidebar } from "@/components/features/app-sidebar";
 import { MusicPlayer } from "@/components/features/music-player";
-import { cssFondoOrganizacion } from "@/lib/fondos";
+import { cssFondo } from "@/lib/fondos";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -26,7 +26,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Se consulta acá (no vía el JWT de la sesión) para que un cambio de color
   // en /perfil o de branding en /admin se vea reflejado al toque, sin
-  // esperar a un nuevo login.
+  // esperar a un nuevo login. El fondo es preferencia personal (usuario.*),
+  // no de la organización — cada quien elige el suyo en /perfil.
   const { fila, playlists } = await withUser(session.user.id, async (tx) => {
     const [fila] = await tx<{
       avatar_color: string | null;
@@ -35,7 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       fondo_tipo: 'gradiente' | 'imagen' | null;
       fondo_valor: string | null;
     }[]>`
-      select u.avatar_color, o.logo_url, o.color_principal, o.fondo_tipo, o.fondo_valor
+      select u.avatar_color, o.logo_url, o.color_principal, u.fondo_tipo, u.fondo_valor
       from usuario u
       join organizacion o on o.id = u.organizacion_id
       where u.id = mi_usuario_id()
@@ -58,7 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     return { fila, playlists: [...playlists] };
   });
 
-  const fondoCss = cssFondoOrganizacion(fila?.fondo_tipo ?? null, fila?.fondo_valor ?? null);
+  const fondoCss = cssFondo(fila?.fondo_tipo ?? null, fila?.fondo_valor ?? null);
 
   return (
     <SidebarProvider

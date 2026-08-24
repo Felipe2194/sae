@@ -154,9 +154,11 @@ y último login por persona.
 
 ## 12. `/perfil`
 
-Tus datos básicos, color de avatar (se ve reflejado al toque en el sidebar)
-y un link opcional a tu playlist de YouTube/YouTube Music, que después
-aparece como opción en el widget de música de `/hoy`.
+Tus datos básicos, color de avatar (se ve reflejado al toque en el sidebar),
+un link opcional a tu playlist de YouTube/YouTube Music, que después aparece
+como opción en el widget de música de `/hoy`, y tu **fondo personal**
+(gradiente o imagen propia por URL) — solo vos lo ves, no afecta a nadie
+más del equipo.
 
 ## 13. Elementos que están en todas las páginas
 

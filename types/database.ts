@@ -18,8 +18,6 @@ export interface OrganizacionRow {
   logo_url: string | null;
   zona_horaria: string;
   color_principal: string | null;
-  fondo_tipo: 'gradiente' | 'imagen' | null;
-  fondo_valor: string | null;
   creada_en: string;
 }
 
@@ -30,8 +28,6 @@ export interface OrganizacionInsert {
   logo_url?: string | null;
   zona_horaria?: string;
   color_principal?: string | null;
-  fondo_tipo?: 'gradiente' | 'imagen' | null;
-  fondo_valor?: string | null;
 }
 
 export type OrganizacionUpdate = Partial<OrganizacionInsert>;
@@ -52,6 +48,8 @@ export interface UsuarioRow {
   avatar_color: string | null;
   ultimo_login: string | null;
   es_cuenta_generica: boolean;
+  fondo_tipo: 'gradiente' | 'imagen' | null;
+  fondo_valor: string | null;
 }
 
 export interface UsuarioInsert {
@@ -66,6 +64,8 @@ export interface UsuarioInsert {
   playlist_url?: string | null;
   avatar_color?: string | null;
   es_cuenta_generica?: boolean;
+  fondo_tipo?: 'gradiente' | 'imagen' | null;
+  fondo_valor?: string | null;
 }
 
 export type UsuarioUpdate = Partial<Omit<UsuarioInsert, 'organizacion_id'>>;
