@@ -8,6 +8,7 @@ import {
   Clock,
   ListTodo,
   User,
+  History,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
@@ -46,6 +47,13 @@ type TareaRow = {
 
 type UsuarioRow = { id: string; nombre: string; avatar_color: string | null };
 
+type HistorialAnioRow = {
+  anio: number;
+  total: number;
+  hechas: number;
+  dias_promedio: number | null;
+};
+
 const PRIORIDAD_COLOR: Record<string, string> = {
   baja: "#94a3b8",
   media: "#f59e0b",
@@ -82,7 +90,7 @@ export default async function AreaDetallePage({
   const rol = (session.user as { rol: string }).rol;
   const canManage = rol === "coordinador" || rol === "administrador";
 
-  const { area, tareas, usuarios, notas } = await withUser(session.user.id, async (tx) => {
+  const { area, tareas, usuarios, notas, historial } = await withUser(session.user.id, async (tx) => {
     const [area] = await tx<AreaRow[]>`
       select
         a.id, a.nombre, a.color, a.descripcion, a.responsable_id, a.activa,
@@ -108,7 +116,7 @@ export default async function AreaDetallePage({
       limit 1
     `;
 
-    if (!area) return { area: null, tareas: [], usuarios: [], notas: [] };
+    if (!area) return { area: null, tareas: [], usuarios: [], notas: [], historial: [] };
 
     const tareas = await tx<TareaRow[]>`
       select
@@ -152,7 +160,29 @@ export default async function AreaDetallePage({
       limit 100
     `;
 
-    return { area, tareas: [...tareas], usuarios: [...usuarios], notas: [...notas] };
+    // Historial por año calendario — a diferencia de las consultas de arriba,
+    // no filtra t.archivada: incluye TODO lo que pasó por el área alguna vez
+    // (completadas, archivadas al cerrar una temporada, o abandonadas sin
+    // marcar). Es la única forma de comparar años completos: el cierre de
+    // temporada (archivarArea) solo archiva lo que quedó sin terminar, así
+    // que las tareas completadas de un año no quedan marcadas de ningún otro
+    // modo como "de esa temporada".
+    const historial = await tx<HistorialAnioRow[]>`
+      select
+        extract(year from t.creada_en)::int as anio,
+        count(t.id)::int                    as total,
+        count(t.id) filter (where t.estado = 'hecha')::int as hechas,
+        round(
+          avg(extract(epoch from (t.completada_en - t.creada_en)) / 86400.0)
+          filter (where t.estado = 'hecha' and t.completada_en is not null)
+        )::int as dias_promedio
+      from tarea t
+      where t.area_id = ${areaId}
+      group by extract(year from t.creada_en)
+      order by anio desc
+    `;
+
+    return { area, tareas: [...tareas], usuarios: [...usuarios], notas: [...notas], historial: [...historial] };
   });
 
   if (!area) notFound();
@@ -353,6 +383,49 @@ export default async function AreaDetallePage({
           </div>
         )}
       </div>
+
+      {/* ── Historial por año ───────────────────────────────────────────────── */}
+      {historial.length > 1 && (
+        <div className="border-t pt-6">
+          <div className="flex items-center gap-2 mb-3">
+            <History className="size-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold">Historial por año</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground border-b">
+                  <th className="py-1.5 pr-4 font-medium">Año</th>
+                  <th className="py-1.5 pr-4 font-medium">Tareas</th>
+                  <th className="py-1.5 pr-4 font-medium">Completadas</th>
+                  <th className="py-1.5 pr-4 font-medium">Cumplimiento</th>
+                  <th className="py-1.5 font-medium">Días promedio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historial.map((h) => {
+                  const pctAnio = h.total > 0 ? Math.round((h.hechas / h.total) * 100) : 0;
+                  return (
+                    <tr key={h.anio} className="border-b last:border-0">
+                      <td className="py-2 pr-4 font-medium tabular-nums">{h.anio}</td>
+                      <td className="py-2 pr-4 tabular-nums text-muted-foreground">{h.total}</td>
+                      <td className="py-2 pr-4 tabular-nums text-muted-foreground">{h.hechas}</td>
+                      <td className="py-2 pr-4 tabular-nums text-muted-foreground">{pctAnio}%</td>
+                      <td className="py-2 tabular-nums text-muted-foreground">
+                        {h.dias_promedio !== null ? `${h.dias_promedio}d` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Incluye todas las tareas del área alguna vez creadas ese año, estén archivadas o
+            no — no se pierde nada al cerrar una temporada.
+          </p>
+        </div>
+      )}
 
       {/* ── Plantillas de tareas ───────────────────────────────────────────── */}
       <div className="border-t pt-6">
