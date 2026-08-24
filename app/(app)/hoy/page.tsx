@@ -33,6 +33,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TareaFila } from "./tarea-fila";
 import { AccesosCard } from "./accesos-card";
 import { BitacoraCard } from "./bitacora-card";
+import { BitacoraEquipoCard } from "./bitacora-equipo-card";
 import { MisTareasHoy } from "./mis-tareas-hoy";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -134,6 +135,15 @@ type BitacoraHoyRow = {
   observaciones: string | null;
 };
 
+type BitacoraEquipoRow = {
+  nombre: string;
+  avatar_color: string | null;
+  hecho: string | null;
+  pendiente: string | null;
+  observaciones: string | null;
+  hora: string;
+};
+
 type NovedadRow = {
   contenido: string;
   area_nombre: string;
@@ -161,7 +171,7 @@ export default async function HoyPage() {
   const canManage = rol === "coordinador" || rol === "administrador";
   const hoyISO = new Date().toISOString().slice(0, 10);
 
-  const { tareas, stats, enOficina, accesos, bitacoraHoy, prefillHecho, novedad } = await withUser(
+  const { tareas, stats, enOficina, accesos, bitacoraHoy, bitacoraEquipo, prefillHecho, novedad } = await withUser(
     session.user.id,
     async (tx) => {
       const tareas = await tx<TareaRow[]>`
@@ -245,6 +255,22 @@ export default async function HoyPage() {
         where usuario_id = mi_usuario_id() and fecha = current_date
       `;
 
+      // Bitácora del resto del equipo, hoy — para que el turno siguiente vea
+      // acá qué se hizo y qué quedó pendiente en vez de por WhatsApp. La
+      // propia no se repite (ya está arriba, en bitacoraHoy).
+      const bitacoraEquipo = await tx<BitacoraEquipoRow[]>`
+        select
+          u.nombre, u.avatar_color,
+          b.hecho, b.pendiente, b.observaciones,
+          to_char(b.creada_en, 'HH24:MI') as hora
+        from bitacora_diaria b
+        join usuario u on u.id = b.usuario_id
+        where b.organizacion_id = mi_organizacion_id()
+          and b.fecha = current_date
+          and b.usuario_id != mi_usuario_id()
+        order by b.creada_en asc
+      `;
+
       const tareasCompletadasHoy = await tx<{ titulo: string }[]>`
         select titulo
         from tarea t
@@ -302,6 +328,7 @@ export default async function HoyPage() {
         enOficina: [...enOficina],
         accesos: [...accesos],
         bitacoraHoy: bitacoraHoy ?? null,
+        bitacoraEquipo: [...bitacoraEquipo],
         prefillHecho: lineasHecho.join("\n"),
         novedad: novedad ?? null,
       };
@@ -570,6 +597,9 @@ export default async function HoyPage() {
           <div id="bitacora" className="scroll-mt-4">
             <BitacoraCard bitacoraHoy={bitacoraHoy} prefillHecho={prefillHecho} />
           </div>
+
+          {/* Bitácora del resto del equipo, hoy — para el handoff entre turnos */}
+          <BitacoraEquipoCard entradas={bitacoraEquipo} />
 
         </div>
       </div>
