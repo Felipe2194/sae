@@ -162,6 +162,7 @@ export function TareaSheet({
   const [isPendingSave, startSave] = useTransition();
   const [isPendingDelete, startDelete] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
 
   // ── Subtarea nueva ──────────────────────────────────────────────────────────
   const [nuevaSubtarea, setNuevaSubtarea] = useState("");
@@ -219,6 +220,7 @@ export function TareaSheet({
   }
 
   function handleSave() {
+    setErrorGuardado(null);
     startSave(async () => {
       const prev = {
         titulo: tarea.titulo,
@@ -230,28 +232,34 @@ export function TareaSheet({
         fecha_vencimiento: tarea.fecha_vencimiento ?? null,
         estado: tarea.estado,
       };
-      await actualizarTarea(
-        tarea.id,
-        {
-          titulo: titulo.trim() || tarea.titulo,
-          descripcion: descripcion.trim() || null,
-          tipo,
-          prioridad,
-          area_id: areaId,
-          responsable_id: responsableId || null,
-          asignados_ids: asignadosIds,
-          fecha_vencimiento: fechaVencimiento || null,
-          estado,
-          duracion_estimada_hs: duracionEstimada.trim() ? Number(duracionEstimada) : null,
-          duracion_real_hs: duracionReal.trim() ? Number(duracionReal) : null,
-          recurrencia:
-            repetir === "_nunca"
-              ? null
-              : { frecuencia: repetir as "diaria" | "semanal" | "mensual" },
-        },
-        prev,
-      );
-      onOpenChange(false);
+      try {
+        await actualizarTarea(
+          tarea.id,
+          {
+            titulo: titulo.trim() || tarea.titulo,
+            descripcion: descripcion.trim() || null,
+            tipo,
+            prioridad,
+            area_id: areaId,
+            responsable_id: responsableId || null,
+            asignados_ids: asignadosIds,
+            fecha_vencimiento: fechaVencimiento || null,
+            estado,
+            duracion_estimada_hs: duracionEstimada.trim() ? Number(duracionEstimada) : null,
+            duracion_real_hs: duracionReal.trim() ? Number(duracionReal) : null,
+            recurrencia:
+              repetir === "_nunca"
+                ? null
+                : { frecuencia: repetir as "diaria" | "semanal" | "mensual" },
+          },
+          prev,
+        );
+        onOpenChange(false);
+      } catch (err) {
+        setErrorGuardado(
+          err instanceof Error ? err.message : "No se pudo guardar el cambio.",
+        );
+      }
     });
   }
 
@@ -568,21 +576,26 @@ export function TareaSheet({
               </div>
             </div>
 
-            <Button
-              onClick={handleSave}
-              disabled={isPendingSave}
-              size="sm"
-              className="self-start"
-            >
-              {isPendingSave ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="size-3.5 animate-spin" />
-                  Guardando...
-                </span>
-              ) : (
-                "Guardar cambios"
+            <div className="flex flex-col items-start gap-2">
+              <Button
+                onClick={handleSave}
+                disabled={isPendingSave}
+                size="sm"
+                className="self-start"
+              >
+                {isPendingSave ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Guardando...
+                  </span>
+                ) : (
+                  "Guardar cambios"
+                )}
+              </Button>
+              {errorGuardado && (
+                <p className="text-destructive text-xs">{errorGuardado}</p>
               )}
-            </Button>
+            </div>
           </div>
 
           <Separator />

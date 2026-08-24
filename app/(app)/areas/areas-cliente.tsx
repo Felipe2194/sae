@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Plus, User, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, User, Archive, ArchiveRestore, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AreaDialog, type UsuarioOption } from "./area-dialog";
 import { fetchAreasArchivadas, reactivarArea, type AreaArchivadaRow } from "./actions";
@@ -16,7 +16,31 @@ type Area = {
   tareas_total: number;
   tareas_hechas: number;
   tareas_abiertas: number;
+  vencidas_0_7: number;
+  vencidas_8_14: number;
+  vencidas_15_30: number;
+  vencidas_30_mas: number;
+  proximos: { id: string; titulo: string; fecha_vencimiento: string }[];
 };
+
+/** Rótulo de la antigüedad más vieja entre las tareas vencidas del área. */
+function peorAntiguedad(area: Area): string | null {
+  if (area.vencidas_30_mas > 0) return "hace más de 30 días";
+  if (area.vencidas_15_30 > 0) return "hace 15 a 30 días";
+  if (area.vencidas_8_14 > 0) return "hace 8 a 14 días";
+  if (area.vencidas_0_7 > 0) return "hace menos de una semana";
+  return null;
+}
+
+function relDay(fechaISO: string, hoyISO: string): string {
+  const diff = Math.round(
+    (new Date(fechaISO + "T00:00:00").getTime() - new Date(hoyISO + "T00:00:00").getTime()) /
+      86_400_000,
+  );
+  if (diff <= 0) return "Hoy";
+  if (diff === 1) return "Mañana";
+  return `en ${diff} días`;
+}
 
 type Props = {
   areas: Area[];
@@ -25,6 +49,7 @@ type Props = {
 };
 
 export function AreasCliente({ areas, usuarios, canManage }: Props) {
+  const hoyISO = new Date().toISOString().slice(0, 10);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showArchivadas, setShowArchivadas] = useState(false);
   const [archivadas, setArchivadas] = useState<AreaArchivadaRow[] | null>(null);
@@ -82,6 +107,9 @@ export function AreasCliente({ areas, usuarios, canManage }: Props) {
               area.tareas_total > 0
                 ? Math.round((area.tareas_hechas / area.tareas_total) * 100)
                 : 0;
+            const vencidasTotal =
+              area.vencidas_0_7 + area.vencidas_8_14 + area.vencidas_15_30 + area.vencidas_30_mas;
+            const peorLabel = peorAntiguedad(area);
 
             return (
               <Link key={area.id} href={`/areas/${area.id}`} className="group">
@@ -133,6 +161,38 @@ export function AreasCliente({ areas, usuarios, canManage }: Props) {
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">Sin tareas aún</p>
+                    )}
+
+                    {/* Vencidas, por antigüedad */}
+                    {vencidasTotal > 0 && (
+                      <div className="flex items-start gap-1.5 text-xs">
+                        <AlertTriangle className="size-3.5 shrink-0 mt-0.5 text-destructive" />
+                        <p className="min-w-0">
+                          <span className="text-destructive font-medium">
+                            {vencidasTotal} {vencidasTotal === 1 ? "vencida" : "vencidas"}
+                          </span>
+                          {peorLabel && (
+                            <span className="text-muted-foreground"> · la más vieja {peorLabel}</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Próximos 7 días */}
+                    {area.proximos.length > 0 && (
+                      <div className="flex flex-col gap-1 border-t pt-2.5">
+                        <p className="text-[11px] font-medium text-muted-foreground">
+                          Próximos 7 días
+                        </p>
+                        {area.proximos.map((t) => (
+                          <div key={t.id} className="flex items-center gap-1.5 text-xs">
+                            <span className="min-w-0 flex-1 truncate">{t.titulo}</span>
+                            <span className="text-muted-foreground shrink-0 tabular-nums text-[11px]">
+                              {relDay(t.fecha_vencimiento, hoyISO)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     )}
 
                     {/* Responsable */}

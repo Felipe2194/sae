@@ -166,7 +166,7 @@ export async function actualizarTarea(
   const session = await requireAuth();
   const completada_en = data.estado === 'hecha' ? new Date() : null;
   await withUser(session.user.id, async (tx) => {
-    await tx`
+    const actualizadas = await tx`
       update tarea set
         titulo               = ${data.titulo},
         descripcion          = ${data.descripcion},
@@ -183,6 +183,16 @@ export async function actualizarTarea(
       where id = ${tareaId}
         and organizacion_id = mi_organizacion_id()
     `;
+
+    // La política de RLS deja pasar el UPDATE pero lo filtra a 0 filas si
+    // quien edita no es responsable/creador/coordinador/admin de la tarea.
+    // Sin este chequeo, el resto de la función seguía de largo como si el
+    // guardado hubiera funcionado (incluyendo el log de auditoría).
+    if (actualizadas.count === 0) {
+      throw new Error(
+        'No se pudo guardar: no tenés permiso para editar esta tarea.',
+      );
+    }
 
     if (data.asignados_ids !== undefined) {
       await sincronizarAsignados(tx, tareaId, data.asignados_ids);

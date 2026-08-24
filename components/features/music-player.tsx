@@ -126,9 +126,24 @@ export function MusicPlayer({ playlists, usuarioActualId }: Props) {
   }, [playlists, usuarioActualId]);
 
   const tienePlaylistPropia = playlists.some((p) => p.usuarioId === usuarioActualId);
-  const [seleccion, setSeleccion] = useState(
-    tienePlaylistPropia ? usuarioActualId : "_default",
-  );
+  const claveAlmacenamiento = `sae:musica:seleccion:${usuarioActualId}`;
+
+  // Se recuerda qué playlist eligió cada usuario (por perfil) para que no se
+  // pierda al recargar la página o navegar — sin esto, el player siempre
+  // volvía a arrancar con la playlist propia (si existía) ignorando que el
+  // usuario había elegido la de la SAE u otra persona.
+  const [seleccion, setSeleccionEstado] = useState(() => {
+    if (typeof window !== "undefined") {
+      const guardada = window.localStorage.getItem(claveAlmacenamiento);
+      if (guardada) return guardada;
+    }
+    return tienePlaylistPropia ? usuarioActualId : "_default";
+  });
+
+  const setSeleccion = (v: string) => {
+    setSeleccionEstado(v);
+    window.localStorage.setItem(claveAlmacenamiento, v);
+  };
 
   const actual = opciones.find((o) => o.value === seleccion) ?? opciones[0];
   const items = Object.fromEntries(opciones.map((o) => [o.value, o.label]));

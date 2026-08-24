@@ -16,6 +16,11 @@ type AreaRow = {
   tareas_total: number;
   tareas_hechas: number;
   tareas_abiertas: number;
+  vencidas_0_7: number;
+  vencidas_8_14: number;
+  vencidas_15_30: number;
+  vencidas_30_mas: number;
+  proximos: { id: string; titulo: string; fecha_vencimiento: string }[];
 };
 
 type UsuarioRow = { id: string; nombre: string; avatar_color: string | null };
@@ -48,7 +53,42 @@ export default async function AreasPage() {
         ) as asignados,
         count(t.id)::int                                  as tareas_total,
         count(t.id) filter (where t.estado = 'hecha')::int  as tareas_hechas,
-        count(t.id) filter (where t.estado != 'hecha')::int as tareas_abiertas
+        count(t.id) filter (where t.estado != 'hecha')::int as tareas_abiertas,
+        count(t.id) filter (
+          where t.estado != 'hecha' and t.fecha_vencimiento < current_date
+            and current_date - t.fecha_vencimiento between 0 and 7
+        )::int as vencidas_0_7,
+        count(t.id) filter (
+          where t.estado != 'hecha' and t.fecha_vencimiento < current_date
+            and current_date - t.fecha_vencimiento between 8 and 14
+        )::int as vencidas_8_14,
+        count(t.id) filter (
+          where t.estado != 'hecha' and t.fecha_vencimiento < current_date
+            and current_date - t.fecha_vencimiento between 15 and 30
+        )::int as vencidas_15_30,
+        count(t.id) filter (
+          where t.estado != 'hecha' and t.fecha_vencimiento < current_date
+            and current_date - t.fecha_vencimiento > 30
+        )::int as vencidas_30_mas,
+        coalesce(
+          (
+            select json_agg(x order by (x->>'fecha_vencimiento') asc)
+            from (
+              select json_build_object(
+                'id', t3.id, 'titulo', t3.titulo, 'fecha_vencimiento', t3.fecha_vencimiento::text
+              ) as x
+              from tarea t3
+              where t3.area_id = a.id
+                and t3.archivada = false
+                and t3.estado != 'hecha'
+                and t3.fecha_vencimiento >= current_date
+                and t3.fecha_vencimiento <= current_date + 7
+              order by t3.fecha_vencimiento asc
+              limit 3
+            ) sub
+          ),
+          '[]'
+        ) as proximos
       from area a
       left join usuario u on u.id = a.responsable_id
       left join tarea   t on t.area_id = a.id and t.archivada = false
