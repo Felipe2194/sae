@@ -99,11 +99,11 @@ export default function Error({
 
       <div className="border-border/60 bg-card/70 flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border px-8 py-10 text-center shadow-lg backdrop-blur-xl">
         <motion.div
-          className="bg-primary/10 flex size-14 items-center justify-center rounded-full"
-          animate={{ y: [0, -6, 0], rotate: [0, -4, 4, 0] }}
+          className="bg-primary/10 flex items-center justify-center rounded-full p-5"
+          animate={{ y: [0, -6, 0], rotate: [0, -3, 3, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
-          <MascotaTigre className="text-primary size-7" />
+          <MascotaTigre className="h-auto w-32" />
         </motion.div>
 
         <div className="flex flex-col gap-1.5">

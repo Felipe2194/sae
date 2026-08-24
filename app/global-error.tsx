@@ -18,8 +18,8 @@ export default function GlobalError({
     <html lang="es">
       <body>
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center font-sans">
-          <div className="flex size-14 items-center justify-center rounded-full bg-orange-600/10 text-orange-600">
-            <MascotaTigre className="size-7" />
+          <div className="flex items-center justify-center rounded-full bg-orange-600/10 p-5">
+            <MascotaTigre className="h-auto w-32" />
           </div>
           <p className="text-sm font-medium text-orange-600">Ups</p>
           <h1 className="text-xl font-semibold">Algo salió mal</h1>
