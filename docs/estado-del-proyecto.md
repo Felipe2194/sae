@@ -16,8 +16,8 @@ Se migró de Supabase CLI a un stack más simple:
 - **`docker-compose.yml`** levanta solo PostgreSQL 17 (sin Auth Server, sin Studio, sin Storage).
 - **`postgres.js`** reemplaza `@supabase/supabase-js` como cliente de base de datos.
 - **Auth.js v5** (NextAuth con Credentials provider + JWT sessions) reemplaza Supabase Auth.
-- El directorio `supabase/` (migraciones anteriores) queda como referencia histórica; las
-  migraciones activas están en `db/migrations/`.
+- El directorio `supabase/` (migraciones anteriores, código muerto sin uso) se eliminó del
+  repo; las migraciones activas están en `db/migrations/`.
 
 Variables de entorno relevantes (en `.env.local`):
 - `DATABASE_URL` — cadena de conexión a Postgres.
@@ -79,8 +79,8 @@ en la documentación pública de shadcn). La diferencia práctica:
     intentos de login/registro).
   - Seed en `db/seed.ts` (TypeScript, usa bcryptjs para hashear passwords).
   - Tipos TS en `types/database.ts` — mantenidos a mano, sin generador.
-  - Las migraciones anteriores de Supabase están en `supabase/migrations/` como
-    referencia histórica, pero ya no se usan.
+  - Las migraciones anteriores de Supabase (`supabase/migrations/`) ya no están en el
+    repo — eran código muerto sin uso, se eliminaron en la limpieza de archivos sin usar.
 - [x] **M0.3 — Seguridad multi-organización (RLS + GRANTs)**: completado a
       nivel de código — cada tabla nueva agrega su propia política RLS en su
       migración (verificado: `subtarea`, `nota_area`, `tarea_log`,
@@ -102,8 +102,8 @@ en la documentación pública de shadcn). La diferencia práctica:
 
 ### Front — conectado a la base real
 
-Ya no usa `lib/mock-data.ts` (queda el archivo pero no se importa en ninguna
-página). Todo el front lee/escribe contra Postgres vía `withUser()`:
+`lib/mock-data.ts` (datos de ejemplo de la etapa pre-base-real, sin uso) se
+eliminó del repo. Todo el front lee/escribe contra Postgres vía `withUser()`:
 
 - Layout `(app)` con sidebar + header + búsqueda global (Cmd/Ctrl+K).
 - `/hoy` — panel del día, accesos rápidos configurables.

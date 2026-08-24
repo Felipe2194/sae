@@ -26,9 +26,9 @@ No hay Supabase: el proyecto arrancó con Supabase (Postgres + Auth + Storage
 gestionados) y se migró a Postgres puro en Docker + Auth.js propio para
 simplificar el entorno local (un contenedor en vez de la pila completa de
 Supabase CLI) y tener control directo sobre RLS y las políticas.
-`lib/supabase/` (`client.ts`, `server.ts`) y `supabase/migrations/` quedan en
-el repo como referencia histórica — **no se importan desde ninguna parte del
-código actual**, son código muerto de la etapa pre-migración.
+`lib/supabase/` (`client.ts`, `server.ts`) y el directorio `supabase/` de la
+etapa pre-migración eran código muerto sin ninguna referencia en el código
+actual, y se eliminaron del repo.
 
 ## 2. Arquitectura multi-organización
 
@@ -112,7 +112,6 @@ tiene que reflejarse ahí también.
                     app/api/calendar/events y la de Drive Picker en
                     app/(app)/tablero/drive-picker-button.tsx (carga scripts
                     de Google en el cliente, no usa este directorio)
-  supabase/        código muerto, ver sección 1
 /types
   database.ts      tipos Row/Insert/Update a mano por tabla
 /db

@@ -119,20 +119,20 @@ El sistema tiene tres roles, que determinan qué se ve en el menú lateral y qu�
 
 ## 4. Tecnologías utilizadas
 
-| Capa | Tecnología | En criollo |
-|---|---|---|
-| Framework web | [Next.js](https://nextjs.org) 16 (App Router) + [TypeScript](https://www.typescriptlang.org) | El "motor" de la aplicación: arma tanto las páginas que se ven en el navegador como la lógica del servidor, en el mismo proyecto. |
-| Interfaz visual | [React](https://react.dev) 19, [Tailwind CSS](https://tailwindcss.com) v4, [shadcn/ui](https://ui.shadcn.com) (sobre [Base UI](https://base-ui.com)) | Los componentes visuales (botones, formularios, tablero) y los estilos. |
-| Interacciones | [dnd-kit](https://dndkit.com) (drag-and-drop del tablero), [framer-motion](https://motion.dev) (animaciones), [canvas-confetti](https://www.npmjs.com/package/canvas-confetti) | El arrastrar tarjetas en el Kanban y los pequeños detalles de feedback visual. |
-| Base de datos | [PostgreSQL](https://www.postgresql.org) 17, corriendo en [Docker](https://www.docker.com) en desarrollo, cliente [`postgres.js`](https://github.com/porsager/postgres) | Donde vive toda la información: tareas, áreas, usuarios, turnos, etc. |
-| Aislamiento multi-organización | Row Level Security (RLS) nativo de PostgreSQL | La base de datos misma garantiza que una organización nunca puede leer ni escribir datos de otra — no es un simple filtro en el código. |
-| Autenticación | [Auth.js](https://authjs.dev) v5 (NextAuth) — login con email/contraseña y con Google | Cómo se identifican los usuarios al sistema. |
-| Notificaciones externas | Bot de Telegram (opcional) | Avisos al grupo del equipo cuando se asigna una tarea o se comenta. |
-| Integraciones de Google | Google Calendar API, Google Drive Picker, Google Identity Services | Traer eventos del calendario compartido, adjuntar archivos desde Drive sin subir copias, y el login con Google. |
-| Reproductor de música | YouTube IFrame API (`youtube-nocookie.com`) | El widget de música de fondo en `/hoy`. |
-| Tests | [Vitest](https://vitest.dev) | Pruebas automatizadas, incluyendo un test que verifica el aislamiento entre organizaciones. |
-| Integración continua | [GitHub Actions](https://github.com/features/actions) | Corre lint, chequeo de tipos, migraciones, tests y build en cada cambio antes de que llegue a la rama principal. |
-| Hosting objetivo | [Vercel](https://vercel.com) | Destino de despliegue de la aplicación (pendiente de conectar, ver [Estado del proyecto](#8-estado-del-proyecto)). |
+| Capa | Tecnología |
+|---|---|
+| Framework web | [Next.js](https://nextjs.org) 16 (App Router) + [TypeScript](https://www.typescriptlang.org) |
+| Interfaz visual | [React](https://react.dev) 19, [Tailwind CSS](https://tailwindcss.com) v4, [shadcn/ui](https://ui.shadcn.com) (sobre [Base UI](https://base-ui.com)) |
+| Interacciones | [dnd-kit](https://dndkit.com) (drag-and-drop del tablero), [framer-motion](https://motion.dev) (animaciones), [canvas-confetti](https://www.npmjs.com/package/canvas-confetti) |
+| Base de datos | [PostgreSQL](https://www.postgresql.org) 17, corriendo en [Docker](https://www.docker.com) en desarrollo, cliente [`postgres.js`](https://github.com/porsager/postgres) |
+| Aislamiento multi-organización | Row Level Security (RLS) nativo de PostgreSQL |
+| Autenticación | [Auth.js](https://authjs.dev) v5 (NextAuth) — login con email/contraseña y con Google |
+| Notificaciones externas | Bot de Telegram (opcional) |
+| Integraciones de Google | Google Calendar API, Google Drive Picker, Google Identity Services |
+| Reproductor de música | YouTube IFrame API (`youtube-nocookie.com`) |
+| Tests | [Vitest](https://vitest.dev) |
+| Integración continua | [GitHub Actions](https://github.com/features/actions) |
+| Hosting objetivo | [Vercel](https://vercel.com) |
 
 ---
 
