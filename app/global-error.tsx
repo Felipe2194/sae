@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { MascotaTigre } from "@/components/features/mascota-tigre";
 
 export default function GlobalError({
   error,
@@ -17,6 +18,9 @@ export default function GlobalError({
     <html lang="es">
       <body>
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center font-sans">
+          <div className="flex size-14 items-center justify-center rounded-full bg-orange-600/10 text-orange-600">
+            <MascotaTigre className="size-7" />
+          </div>
           <p className="text-sm font-medium text-orange-600">Ups</p>
           <h1 className="text-xl font-semibold">Algo salió mal</h1>
           <p className="max-w-sm text-sm text-gray-500">

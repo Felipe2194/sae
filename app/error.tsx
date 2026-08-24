@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Ghost } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { MascotaTigre } from "@/components/features/mascota-tigre";
 import { GRADIENTES_FONDO } from "@/lib/fondos";
+
+// Cada cuánto rota la frase de abajo, sola, mientras la pantalla de error
+// sigue en pantalla (ver el useEffect en el componente).
+const ROTACION_MS = 6000;
 
 // Variaciones del mensaje — una se elige al azar en cada montaje (cada vez
 // que se dispara un error nuevo, o se reintenta y vuelve a fallar), en vez
@@ -53,7 +57,19 @@ export default function Error({
     console.error(error);
   }, [error]);
 
-  const [quip] = useState(() => QUIPS[Math.floor(Math.random() * QUIPS.length)]);
+  const [quip, setQuip] = useState(() => QUIPS[Math.floor(Math.random() * QUIPS.length)]);
+
+  // Rota sola cada ROTACION_MS mientras la pantalla siga en pie — evita
+  // repetir la misma frase dos veces seguidas.
+  useEffect(() => {
+    const id = setInterval(() => {
+      setQuip((actual) => {
+        const opciones = QUIPS.filter((q) => q !== actual);
+        return opciones[Math.floor(Math.random() * opciones.length)];
+      });
+    }, ROTACION_MS);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
@@ -87,13 +103,24 @@ export default function Error({
           animate={{ y: [0, -6, 0], rotate: [0, -4, 4, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
-          <Ghost className="text-primary size-7" />
+          <MascotaTigre className="text-primary size-7" />
         </motion.div>
 
         <div className="flex flex-col gap-1.5">
           <p className="text-primary text-sm font-medium">Ups</p>
-          <h1 className="text-xl font-semibold text-balance">{quip.titulo}</h1>
-          <p className="text-muted-foreground max-w-xs text-sm text-balance">{quip.texto}</p>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={quip.titulo}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.25 }}
+              className="flex flex-col gap-1.5"
+            >
+              <h1 className="text-xl font-semibold text-balance">{quip.titulo}</h1>
+              <p className="text-muted-foreground max-w-xs text-sm text-balance">{quip.texto}</p>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         <div className="mt-2 flex items-center gap-2">
