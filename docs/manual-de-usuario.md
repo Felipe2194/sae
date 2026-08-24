@@ -67,9 +67,17 @@ Kanban con tres columnas fijas: **Por hacer · En progreso · Hecha**.
 - **Crear una tarea**: título + área, nada más — el resto lo completás
   después si hace falta.
 - **Arrastrá** una tarjeta entre columnas para cambiar su estado.
+- **Prioridad alta primero**: las tarjetas de prioridad alta se muestran
+  arriba del todo en su columna, antes que el resto — para tareas urgentes
+  que no se tienen que perder entre las demás.
 - **Abrí una tarjeta** (clic) para ver o editar: descripción, tipo,
-  prioridad, fecha de vencimiento, repetición, responsable, horas
-  estimadas/reales, subtareas, comentarios, adjuntos e historial de cambios.
+  prioridad, fecha de vencimiento, repetición, responsable, co-asignados,
+  horas estimadas/reales, subtareas, comentarios, adjuntos e historial de
+  cambios.
+- **Asignar a todos**: al elegir responsable o co-asignados, hay una opción
+  "Todos" — para una tarea urgente o sin un dueño claro, que cualquiera que
+  esté en la oficina en ese momento pueda tomar. Cada persona nueva que se
+  suma como responsable o co-asignado recibe una notificación.
 - **Adjuntar un archivo**: desde el panel de la tarea, "Enlace" para pegar
   una URL a mano, o el botón "Drive" para elegirlo directamente desde tu
   Google Drive (si está configurado — si no aparece, es que falta esa
@@ -78,7 +86,10 @@ Kanban con tres columnas fijas: **Por hacer · En progreso · Hecha**.
 - **Tareas que se repiten**: marcá una repetición (diaria/semanal/mensual).
   Al completarla, se crea sola la siguiente ocurrencia.
 - **Archivar** en vez de borrar: preserva el historial. Hay una vista aparte
-  para ver y restaurar tareas archivadas.
+  para ver y restaurar tareas archivadas. No hace falta acordarse de archivar
+  las que ya completaste: al día siguiente de estar en "Hecha" se archivan
+  solas, para que la columna no acumule tareas ya resueltas — siguen
+  contando en los reportes.
 
 ## 6. `/areas` — las líneas de trabajo
 

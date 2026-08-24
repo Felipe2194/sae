@@ -36,6 +36,23 @@ export default async function TableroPage() {
   if (!session?.user) redirect("/login");
 
   const { tareas, areas, usuarios } = await withUser(session.user.id, async (tx) => {
+    // Auto-archivado de tareas viejas: sin esto, cada tarea que se completa
+    // y nunca se archiva a mano se queda para siempre en la columna "Hecha",
+    // creciendo sin límite en cada carga del tablero (ver auditoría de
+    // paginación). Se barre en cada visita en vez de necesitar un cron —
+    // esta app corre sin infraestructura de jobs programados. No borra nada:
+    // sigue completa en /coordinacion, /informes y el historial por año de
+    // cada área, solo deja de listarse en el tablero del día a día. Ventana
+    // corta (1 día) a propósito: la idea es que "Hecha" muestre lo del
+    // momento, no que acumule días de tareas ya resueltas.
+    await tx`
+      update tarea set archivada = true, archivada_en = now()
+      where organizacion_id = mi_organizacion_id()
+        and archivada = false
+        and estado = 'hecha'
+        and completada_en < now() - interval '1 day'
+    `;
+
     const tareas = await tx<TareaCard[]>`
       select
         t.id,
@@ -72,7 +89,12 @@ export default async function TableroPage() {
       left join area    a on a.id = t.area_id
       left join usuario u on u.id = t.responsable_id
       where t.organizacion_id = mi_organizacion_id() and t.archivada = false
-      order by t.orden asc, t.creada_en asc
+      -- Las tareas urgentes (prioridad alta) van primero dentro de cada
+      -- columna, arriba del resto — "(t.prioridad = 'alta') desc" ordena los
+      -- true antes que los false. No hay drag-and-drop de posición dentro de
+      -- una columna (tablero-cliente.tsx solo mueve entre columnas), así que
+      -- este orden no compite con nada que el usuario reacomode a mano.
+      order by (t.prioridad = 'alta') desc, t.orden asc, t.creada_en asc
     `;
 
     const areas = await tx<AreaOption[]>`

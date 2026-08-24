@@ -93,16 +93,20 @@ larga.
 El lugar donde vive el trabajo día a día. Columnas fijas: **Por hacer · En progreso ·
 Hecha** (a propósito no configurables — evita la complejidad tipo Jira).
 
-- Tarjetas arrastrables entre columnas (drag-and-drop con `dnd-kit`). Las de prioridad
-  alta (y no completadas) tienen un borde sutil para destacarlas de un vistazo.
+- Tarjetas arrastrables entre columnas (drag-and-drop con `dnd-kit`; no hay reordenamiento
+  manual de posición dentro de una columna, solo mover entre columnas). Las de prioridad
+  alta (y no completadas) tienen un borde sutil para destacarlas de un vistazo **y además
+  aparecen primero dentro de su columna**, arriba del resto.
 - Filtros por área, responsable y estado.
 - Cada tarjeta abre un panel lateral con: descripción, tipo (tarea/evento/entrega/
   reunión), prioridad, fecha de vencimiento, **repetición** (diaria/semanal/mensual),
-  responsable, **horas estimadas/reales**, **subtareas** (checklist), **comentarios**,
-  **adjuntos** (enlaces — a mano, o elegidos directamente del Drive del usuario con el
-  botón "Drive"; no hay carga real de archivos, ver sección 6) con **vista previa
-  embebida** para los adjuntos de Drive, y **historial de cambios** (quién cambió qué
-  campo y cuándo, tabla `tarea_log`).
+  responsable, **co-asignados** (varias personas a la vez — incluye una opción "Todos",
+  para tareas urgentes o sin dueño claro que cualquiera en la oficina pueda tomar; cada
+  persona nueva que se suma recibe una notificación), **horas estimadas/reales**,
+  **subtareas** (checklist), **comentarios**, **adjuntos** (enlaces — a mano, o elegidos
+  directamente del Drive del usuario con el botón "Drive"; no hay carga real de archivos,
+  ver sección 6) con **vista previa embebida** para los adjuntos de Drive, y **historial
+  de cambios** (quién cambió qué campo y cuándo, tabla `tarea_log`).
 - **Tareas recurrentes**: si una tarea tiene repetición configurada (y fecha de
   vencimiento), al marcarla "Hecha" se clona automáticamente la siguiente ocurrencia en
   `por_hacer` con la fecha corrida (día, semana o mes). Cálculo al vuelo, no se generan
@@ -112,6 +116,12 @@ Hecha** (a propósito no configurables — evita la complejidad tipo Jira).
 - **Archivar**: en vez de borrar, las tareas se archivan (`archivada = true`). Preserva
   historial y métricas de `/coordinacion`. Hay una vista separada de tareas archivadas
   con opción de restaurar.
+- **Auto-archivado de tareas hechas**: una tarea que lleva 1 día o más en "Hecha" se
+  archiva sola la próxima vez que alguien abre `/tablero` — sin esto, cada tarea
+  completada y nunca archivada a mano se quedaría para siempre en la columna "Hecha",
+  creciendo sin límite. La ventana es corta a propósito: "Hecha" muestra lo del momento,
+  no un acumulado de días. No se pierde nada: sigue en `/coordinacion`, `/informes` y el
+  historial por año de su área, solo deja de listarse en el tablero del día a día.
 
 ### 3.3 `/areas` y `/areas/[areaId]` — Áreas
 

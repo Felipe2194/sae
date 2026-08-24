@@ -130,6 +130,14 @@ export async function crearTarea(input: {
       returning id
     `;
     await sincronizarAsignados(tx, id, input.asignados_ids ?? []);
+
+    const aNotificar = [
+      ...(input.responsable_id ? [input.responsable_id] : []),
+      ...(input.asignados_ids ?? []),
+    ];
+    if (aNotificar.length > 0) {
+      await notificarAsignacion(tx, aNotificar, input.titulo);
+    }
   });
   revalidatePath('/tablero');
   revalidatePath('/hoy');
@@ -161,6 +169,7 @@ export async function actualizarTarea(
     responsable_id: string | null;
     fecha_vencimiento: string | null;
     estado: string;
+    asignados_ids?: string[];
   },
 ) {
   const session = await requireAuth();
@@ -198,9 +207,20 @@ export async function actualizarTarea(
       await sincronizarAsignados(tx, tareaId, data.asignados_ids);
     }
 
-    // Notificar al nuevo responsable si cambió
-    if (prev && data.responsable_id && data.responsable_id !== prev.responsable_id) {
-      await notificarAsignacion(tx, data.responsable_id, data.titulo);
+    // Notificar a quien se sume como responsable o co-asignado — no a quien
+    // ya estaba, para no repetir el aviso en cada guardado sin cambios reales.
+    if (prev) {
+      const antes = new Set(prev.asignados_ids ?? []);
+      const nuevosCoasignados = (data.asignados_ids ?? []).filter((id) => !antes.has(id));
+      const aNotificar = [
+        ...(data.responsable_id && data.responsable_id !== prev.responsable_id
+          ? [data.responsable_id]
+          : []),
+        ...nuevosCoasignados,
+      ];
+      if (aNotificar.length > 0) {
+        await notificarAsignacion(tx, aNotificar, data.titulo);
+      }
     }
 
     // Tarea recurrente que se acaba de completar -> clonar la siguiente ocurrencia

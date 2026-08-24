@@ -220,6 +220,7 @@ export function NuevaTareaDialog({
               selectedIds={asignadosIds}
               onChange={setAsignadosIds}
               placeholder="Sin colaboradores adicionales"
+              permitirTodos
             />
           </div>
 

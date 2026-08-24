@@ -231,6 +231,7 @@ export function TareaSheet({
         responsable_id: tarea.responsable_id ?? null,
         fecha_vencimiento: tarea.fecha_vencimiento ?? null,
         estado: tarea.estado,
+        asignados_ids: tarea.asignados.map((a) => a.id),
       };
       try {
         await actualizarTarea(
@@ -496,6 +497,7 @@ export function TareaSheet({
                 selectedIds={asignadosIds}
                 onChange={setAsignadosIds}
                 placeholder="Sin colaboradores adicionales"
+                permitirTodos
               />
             </div>
 
