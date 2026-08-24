@@ -99,7 +99,6 @@ Datos básicos del usuario, color de avatar y un link opcional a una playlist pr
 
 ### 2.10 Presentes en toda la app
 
-- **Búsqueda global** (`Cmd/Ctrl+K`): busca tareas y áreas, y ofrece acciones rápidas (nueva tarea, ir a la bitácora de hoy, cronograma, coordinación/admin según el rol).
 - **Notificaciones**: campana con avisos al asignar una tarea o comentar en una de la que alguien es responsable; opcionalmente también se avisa por Telegram al grupo del equipo.
 - **Modo oscuro por defecto**, con botón para pasar a claro.
 

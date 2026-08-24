@@ -220,10 +220,6 @@ propio.
 
 ### 3.10 Elementos transversales (en el header, en todas las páginas)
 
-- **Búsqueda global** (`Cmd/Ctrl+K`): busca tareas y áreas por texto, navega directo al
-  resultado. También ofrece **acciones rápidas** (nueva tarea, ir a la bitácora de hoy,
-  cronograma, coordinación/admin según el rol) que aparecen filtradas por lo que se
-  escribe, igual que los resultados de búsqueda.
 - **Notificaciones**: campana con no-leídas. Se generan al asignar una tarea a alguien o
   al comentar en una tarea de la que alguien es responsable. Polling cada 3 min (más
   refresco al volver a la pestaña y al abrir el panel) — no push/websocket. Las mismas

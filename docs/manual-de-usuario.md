@@ -162,9 +162,6 @@ más del equipo.
 
 ## 13. Elementos que están en todas las páginas
 
-- **Búsqueda global** (`Cmd/Ctrl+K`): buscá tareas y áreas por texto, o
-  usá acciones rápidas (nueva tarea, ir a la bitácora de hoy, cronograma,
-  coordinación/admin según tu rol).
 - **Notificaciones**: campana con no leídas, cuando te asignan una tarea o
   alguien comenta en una tuya. Si el equipo configuró Telegram, también te
   llega un aviso ahí.

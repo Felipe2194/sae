@@ -105,7 +105,7 @@ en la documentación pública de shadcn). La diferencia práctica:
 `lib/mock-data.ts` (datos de ejemplo de la etapa pre-base-real, sin uso) se
 eliminó del repo. Todo el front lee/escribe contra Postgres vía `withUser()`:
 
-- Layout `(app)` con sidebar + header + búsqueda global (Cmd/Ctrl+K).
+- Layout `(app)` con sidebar + header.
 - `/hoy` — panel del día, accesos rápidos configurables.
 - `/tablero` — Kanban con drag-and-drop (dnd-kit), filtros, subtareas,
   comentarios, adjuntos (solo enlaces, no upload de archivos), historial de
