@@ -94,7 +94,9 @@ tiene que reflejarse ahí también.
 
 ```
 /app
-  /(auth)          login, registro, pendiente-de-aprobacion — layout con
+  /login           pantalla de login — diseño propio, fuera de (auth),
+                    sin sesión todavía
+  /(auth)          registro, pendiente-de-aprobacion — layout con
                     branding de la organización, sin sesión todavía
   /(app)           rutas protegidas: hoy, tablero, areas, cronograma,
                     calendario, coordinacion, informes, admin, perfil
