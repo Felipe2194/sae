@@ -102,7 +102,6 @@ function Columna({
   hayFiltros,
   colapsada,
   onToggleColapsar,
-  onNueva,
   onAbrirModal,
   currentUserId,
   rol,
@@ -113,7 +112,6 @@ function Columna({
   hayFiltros: boolean;
   colapsada: boolean;
   onToggleColapsar: () => void;
-  onNueva: () => void;
   onAbrirModal: (t: TareaCard) => void;
   currentUserId: string;
   rol: string;
@@ -156,14 +154,6 @@ function Columna({
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={onNueva}
-            aria-label={`Nueva tarea en ${titulo}`}
-          >
-            <Plus className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
             onClick={onToggleColapsar}
             aria-label={`Colapsar columna ${titulo}`}
           >
@@ -186,18 +176,9 @@ function Columna({
             puedeMover={puedeMoverEstadoTarea(t, currentUserId, rol)}
           />
         ))}
-        {tareas.length === 0 && !hayFiltros && (
-          <button
-            onClick={onNueva}
-            className="text-muted-foreground hover:text-foreground hover:border-foreground/30 flex w-full items-center gap-1.5 rounded-lg border border-dashed px-3 py-4 text-sm transition-colors"
-          >
-            <Plus className="size-3.5" />
-            Agregar tarea
-          </button>
-        )}
-        {tareas.length === 0 && hayFiltros && (
+        {tareas.length === 0 && (
           <p className="text-muted-foreground px-3 py-4 text-center text-xs">
-            Sin resultados
+            {hayFiltros ? "Sin resultados" : "Sin tareas"}
           </p>
         )}
       </div>
@@ -227,7 +208,6 @@ export function TableroCliente({
   const [selectedTarea, setSelectedTarea] = useState<TareaCard | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogEstado, setDialogEstado] = useState("por_hacer");
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [dragError, setDragError] = useState<string | null>(null);
@@ -271,7 +251,6 @@ export function TableroCliente({
   // Atajo desde el buscador global (Cmd/Ctrl+K → "Nueva tarea"): /tablero?nueva=1
   useEffect(() => {
     if (searchParams.get("nueva") === "1") {
-      setDialogEstado("por_hacer");
       setDialogOpen(true);
       router.replace("/tablero");
     }
@@ -326,8 +305,7 @@ export function TableroCliente({
     setFiltros(FILTROS_VACIOS);
   }
 
-  function abrirDialog(estado: string) {
-    setDialogEstado(estado);
+  function abrirNueva() {
     setDialogOpen(true);
   }
 
@@ -513,12 +491,22 @@ export function TableroCliente({
           </Button>
         )}
 
-        {hayFiltros && (
-          <span className="text-muted-foreground ml-auto text-xs">
-            {tareasFiltradas.length} tarea
-            {tareasFiltradas.length !== 1 ? "s" : ""}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {hayFiltros && (
+            <span className="text-muted-foreground text-xs">
+              {tareasFiltradas.length} tarea
+              {tareasFiltradas.length !== 1 ? "s" : ""}
+            </span>
+          )}
+          <Button
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={abrirNueva}
+          >
+            <Plus className="size-3.5" />
+            Nueva tarea
+          </Button>
+        </div>
       </div>
 
       {/* ── Kanban ────────────────────────────────────────────────────────── */}
@@ -542,7 +530,6 @@ export function TableroCliente({
                 hayFiltros={hayFiltros}
                 colapsada={colapsadas.has(col.estado)}
                 onToggleColapsar={() => toggleColapsada(col.estado)}
-                onNueva={() => abrirDialog(col.estado)}
                 onAbrirModal={abrirModal}
                 currentUserId={currentUserId}
                 rol={rol}
@@ -594,7 +581,6 @@ export function TableroCliente({
       <NuevaTareaDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        estadoInicial={dialogEstado}
         areas={areas}
         usuarios={usuarios}
       />

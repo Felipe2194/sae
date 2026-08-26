@@ -44,7 +44,6 @@ const PRIORIDAD_ITEMS = Object.fromEntries(
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  estadoInicial: string;
   areas: AreaOption[];
   usuarios: UsuarioOption[];
 };
@@ -52,7 +51,6 @@ type Props = {
 export function NuevaTareaDialog({
   open,
   onOpenChange,
-  estadoInicial,
   areas,
   usuarios,
 }: Props) {
@@ -99,7 +97,7 @@ export function NuevaTareaDialog({
         responsable_id: responsableId || null,
         asignados_ids: asignadosIds,
         fecha_vencimiento: fechaVencimiento || null,
-        estado: estadoInicial,
+        estado: "por_hacer",
       });
       resetForm();
       onOpenChange(false);
