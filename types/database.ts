@@ -50,6 +50,7 @@ export interface UsuarioRow {
   es_cuenta_generica: boolean;
   fondo_tipo: 'gradiente' | 'imagen' | null;
   fondo_valor: string | null;
+  es_superadmin: boolean;
 }
 
 export interface UsuarioInsert {
@@ -66,6 +67,7 @@ export interface UsuarioInsert {
   es_cuenta_generica?: boolean;
   fondo_tipo?: 'gradiente' | 'imagen' | null;
   fondo_valor?: string | null;
+  es_superadmin?: boolean;
 }
 
 export type UsuarioUpdate = Partial<Omit<UsuarioInsert, 'organizacion_id'>>;

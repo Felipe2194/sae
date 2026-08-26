@@ -15,7 +15,7 @@ import {
   LogOut,
   BarChart3,
   UserRoundCog,
-  StickyNote,
+  Globe,
 } from "lucide-react";
 import {
   Sidebar,
@@ -41,7 +41,6 @@ import { signOut } from "@/app/(app)/actions";
 const ITEMS_BASE: { href: string; label: string; icon: React.ElementType; roles: string[] | null }[] = [
   { href: "/hoy", label: "Hoy", icon: Sparkles, roles: null },
   { href: "/tablero", label: "Tablero", icon: LayoutDashboard, roles: null },
-  { href: "/pizarra", label: "Pizarra", icon: StickyNote, roles: null },
   { href: "/calendario", label: "Calendario", icon: Calendar, roles: null },
   { href: "/cronograma", label: "Cronograma", icon: CalendarRange, roles: null },
   { href: "/areas", label: "Áreas", icon: Layers3, roles: null },
@@ -49,6 +48,10 @@ const ITEMS_BASE: { href: string; label: string; icon: React.ElementType; roles:
   { href: "/informes", label: "Informes", icon: BarChart3, roles: ["administrador"] },
   { href: "/admin", label: "Admin", icon: ShieldCheck, roles: ["administrador"] },
 ];
+
+// Aparte de ITEMS_BASE: no es un rol de rol_usuario (que es siempre relativo
+// a una organización), sino el dueño de la plataforma — ver auth.ts.
+const ITEM_PLATAFORMA = { href: "/plataforma", label: "Plataforma", icon: Globe, roles: null };
 
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/);
@@ -69,16 +72,19 @@ export function AppSidebar({
   avatarColor,
   logoUrl,
   puedeCambiarPerfil,
+  esSuperadmin,
 }: {
   user: SidebarUser;
   rol: string;
   avatarColor: string | null;
   logoUrl?: string | null;
   puedeCambiarPerfil?: boolean;
+  esSuperadmin?: boolean;
 }) {
   const pathname = usePathname();
   const inits = iniciales(user.name);
   const items = ITEMS_BASE.filter((item) => item.roles === null || item.roles.includes(rol));
+  if (esSuperadmin) items.push(ITEM_PLATAFORMA);
   const colorFondo = avatarColor ?? AVATAR_COLOR_DEFAULT;
   const logo = logoUrl || "/LogoUTN.png";
 

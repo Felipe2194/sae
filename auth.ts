@@ -32,9 +32,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             estado: string;
             organizacion_id: string;
             es_cuenta_generica: boolean;
+            es_superadmin: boolean;
           }[]
         >`
-          select id, nombre, email, password_hash, rol, estado, organizacion_id, es_cuenta_generica
+          select id, nombre, email, password_hash, rol, estado, organizacion_id, es_cuenta_generica, es_superadmin
           from usuario
           where email = ${credentials.email as string}
           limit 1
@@ -58,6 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           rol: usuario.rol,
           organizacion_id: usuario.organizacion_id,
           esCuentaGenerica: usuario.es_cuenta_generica,
+          esSuperadmin: usuario.es_superadmin,
         };
       },
     }),
@@ -94,9 +96,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!origen) return null;
 
         const [destino] = await sql<
-          { id: string; nombre: string; email: string; rol: RolUsuario; organizacion_id: string }[]
+          { id: string; nombre: string; email: string; rol: RolUsuario; organizacion_id: string; es_superadmin: boolean }[]
         >`
-          select id, nombre, email, rol, organizacion_id
+          select id, nombre, email, rol, organizacion_id, es_superadmin
           from usuario
           where id = ${usuarioId}
             and organizacion_id = ${origen.organizacion_id}
@@ -114,6 +116,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: destino.email,
           rol: destino.rol,
           organizacion_id: destino.organizacion_id,
+          esSuperadmin: destino.es_superadmin,
           origenGenericoId,
         };
       },
@@ -148,10 +151,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // un hash de un valor aleatorio, imposible de adivinar.
         const passwordHash = await bcrypt.hash(randomUUID(), 10);
 
+        // El dueño de la plataforma (ver SUPERADMIN_EMAIL) entra ya activo
+        // como administrador de SAE FRVM y con es_superadmin — no tiene
+        // sentido que quede esperando que alguien lo apruebe si todavía no
+        // hay ningún administrador que pueda hacerlo.
+        const esSuperadmin =
+          !!process.env.SUPERADMIN_EMAIL &&
+          user.email.toLowerCase() === process.env.SUPERADMIN_EMAIL.toLowerCase();
+
         await sql`
-          insert into usuario (organizacion_id, nombre, email, password_hash, rol, estado)
-          values (${org.id}, ${user.name ?? user.email}, ${user.email}, ${passwordHash}, 'miembro', 'pendiente')
+          insert into usuario (organizacion_id, nombre, email, password_hash, rol, estado, es_superadmin)
+          values (
+            ${org.id},
+            ${user.name ?? user.email},
+            ${user.email},
+            ${passwordHash},
+            ${esSuperadmin ? 'administrador' : 'miembro'},
+            ${esSuperadmin ? 'activo' : 'pendiente'},
+            ${esSuperadmin}
+          )
         `;
+
+        if (esSuperadmin) {
+          logger.info('alta de superadmin de plataforma vía Google', { email: user.email });
+          return true;
+        }
         logger.info('alta automática vía Google', { email: user.email });
         return '/pendiente-de-aprobacion';
       }
@@ -174,21 +198,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.rol = user.rol;
         token.organizacion_id = user.organizacion_id;
         token.esCuentaGenerica = user.esCuentaGenerica ?? false;
+        token.esSuperadmin = user.esSuperadmin ?? false;
         delete token.origenGenericoId;
       } else if (user && account?.provider === 'google' && user.email) {
         // Volver a buscar el usuario acá porque el `user` que entrega el
         // provider de Google no trae rol/organizacion_id (no son parte del
         // perfil de OAuth) — son propios de nuestra tabla `usuario`.
         const [usuario] = await sql<
-          { id: string; rol: RolUsuario; organizacion_id: string; es_cuenta_generica: boolean }[]
+          { id: string; rol: RolUsuario; organizacion_id: string; es_cuenta_generica: boolean; es_superadmin: boolean }[]
         >`
-          select id, rol, organizacion_id, es_cuenta_generica from usuario where email = ${user.email} limit 1
+          select id, rol, organizacion_id, es_cuenta_generica, es_superadmin from usuario where email = ${user.email} limit 1
         `;
         if (usuario) {
           token.id = usuario.id;
           token.rol = usuario.rol;
           token.organizacion_id = usuario.organizacion_id;
           token.esCuentaGenerica = usuario.es_cuenta_generica;
+          token.esSuperadmin = usuario.es_superadmin;
           delete token.origenGenericoId;
         }
       } else if (user && account?.provider === 'quick-switch') {
@@ -196,6 +222,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.rol = user.rol;
         token.organizacion_id = user.organizacion_id;
         token.esCuentaGenerica = false;
+        token.esSuperadmin = user.esSuperadmin ?? false;
         token.origenGenericoId = user.origenGenericoId;
       }
       return token;
@@ -205,6 +232,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.rol = token.rol;
       session.user.organizacion_id = token.organizacion_id;
       session.user.esCuentaGenerica = Boolean(token.esCuentaGenerica);
+      session.user.esSuperadmin = Boolean(token.esSuperadmin);
       session.user.puedeCambiarPerfil = Boolean(
         token.esCuentaGenerica || token.origenGenericoId,
       );

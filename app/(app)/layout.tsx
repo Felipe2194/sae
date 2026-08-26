@@ -10,7 +10,7 @@ import { PanelNotificaciones } from "@/components/features/panel-notificaciones"
 import { ThemeToggle } from "@/components/features/theme-toggle";
 import { AppSidebar } from "@/components/features/app-sidebar";
 import { MusicPlayer } from "@/components/features/music-player";
-import { cssFondo } from "@/lib/fondos";
+import { fondoVars } from "@/lib/fondos";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -58,13 +58,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     return { fila, playlists: [...playlists] };
   });
 
-  const fondoCss = cssFondo(fila?.fondo_tipo ?? null, fila?.fondo_valor ?? null);
+  const fondo = fondoVars(fila?.fondo_tipo ?? null, fila?.fondo_valor ?? null);
 
   return (
     <SidebarProvider
       style={{
         ...(fila?.color_principal ? { "--primary": fila.color_principal } : {}),
-        ...(fondoCss ? { background: fondoCss } : {}),
+        ...(fondo ? { "--fondo-light": fondo.light, "--fondo-dark": fondo.dark } : {}),
       } as React.CSSProperties}
     >
       <AppSidebar
@@ -73,6 +73,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         avatarColor={fila?.avatar_color ?? null}
         logoUrl={fila?.logo_url ?? null}
         puedeCambiarPerfil={session.user.puedeCambiarPerfil}
+        esSuperadmin={session.user.esSuperadmin}
       />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/80 backdrop-blur-sm px-4">

@@ -13,6 +13,10 @@ declare module 'next-auth' {
       // cambio de perfil (provider "quick-switch") — ver auth.ts.
       esCuentaGenerica: boolean;
       puedeCambiarPerfil: boolean;
+      // Dueño de la plataforma: puede crear organizaciones (secretarías)
+      // nuevas en /plataforma. No tiene relación con rol_usuario (que es
+      // siempre relativo a una organización) — ver db/migrations/024.
+      esSuperadmin: boolean;
     };
   }
 
@@ -21,6 +25,7 @@ declare module 'next-auth' {
     organizacion_id: string;
     esCuentaGenerica?: boolean;
     origenGenericoId?: string;
+    esSuperadmin?: boolean;
   }
 }
 
@@ -31,5 +36,6 @@ declare module 'next-auth/jwt' {
     organizacion_id: string;
     esCuentaGenerica?: boolean;
     origenGenericoId?: string;
+    esSuperadmin?: boolean;
   }
 }
