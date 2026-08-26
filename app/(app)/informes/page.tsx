@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import {
   MessageSquare,
   CalendarOff,
   Users,
+  Gauge,
 } from "lucide-react";
 
 // Paleta validada (dataviz skill): CVD-safe y con contraste suficiente en
@@ -25,6 +27,7 @@ type RitmoArea = {
   id: string;
   nombre: string;
   color: string;
+  tareas_total: number;
   hechas_total: number;
   hechas_30d: number;
 };
@@ -47,7 +50,11 @@ type UltimoLogin = { nombre: string; rol: string; ultimo_login: string | null };
 
 function formatFecha(iso: string | null): string {
   if (!iso) return "Nunca";
-  return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(iso).toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 function formatFechaHora(iso: string | null): string {
@@ -66,7 +73,7 @@ function BarraDoble({ label, a, b }: { label: string; a: number; b: number }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-muted-foreground text-[11px]">{label}</span>
-      <div className="flex items-end gap-0.5 h-20">
+      <div className="flex h-20 items-end gap-0.5">
         <div
           className="flex-1 rounded-t-sm"
           style={{
@@ -88,16 +95,126 @@ function BarraDoble({ label, a, b }: { label: string; a: number; b: number }) {
   );
 }
 
+function StatTile({
+  label,
+  value,
+  colorClass,
+}: {
+  label: string;
+  value: string;
+  colorClass?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border p-4">
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className={`text-2xl font-semibold ${colorClass ?? ""}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// Medidor circular de avance por área — no un gráfico de torta multi-serie
+// (por_hacer/en_progreso/hecha compitiendo por ángulo, difícil de comparar
+// entre muchas áreas a la vez), sino un anillo de una sola serie por área:
+// % completado, con el propio color del área como identidad — mismo criterio
+// que ya usa la barra de progreso lineal en /areas/[areaId].
+function MedidorArea({
+  id,
+  nombre,
+  color,
+  hechas,
+  total,
+}: {
+  id: string;
+  nombre: string;
+  color: string;
+  hechas: number;
+  total: number;
+}) {
+  const sinTareas = total === 0;
+  const pct = sinTareas ? 0 : Math.round((hechas / total) * 100);
+  const r = 30;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - pct / 100);
+
+  return (
+    <Link
+      href={`/areas/${id}`}
+      className="hover:bg-muted/40 flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-colors"
+      title={`${nombre}: ${sinTareas ? "sin tareas" : `${hechas} de ${total} completadas (${pct}%)`}`}
+    >
+      <svg width="76" height="76" viewBox="0 0 76 76">
+        <circle
+          cx="38"
+          cy="38"
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeOpacity={0.15}
+          strokeWidth="8"
+        />
+        {!sinTareas && (
+          <circle
+            cx="38"
+            cy="38"
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={offset}
+            transform="rotate(-90 38 38)"
+          />
+        )}
+        <text
+          x="38"
+          y="35"
+          textAnchor="middle"
+          className="fill-foreground"
+          style={{ fontSize: 15, fontWeight: 600 }}
+        >
+          {sinTareas ? "—" : `${pct}%`}
+        </text>
+        <text
+          x="38"
+          y="48"
+          textAnchor="middle"
+          className="fill-muted-foreground"
+          style={{ fontSize: 9 }}
+        >
+          {sinTareas ? "sin tareas" : `${hechas}/${total}`}
+        </text>
+      </svg>
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span
+          className="size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        <span className="max-w-[6.5rem] truncate text-xs font-medium">
+          {nombre}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 function BarraSimple({ pct }: { pct: number }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+      <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
         <div
           className="h-full rounded-full transition-all"
-          style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: COLOR_COMPLETADAS }}
+          style={{
+            width: `${Math.min(pct, 100)}%`,
+            backgroundColor: COLOR_COMPLETADAS,
+          }}
         />
       </div>
-      <span className="text-muted-foreground w-9 shrink-0 text-right text-xs tabular-nums">{pct}%</span>
+      <span className="text-muted-foreground w-9 shrink-0 text-right text-xs tabular-nums">
+        {pct}%
+      </span>
     </div>
   );
 }
@@ -151,6 +268,7 @@ export default async function InformesPage() {
         a.id,
         a.nombre,
         a.color,
+        count(t.id)::int as tareas_total,
         count(t.id) filter (where t.estado = 'hecha')::int as hechas_total,
         count(t.id) filter (
           where t.estado = 'hecha' and t.completada_en >= now() - interval '30 days'
@@ -238,7 +356,18 @@ export default async function InformesPage() {
   });
 
   const vencidasTotal =
-    antiguedadVencidas.b0_7 + antiguedadVencidas.b8_14 + antiguedadVencidas.b15_30 + antiguedadVencidas.b30_mas;
+    antiguedadVencidas.b0_7 +
+    antiguedadVencidas.b8_14 +
+    antiguedadVencidas.b15_30 +
+    antiguedadVencidas.b30_mas;
+
+  const tareasTotalOrg = ritmoAreas.reduce((acc, a) => acc + a.tareas_total, 0);
+  const hechasTotalOrg = ritmoAreas.reduce((acc, a) => acc + a.hechas_total, 0);
+  const hechas30dOrg = ritmoAreas.reduce((acc, a) => acc + a.hechas_30d, 0);
+  const avanceGeneralPct =
+    tareasTotalOrg > 0
+      ? Math.round((hechasTotalOrg / tareasTotalOrg) * 100)
+      : 0;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8">
@@ -249,6 +378,47 @@ export default async function InformesPage() {
         </p>
       </div>
 
+      {/* ── Avance por área (de un pantallazo) ───────────────────────────── */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <Gauge className="text-muted-foreground size-4" />
+          <h2 className="font-semibold">Avance por área</h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatTile label="Áreas activas" value={String(ritmoAreas.length)} />
+          <StatTile
+            label="Tareas abiertas"
+            value={String(tareasTotalOrg - hechasTotalOrg)}
+          />
+          <StatTile
+            label="Completadas (30 días)"
+            value={String(hechas30dOrg)}
+            colorClass="text-green-600"
+          />
+          <StatTile label="Avance general" value={`${avanceGeneralPct}%`} />
+        </div>
+
+        {ritmoAreas.length === 0 ? (
+          <p className="text-muted-foreground px-1 text-sm">
+            No hay áreas activas.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {ritmoAreas.map((a) => (
+              <MedidorArea
+                key={a.id}
+                id={a.id}
+                nombre={a.nombre}
+                color={a.color}
+                hechas={a.hechas_total}
+                total={a.tareas_total}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* ── Tareas por semana ──────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
@@ -256,22 +426,31 @@ export default async function InformesPage() {
           <h2 className="font-semibold">Tareas por semana</h2>
         </div>
         <Card>
-          <CardContent className="pt-4 flex flex-col gap-3">
+          <CardContent className="flex flex-col gap-3 pt-4">
             <div className="flex items-center gap-4 text-xs">
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-full" style={{ backgroundColor: COLOR_CREADAS }} />
+                <span
+                  className="size-2.5 rounded-full"
+                  style={{ backgroundColor: COLOR_CREADAS }}
+                />
                 Creadas
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-full" style={{ backgroundColor: COLOR_COMPLETADAS }} />
+                <span
+                  className="size-2.5 rounded-full"
+                  style={{ backgroundColor: COLOR_COMPLETADAS }}
+                />
                 Completadas
               </span>
             </div>
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+            <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
               {semanas.map((s) => (
                 <BarraDoble
                   key={s.semana}
-                  label={new Date(s.semana).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}
+                  label={new Date(s.semana).toLocaleDateString("es-AR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                  })}
                   a={s.creadas}
                   b={s.completadas}
                 />
@@ -293,7 +472,9 @@ export default async function InformesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium w-full">Área</th>
+                    <th className="text-muted-foreground w-full px-4 py-3 text-left text-xs font-medium">
+                      Área
+                    </th>
                     <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">
                       Cerradas (30d)
                     </th>
@@ -307,21 +488,27 @@ export default async function InformesPage() {
                     <tr key={a.id} className="border-b last:border-0">
                       <td className="px-4 py-2.5">
                         <span className="flex items-center gap-2 font-medium">
-                          <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: a.color }} />
+                          <span
+                            className="size-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: a.color }}
+                          />
                           {a.nombre}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-center tabular-nums text-green-600 font-medium">
+                      <td className="px-3 py-2.5 text-center font-medium text-green-600 tabular-nums">
                         {a.hechas_30d}
                       </td>
-                      <td className="px-4 py-2.5 text-center tabular-nums text-muted-foreground">
+                      <td className="text-muted-foreground px-4 py-2.5 text-center tabular-nums">
                         {a.hechas_total}
                       </td>
                     </tr>
                   ))}
                   {ritmoAreas.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="text-muted-foreground px-4 py-6 text-center text-sm">
+                      <td
+                        colSpan={3}
+                        className="text-muted-foreground px-4 py-6 text-center text-sm"
+                      >
                         No hay áreas creadas.
                       </td>
                     </tr>
@@ -337,21 +524,32 @@ export default async function InformesPage() {
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <NotebookPen className="text-muted-foreground size-4" />
-          <h2 className="font-semibold">Actividad de bitácora (últimos 30 días)</h2>
+          <h2 className="font-semibold">
+            Actividad de bitácora (últimos 30 días)
+          </h2>
         </div>
         <Card>
           <CardContent className="p-0">
             <div className="divide-y">
               {actividadBitacora.map((p) => (
-                <div key={p.nombre} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="flex-1 min-w-0 truncate text-sm font-medium">{p.nombre}</span>
+                <div
+                  key={p.nombre}
+                  className="flex items-center gap-3 px-4 py-2.5"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {p.nombre}
+                  </span>
                   <div className="w-40">
-                    <BarraSimple pct={Math.round((p.dias_cargados / 30) * 100)} />
+                    <BarraSimple
+                      pct={Math.round((p.dias_cargados / 30) * 100)}
+                    />
                   </div>
                 </div>
               ))}
               {actividadBitacora.length === 0 && (
-                <p className="text-muted-foreground px-4 py-6 text-center text-sm">No hay usuarios activos.</p>
+                <p className="text-muted-foreground px-4 py-6 text-center text-sm">
+                  No hay usuarios activos.
+                </p>
               )}
             </div>
           </CardContent>
@@ -367,7 +565,9 @@ export default async function InformesPage() {
         <Card>
           <CardContent className="pt-4">
             {vencidasTotal === 0 ? (
-              <p className="text-muted-foreground text-sm">No hay tareas vencidas. 🎉</p>
+              <p className="text-muted-foreground text-sm">
+                No hay tareas vencidas. 🎉
+              </p>
             ) : (
               <div className="grid grid-cols-4 gap-3">
                 {[
@@ -376,13 +576,18 @@ export default async function InformesPage() {
                   { label: "15–30 días", n: antiguedadVencidas.b15_30 },
                   { label: "30+ días", n: antiguedadVencidas.b30_mas },
                 ].map((b) => (
-                  <div key={b.label} className="flex flex-col items-center gap-1 rounded-md border p-3">
+                  <div
+                    key={b.label}
+                    className="flex flex-col items-center gap-1 rounded-md border p-3"
+                  >
                     <span
                       className={`text-2xl font-bold tabular-nums ${b.n > 0 ? "text-destructive" : "text-muted-foreground"}`}
                     >
                       {b.n}
                     </span>
-                    <span className="text-muted-foreground text-[11px] text-center">{b.label}</span>
+                    <span className="text-muted-foreground text-center text-[11px]">
+                      {b.label}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -403,7 +608,9 @@ export default async function InformesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium w-full">Plantilla</th>
+                    <th className="text-muted-foreground w-full px-4 py-3 text-left text-xs font-medium">
+                      Plantilla
+                    </th>
                     <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">
                       Veces aplicada
                     </th>
@@ -417,23 +624,31 @@ export default async function InformesPage() {
                     <tr key={i} className="border-b last:border-0">
                       <td className="px-4 py-2.5">
                         <span className="font-medium">{p.nombre}</span>
-                        <span className="text-muted-foreground text-xs"> · {p.area_nombre}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {" "}
+                          · {p.area_nombre}
+                        </span>
                       </td>
                       <td className="px-3 py-2.5 text-center tabular-nums">
                         {p.veces_aplicada > 0 ? (
                           <Badge variant="secondary">{p.veces_aplicada}</Badge>
                         ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
+                          <span className="text-muted-foreground text-xs">
+                            —
+                          </span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-right text-muted-foreground text-xs tabular-nums">
+                      <td className="text-muted-foreground px-4 py-2.5 text-right text-xs tabular-nums">
                         {formatFecha(p.ultima_aplicacion)}
                       </td>
                     </tr>
                   ))}
                   {usoPlantillas.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="text-muted-foreground px-4 py-6 text-center text-sm">
+                      <td
+                        colSpan={3}
+                        className="text-muted-foreground px-4 py-6 text-center text-sm"
+                      >
                         No hay plantillas creadas.
                       </td>
                     </tr>
@@ -449,14 +664,21 @@ export default async function InformesPage() {
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <MessageSquare className="text-muted-foreground size-4" />
-          <h2 className="font-semibold">Colaboración: comentarios (últimos 30 días)</h2>
+          <h2 className="font-semibold">
+            Colaboración: comentarios (últimos 30 días)
+          </h2>
         </div>
         <Card>
           <CardContent className="p-0">
             <div className="divide-y">
               {actividadComentarios.map((p) => (
-                <div key={p.nombre} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="flex-1 min-w-0 truncate text-sm font-medium">{p.nombre}</span>
+                <div
+                  key={p.nombre}
+                  className="flex items-center gap-3 px-4 py-2.5"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {p.nombre}
+                  </span>
                   <Badge variant="secondary">{p.comentarios}</Badge>
                 </div>
               ))}
@@ -474,14 +696,21 @@ export default async function InformesPage() {
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <CalendarOff className="text-muted-foreground size-4" />
-          <h2 className="font-semibold">Ausencias por persona (últimos 90 días)</h2>
+          <h2 className="font-semibold">
+            Ausencias por persona (últimos 90 días)
+          </h2>
         </div>
         <Card>
           <CardContent className="p-0">
             <div className="divide-y">
               {ausencias.map((p) => (
-                <div key={p.nombre} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="flex-1 min-w-0 truncate text-sm font-medium">{p.nombre}</span>
+                <div
+                  key={p.nombre}
+                  className="flex items-center gap-3 px-4 py-2.5"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {p.nombre}
+                  </span>
                   <Badge variant="outline">{p.ausencias}</Badge>
                 </div>
               ))}
@@ -507,7 +736,9 @@ export default async function InformesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium w-full">Usuario</th>
+                    <th className="text-muted-foreground w-full px-4 py-3 text-left text-xs font-medium">
+                      Usuario
+                    </th>
                     <th className="text-muted-foreground px-3 py-3 text-center text-xs font-medium whitespace-nowrap">
                       Rol
                     </th>
@@ -525,14 +756,17 @@ export default async function InformesPage() {
                           {u.rol}
                         </Badge>
                       </td>
-                      <td className="px-4 py-2.5 text-right text-muted-foreground text-xs tabular-nums">
+                      <td className="text-muted-foreground px-4 py-2.5 text-right text-xs tabular-nums">
                         {formatFechaHora(u.ultimo_login)}
                       </td>
                     </tr>
                   ))}
                   {ultimosLogins.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="text-muted-foreground px-4 py-6 text-center text-sm">
+                      <td
+                        colSpan={3}
+                        className="text-muted-foreground px-4 py-6 text-center text-sm"
+                      >
                         No hay usuarios activos.
                       </td>
                     </tr>
