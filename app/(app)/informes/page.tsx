@@ -296,6 +296,7 @@ export default async function InformesPage() {
       from tarea
       where organizacion_id = mi_organizacion_id()
         and archivada = false
+        and activa = true
     `;
 
     const resumenAreas = await tx<ResumenArea[]>`
@@ -318,6 +319,7 @@ export default async function InformesPage() {
       left join tarea t on t.area_id = a.id
         and t.organizacion_id = mi_organizacion_id()
         and t.archivada = false
+        and t.activa = true
       where a.organizacion_id = mi_organizacion_id() and a.activa = true
       group by a.id, a.nombre, a.color
       order by count(t.id) filter (where t.estado != 'hecha') desc, a.nombre asc
@@ -343,6 +345,7 @@ export default async function InformesPage() {
       left join tarea t on t.responsable_id = u.id
         and t.organizacion_id = mi_organizacion_id()
         and t.archivada = false
+        and t.activa = true
       where u.organizacion_id = mi_organizacion_id()
         and u.estado = 'activo'
       group by u.id, u.nombre
@@ -363,6 +366,7 @@ export default async function InformesPage() {
       where t.organizacion_id = mi_organizacion_id()
         and t.estado != 'hecha'
         and t.archivada = false
+        and t.activa = true
       order by t.creada_en asc
       limit 5
     `;
@@ -375,6 +379,7 @@ export default async function InformesPage() {
       from tarea
       where organizacion_id = mi_organizacion_id()
         and archivada = false
+        and activa = true
         and duracion_estimada_hs is not null
         and duracion_real_hs is not null
     `;
@@ -425,6 +430,7 @@ export default async function InformesPage() {
       from tarea
       where organizacion_id = mi_organizacion_id()
         and archivada = false
+        and activa = true
         and estado != 'hecha'
         and fecha_vencimiento is not null
         and fecha_vencimiento < current_date

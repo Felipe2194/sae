@@ -25,6 +25,7 @@ import { AreaEquipo, type MiembroResumen } from "./area-equipo";
 import { AreaDocumentos, type DocumentoRow } from "./area-documentos";
 import { AreaDeadlines, type DeadlineRow } from "./area-deadlines";
 import { AreaPlantillas } from "./area-plantillas";
+import { AreaTareasPlanificadas } from "./area-tareas-planificadas";
 import { fetchPlantillas, type CategoriaArea } from "../actions";
 
 type AreaRow = {
@@ -54,18 +55,33 @@ const CATEGORIA_LABEL: Record<string, string> = {
   general: "General",
 };
 
-type TareaRow = {
+export type TareaRow = {
   id: string;
   titulo: string;
+  descripcion: string | null;
   estado: string;
   prioridad: string;
   tipo: string;
   fecha_vencimiento: string | null;
   responsable_id: string | null;
   responsable_nombre: string | null;
+  activa: boolean;
+  subtarea_total: number;
+  subtarea_hecha: number;
 };
 
-type UsuarioRow = { id: string; nombre: string; avatar_color: string | null };
+export type UsuarioRow = {
+  id: string;
+  nombre: string;
+  avatar_color: string | null;
+};
+
+type HitoRow = {
+  id: string;
+  titulo: string;
+  fecha: string;
+  creado_por_nombre: string;
+};
 
 type HistorialAnioRow = {
   anio: number;
@@ -134,9 +150,17 @@ export default async function AreaDetallePage({
   const rol = (session.user as { rol: string }).rol;
   const canManage = rol === "administrador";
 
-  const { area, tareas, usuarios, notas, logRows, documentos, historial } =
-    await withUser(session.user.id, async (tx) => {
-      const [area] = await tx<AreaRow[]>`
+  const {
+    area,
+    tareas,
+    usuarios,
+    notas,
+    logRows,
+    documentos,
+    historial,
+    hitos,
+  } = await withUser(session.user.id, async (tx) => {
+    const [area] = await tx<AreaRow[]>`
       select
         a.id, a.nombre, a.color, a.descripcion, a.responsable_id, a.activa,
         a.tipo::text as tipo, a.categoria::text as categoria,
@@ -156,31 +180,38 @@ export default async function AreaDetallePage({
         count(t.id) filter (where t.estado != 'hecha')::int  as tareas_abiertas
       from area a
       left join usuario u on u.id = a.responsable_id
-      left join tarea   t on t.area_id = a.id and t.archivada = false
+      left join tarea   t on t.area_id = a.id and t.archivada = false and t.activa = true
       where a.id = ${areaId}
         and a.organizacion_id = mi_organizacion_id()
       group by a.id, u.nombre
       limit 1
     `;
 
-      if (!area) {
-        return {
-          area: null,
-          tareas: [],
-          usuarios: [],
-          notas: [],
-          logRows: [],
-          documentos: [],
-          historial: [],
-        };
-      }
+    if (!area) {
+      return {
+        area: null,
+        tareas: [],
+        usuarios: [],
+        notas: [],
+        logRows: [],
+        documentos: [],
+        historial: [],
+        hitos: [],
+      };
+    }
 
-      const tareas = await tx<TareaRow[]>`
+    const puedePlanificarInterno =
+      canManage || area.responsable_id === session.user.id;
+
+    const tareas = await tx<TareaRow[]>`
       select
-        t.id, t.titulo, t.estado::text, t.prioridad::text, t.tipo::text,
+        t.id, t.titulo, t.descripcion, t.estado::text, t.prioridad::text, t.tipo::text,
         t.fecha_vencimiento::text,
         t.responsable_id,
-        u.nombre as responsable_nombre
+        t.activa,
+        u.nombre as responsable_nombre,
+        coalesce((select count(*)::int from subtarea s where s.tarea_id = t.id), 0)             as subtarea_total,
+        coalesce((select count(*)::int from subtarea s where s.tarea_id = t.id and s.hecha), 0) as subtarea_hecha
       from tarea t
       left join usuario u on u.id = t.responsable_id
       where t.area_id = ${areaId}
@@ -194,15 +225,15 @@ export default async function AreaDetallePage({
         t.orden asc, t.creada_en asc
     `;
 
-      const usuarios = canManage
-        ? await tx<UsuarioRow[]>`
+    const usuarios = puedePlanificarInterno
+      ? await tx<UsuarioRow[]>`
           select id, nombre, avatar_color from usuario
           where organizacion_id = mi_organizacion_id() and estado = 'activo'
           order by nombre asc
         `
-        : [];
+      : [];
 
-      const notas = await tx<NotaRow[]>`
+    const notas = await tx<NotaRow[]>`
       select
         n.id,
         n.contenido,
@@ -217,10 +248,10 @@ export default async function AreaDetallePage({
       limit 100
     `;
 
-      // Flujo de tareas del equipo: cambios de estado/prioridad/responsable/etc.
-      // registrados automáticamente en tarea_log (ver tablero/actions.ts) —
-      // se combina con la bitácora manual (nota_area) en AreaActividad.
-      const logRows = await tx<LogEntryRow[]>`
+    // Flujo de tareas del equipo: cambios de estado/prioridad/responsable/etc.
+    // registrados automáticamente en tarea_log (ver tablero/actions.ts) —
+    // se combina con la bitácora manual (nota_area) en AreaActividad.
+    const logRows = await tx<LogEntryRow[]>`
       select
         l.id,
         l.campo,
@@ -237,23 +268,23 @@ export default async function AreaDetallePage({
       limit 60
     `;
 
-      // Documentos compartidos del área — reusa acceso_rapido (ver
-      // areas/actions.ts crearAccesoArea/eliminarAccesoArea).
-      const documentos = await tx<DocumentoRow[]>`
+    // Documentos compartidos del área — reusa acceso_rapido (ver
+    // areas/actions.ts crearAccesoArea/eliminarAccesoArea).
+    const documentos = await tx<DocumentoRow[]>`
       select id, etiqueta, url
       from acceso_rapido
       where area_id = ${areaId}
       order by orden asc
     `;
 
-      // Historial por año calendario — a diferencia de las consultas de arriba,
-      // no filtra t.archivada: incluye TODO lo que pasó por el área alguna vez
-      // (completadas, archivadas al cerrar una temporada, o abandonadas sin
-      // marcar). Es la única forma de comparar años completos: el cierre de
-      // temporada (archivarArea) solo archiva lo que quedó sin terminar, así
-      // que las tareas completadas de un año no quedan marcadas de ningún otro
-      // modo como "de esa temporada".
-      const historial = await tx<HistorialAnioRow[]>`
+    // Historial por año calendario — a diferencia de las consultas de arriba,
+    // no filtra t.archivada: incluye TODO lo que pasó por el área alguna vez
+    // (completadas, archivadas al cerrar una temporada, o abandonadas sin
+    // marcar). Es la única forma de comparar años completos: el cierre de
+    // temporada (archivarArea) solo archiva lo que quedó sin terminar, así
+    // que las tareas completadas de un año no quedan marcadas de ningún otro
+    // modo como "de esa temporada".
+    const historial = await tx<HistorialAnioRow[]>`
       select
         extract(year from t.creada_en)::int as anio,
         count(t.id)::int                    as total,
@@ -268,20 +299,36 @@ export default async function AreaDetallePage({
       order by anio desc
     `;
 
-      return {
-        area,
-        tareas: [...tareas],
-        usuarios: [...usuarios],
-        notas: [...notas],
-        logRows: [...logRows],
-        documentos: [...documentos],
-        historial: [...historial],
-      };
-    });
+    // Fechas importantes cargadas a mano (no derivadas de ninguna tarea).
+    const hitos = await tx<HitoRow[]>`
+      select h.id, h.titulo, h.fecha::text, u.nombre as creado_por_nombre
+      from hito_area h
+      join usuario u on u.id = h.creado_por
+      where h.area_id = ${areaId}
+      order by h.fecha asc
+    `;
+
+    return {
+      area,
+      tareas: [...tareas],
+      usuarios: [...usuarios],
+      notas: [...notas],
+      logRows: [...logRows],
+      documentos: [...documentos],
+      historial: [...historial],
+      hitos: [...hitos],
+    };
+  });
 
   if (!area) notFound();
 
   const plantillas = await fetchPlantillas(areaId);
+
+  const puedePlanificar = canManage || area.responsable_id === session.user.id;
+  const tareasActivas = tareas.filter((t) => t.activa);
+  const tareasPlanificadas = puedePlanificar
+    ? tareas.filter((t) => !t.activa)
+    : [];
 
   const pct =
     area.tareas_total > 0
@@ -294,17 +341,17 @@ export default async function AreaDetallePage({
     (estado) => ({
       estado,
       ...ESTADO_CONFIG[estado],
-      tareas: tareas.filter((t) => t.estado === estado),
+      tareas: tareasActivas.filter((t) => t.estado === estado),
     }),
   );
 
-  // Flujo de tareas por integrante: se arma acá mismo a partir de `tareas`
-  // (ya trae responsable + estado) en vez de una consulta aparte.
+  // Flujo de tareas por integrante: se arma acá mismo a partir de
+  // `tareasActivas` (ya trae responsable + estado) en vez de una consulta aparte.
   const avatarColorPorId = new Map(
     area.asignados.map((a) => [a.id, a.avatar_color]),
   );
   const equipoPorId = new Map<string, MiembroResumen>();
-  for (const t of tareas) {
+  for (const t of tareasActivas) {
     if (!t.responsable_id) continue;
     if (!equipoPorId.has(t.responsable_id)) {
       equipoPorId.set(t.responsable_id, {
@@ -331,19 +378,29 @@ export default async function AreaDetallePage({
     (a, b) => b.en_progreso + b.por_hacer - (a.en_progreso + a.por_hacer),
   );
 
-  const deadlines: DeadlineRow[] = tareas
-    .filter(
-      (t): t is TareaRow & { fecha_vencimiento: string } =>
-        t.fecha_vencimiento !== null && t.estado !== "hecha",
-    )
+  const deadlines: DeadlineRow[] = [
+    ...tareasActivas
+      .filter(
+        (t): t is TareaRow & { fecha_vencimiento: string } =>
+          t.fecha_vencimiento !== null && t.estado !== "hecha",
+      )
+      .map((t) => ({
+        id: t.id,
+        titulo: t.titulo,
+        fecha_vencimiento: t.fecha_vencimiento,
+        responsable_nombre: t.responsable_nombre,
+        esHito: false,
+      })),
+    ...hitos.map((h) => ({
+      id: h.id,
+      titulo: h.titulo,
+      fecha_vencimiento: h.fecha,
+      responsable_nombre: h.creado_por_nombre,
+      esHito: true,
+    })),
+  ]
     .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento))
-    .slice(0, 8)
-    .map((t) => ({
-      id: t.id,
-      titulo: t.titulo,
-      fecha_vencimiento: t.fecha_vencimiento,
-      responsable_nombre: t.responsable_nombre,
-    }));
+    .slice(0, 8);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -475,109 +532,111 @@ export default async function AreaDetallePage({
               Tareas por estado
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            {grupos.map(
-              ({ estado, label, icon: Icon, color, tareas: grupo }) => {
-                if (grupo.length === 0) return null;
-                return (
-                  <section key={estado} className="flex flex-col gap-2">
-                    <div className={`flex items-center gap-2 ${color}`}>
-                      <Icon className="size-4" />
-                      <h2 className="text-sm font-semibold">{label}</h2>
-                      <span className="text-muted-foreground text-xs font-normal">
-                        {grupo.length}
-                      </span>
-                    </div>
+          <CardContent>
+            <div className="flex max-h-[32rem] flex-col gap-6 overflow-y-auto pr-1">
+              {grupos.map(
+                ({ estado, label, icon: Icon, color, tareas: grupo }) => {
+                  if (grupo.length === 0) return null;
+                  return (
+                    <section key={estado} className="flex flex-col gap-2">
+                      <div className={`flex items-center gap-2 ${color}`}>
+                        <Icon className="size-4" />
+                        <h2 className="text-sm font-semibold">{label}</h2>
+                        <span className="text-muted-foreground text-xs font-normal">
+                          {grupo.length}
+                        </span>
+                      </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      {grupo.map((t) => {
-                        const vencida =
-                          t.fecha_vencimiento !== null &&
-                          t.fecha_vencimiento < hoyISO &&
-                          t.estado !== "hecha";
+                      <div className="flex flex-col gap-1.5">
+                        {grupo.map((t) => {
+                          const vencida =
+                            t.fecha_vencimiento !== null &&
+                            t.fecha_vencimiento < hoyISO &&
+                            t.estado !== "hecha";
 
-                        return (
-                          <div
-                            key={t.id}
-                            className="bg-card flex items-start gap-3 rounded-lg border px-4 py-3"
-                          >
-                            {/* Prioridad dot */}
-                            <span
-                              className="mt-1 size-2 shrink-0 rounded-full"
-                              style={{
-                                backgroundColor:
-                                  PRIORIDAD_COLOR[t.prioridad] ?? "#94a3b8",
-                              }}
-                            />
+                          return (
+                            <div
+                              key={t.id}
+                              className="bg-card flex items-start gap-3 rounded-lg border px-4 py-3"
+                            >
+                              {/* Prioridad dot */}
+                              <span
+                                className="mt-1 size-2 shrink-0 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    PRIORIDAD_COLOR[t.prioridad] ?? "#94a3b8",
+                                }}
+                              />
 
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className={`text-sm leading-snug font-medium ${t.estado === "hecha" ? "text-muted-foreground line-through" : ""}`}
-                              >
-                                {t.titulo}
-                              </p>
-                              <div className="mt-1 flex flex-wrap items-center gap-2">
-                                {TIPO_LABEL[t.tipo] && (
-                                  <Badge
-                                    variant="outline"
-                                    className="px-1.5 py-0 text-[11px] font-normal"
-                                  >
-                                    {TIPO_LABEL[t.tipo]}
-                                  </Badge>
-                                )}
-                                {t.fecha_vencimiento && (
-                                  <span
-                                    className={`flex items-center gap-1 text-[12px] ${vencida ? "text-destructive font-medium" : "text-muted-foreground"}`}
-                                  >
-                                    <CalendarDays className="size-3" />
-                                    {new Date(
-                                      t.fecha_vencimiento + "T00:00:00",
-                                    ).toLocaleDateString("es-AR", {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                    })}
-                                  </span>
-                                )}
+                              <div className="min-w-0 flex-1">
+                                <p
+                                  className={`text-sm leading-snug font-medium ${t.estado === "hecha" ? "text-muted-foreground line-through" : ""}`}
+                                >
+                                  {t.titulo}
+                                </p>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  {TIPO_LABEL[t.tipo] && (
+                                    <Badge
+                                      variant="outline"
+                                      className="px-1.5 py-0 text-[11px] font-normal"
+                                    >
+                                      {TIPO_LABEL[t.tipo]}
+                                    </Badge>
+                                  )}
+                                  {t.fecha_vencimiento && (
+                                    <span
+                                      className={`flex items-center gap-1 text-[12px] ${vencida ? "text-destructive font-medium" : "text-muted-foreground"}`}
+                                    >
+                                      <CalendarDays className="size-3" />
+                                      {new Date(
+                                        t.fecha_vencimiento + "T00:00:00",
+                                      ).toLocaleDateString("es-AR", {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
+
+                              {/* Responsable */}
+                              {t.responsable_nombre ? (
+                                <Avatar className="size-6 shrink-0">
+                                  <AvatarFallback className="bg-[oklch(0.62_0.19_42)] text-[10px] font-semibold text-white">
+                                    {iniciales(t.responsable_nombre)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              ) : (
+                                <span className="text-muted-foreground/40 mt-0.5 shrink-0 text-[11px]">
+                                  —
+                                </span>
+                              )}
                             </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                },
+              )}
 
-                            {/* Responsable */}
-                            {t.responsable_nombre ? (
-                              <Avatar className="size-6 shrink-0">
-                                <AvatarFallback className="bg-[oklch(0.62_0.19_42)] text-[10px] font-semibold text-white">
-                                  {iniciales(t.responsable_nombre)}
-                                </AvatarFallback>
-                              </Avatar>
-                            ) : (
-                              <span className="text-muted-foreground/40 mt-0.5 shrink-0 text-[11px]">
-                                —
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                );
-              },
-            )}
-
-            {tareas.length === 0 && (
-              <div className="py-12 text-center">
-                <p className="text-muted-foreground text-sm">
-                  Este proyecto todavía no tiene tareas.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  nativeButton={false}
-                  render={<Link href="/tablero" />}
-                >
-                  Crear tarea en el tablero
-                </Button>
-              </div>
-            )}
+              {tareasActivas.length === 0 && (
+                <div className="py-12 text-center">
+                  <p className="text-muted-foreground text-sm">
+                    Este proyecto todavía no tiene tareas.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    nativeButton={false}
+                    render={<Link href="/tablero" />}
+                  >
+                    Crear tarea en el tablero
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -600,7 +659,12 @@ export default async function AreaDetallePage({
           documentosIniciales={documentos}
           canManage={canManage}
         />
-        <AreaDeadlines deadlines={deadlines} hoyISO={hoyISO} />
+        <AreaDeadlines
+          deadlines={deadlines}
+          hoyISO={hoyISO}
+          areaId={area.id}
+          puedePlanificar={puedePlanificar}
+        />
       </div>
 
       {/* ── Historial por año ───────────────────────────────────────────────── */}
@@ -652,6 +716,17 @@ export default async function AreaDetallePage({
             Incluye todas las tareas del proyecto alguna vez creadas ese año,
             estén archivadas o no — no se pierde nada al cerrar una temporada.
           </p>
+        </div>
+      )}
+
+      {/* ── Tareas planificadas ──────────────────────────────────────────────── */}
+      {puedePlanificar && (
+        <div className="border-t pt-6">
+          <AreaTareasPlanificadas
+            areaId={area.id}
+            tareasIniciales={tareasPlanificadas}
+            usuarios={usuarios}
+          />
         </div>
       )}
 

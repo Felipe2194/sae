@@ -325,7 +325,7 @@ export function AreaActividad({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col divide-y overflow-hidden rounded-xl border">
+          <div className="flex max-h-[32rem] flex-col divide-y overflow-x-hidden overflow-y-auto rounded-xl border">
             {feed.map((item) => {
               if (item.origen === "log") {
                 return <LogFila key={`log-${item.log.id}`} log={item.log} />;

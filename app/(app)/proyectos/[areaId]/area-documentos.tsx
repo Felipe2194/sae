@@ -5,6 +5,7 @@ import { FileText, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DriveIcon, esUrlDrive } from "@/components/features/drive-icon";
 import { crearAccesoArea, eliminarAccesoArea } from "../actions";
 
 export type DocumentoRow = { id: string; etiqueta: string; url: string };
@@ -31,11 +32,13 @@ export function AreaDocumentos({
     const etiquetaFinal = etiqueta.trim();
     const urlFinal = url.trim();
     startTransition(async () => {
-      await crearAccesoArea(areaId, etiquetaFinal, urlFinal);
-      setDocumentos((prev) => [
-        ...prev,
-        { id: `temp-${Date.now()}`, etiqueta: etiquetaFinal, url: urlFinal },
-      ]);
+      const nuevo = await crearAccesoArea(areaId, etiquetaFinal, urlFinal);
+      if (nuevo) {
+        setDocumentos((prev) => [
+          ...prev,
+          { id: nuevo.id, etiqueta: etiquetaFinal, url: urlFinal },
+        ]);
+      }
       setEtiqueta("");
       setUrl("");
       setAbierto(false);
@@ -124,7 +127,11 @@ export function AreaDocumentos({
                   rel="noopener noreferrer"
                   className="flex min-w-0 flex-1 items-center gap-1.5 text-sm hover:underline"
                 >
-                  <ExternalLink className="text-muted-foreground size-3.5 shrink-0" />
+                  {esUrlDrive(d.url) ? (
+                    <DriveIcon className="size-3.5 shrink-0" />
+                  ) : (
+                    <ExternalLink className="text-muted-foreground size-3.5 shrink-0" />
+                  )}
                   <span className="truncate">{d.etiqueta}</span>
                 </a>
                 {canManage && (

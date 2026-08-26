@@ -20,6 +20,28 @@ async function requireAdmin() {
   return session;
 }
 
+// Planificar/activar tareas y cargar/borrar fechas importantes: administrador
+// o responsable del proyecto (a diferencia del resto de acciones de esta
+// página, que siguen admin-only).
+async function requirePlanificador(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+  tx: any,
+  areaId: string,
+  session: Awaited<ReturnType<typeof requireAuth>>,
+) {
+  const rol = (session.user as { rol: string }).rol;
+  if (rol === "administrador") return;
+  const [area] = await tx<[{ responsable_id: string | null }]>`
+    select responsable_id from area
+    where id = ${areaId} and organizacion_id = mi_organizacion_id()
+  `;
+  if (!area || area.responsable_id !== session.user.id) {
+    throw new Error(
+      "Solo el administrador o el responsable del proyecto pueden hacer esto.",
+    );
+  }
+}
+
 async function sincronizarColaboradores(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
   tx: any,
@@ -111,21 +133,24 @@ export async function crearAccesoArea(
   areaId: string,
   etiqueta: string,
   url: string,
-) {
+): Promise<{ id: string } | null> {
   const session = await requireAdmin();
   const etiquetaLimpia = etiqueta.trim();
   const urlLimpia = url.trim();
-  if (!etiquetaLimpia || !urlLimpia) return;
-  await withUser(session.user.id, async (tx) => {
+  if (!etiquetaLimpia || !urlLimpia) return null;
+  const { id } = await withUser(session.user.id, async (tx) => {
     const [{ max_orden }] = await tx<[{ max_orden: number | null }]>`
       select max(orden) as max_orden from acceso_rapido where area_id = ${areaId}
     `;
-    await tx`
+    const [{ id }] = await tx<[{ id: string }]>`
       insert into acceso_rapido (organizacion_id, area_id, etiqueta, url, orden)
       values (mi_organizacion_id(), ${areaId}, ${etiquetaLimpia}, ${urlLimpia}, ${(max_orden ?? -1) + 1})
+      returning id
     `;
+    return { id };
   });
   revalidatePath(`/proyectos/${areaId}`);
+  return { id };
 }
 
 export async function eliminarAccesoArea(accesoId: string, areaId: string) {
@@ -372,4 +397,135 @@ export async function actualizarArea(
   revalidatePath("/proyectos");
   revalidatePath(`/proyectos/${areaId}`);
   revalidatePath("/informes");
+}
+
+// ── Tareas planificadas ──────────────────────────────────────────────────────
+// Se cargan con activa=false: invisibles en el Tablero y en toda métrica
+// (/hoy, /informes, /admin) hasta que se activan. Reusan subtarea (tabla y
+// acciones de tablero/actions.ts) tal cual — son genéricas por tarea_id.
+
+export type TareaPlanificadaInput = {
+  titulo: string;
+  descripcion: string;
+  tipo: string;
+  prioridad: string;
+  responsable_id: string | null;
+  fecha_vencimiento: string | null;
+};
+
+export async function crearTareaPlanificada(
+  areaId: string,
+  data: TareaPlanificadaInput,
+): Promise<{ id: string }> {
+  const session = await requireAuth();
+  const resultado = await withUser(session.user.id, async (tx) => {
+    await requirePlanificador(tx, areaId, session);
+    const [{ id }] = await tx<[{ id: string }]>`
+      insert into tarea (
+        organizacion_id, area_id, titulo, descripcion, tipo, prioridad,
+        responsable_id, fecha_vencimiento, estado, activa, creada_por, orden
+      )
+      values (
+        mi_organizacion_id(), ${areaId}, ${data.titulo}, ${data.descripcion || null},
+        ${data.tipo}::tipo_tarea, ${data.prioridad}::prioridad_tarea,
+        ${data.responsable_id}, ${data.fecha_vencimiento}, 'por_hacer', false,
+        mi_usuario_id(), 0
+      )
+      returning id
+    `;
+    return { id };
+  });
+  revalidatePath(`/proyectos/${areaId}`);
+  return resultado;
+}
+
+export async function actualizarTareaPlanificada(
+  tareaId: string,
+  areaId: string,
+  data: TareaPlanificadaInput,
+) {
+  const session = await requireAuth();
+  await withUser(session.user.id, async (tx) => {
+    await requirePlanificador(tx, areaId, session);
+    await tx`
+      update tarea set
+        titulo            = ${data.titulo},
+        descripcion       = ${data.descripcion || null},
+        tipo              = ${data.tipo}::tipo_tarea,
+        prioridad         = ${data.prioridad}::prioridad_tarea,
+        responsable_id    = ${data.responsable_id},
+        fecha_vencimiento = ${data.fecha_vencimiento}
+      where id = ${tareaId} and area_id = ${areaId} and activa = false
+    `;
+  });
+  revalidatePath(`/proyectos/${areaId}`);
+}
+
+export async function activarTarea(tareaId: string, areaId: string) {
+  const session = await requireAuth();
+  await withUser(session.user.id, async (tx) => {
+    await requirePlanificador(tx, areaId, session);
+    await tx`
+      update tarea set activa = true
+      where id = ${tareaId} and area_id = ${areaId} and activa = false
+    `;
+  });
+  revalidatePath(`/proyectos/${areaId}`);
+  revalidatePath("/tablero");
+  revalidatePath("/hoy");
+  revalidatePath("/informes");
+}
+
+// "Descartar" un borrador: reusa el campo archivada ya existente, sin sumar
+// un estado nuevo.
+export async function archivarTareaPlanificada(
+  tareaId: string,
+  areaId: string,
+) {
+  const session = await requireAuth();
+  await withUser(session.user.id, async (tx) => {
+    await requirePlanificador(tx, areaId, session);
+    await tx`
+      update tarea set archivada = true
+      where id = ${tareaId} and area_id = ${areaId} and activa = false
+    `;
+  });
+  revalidatePath(`/proyectos/${areaId}`);
+  revalidatePath("/tablero");
+  revalidatePath("/hoy");
+  revalidatePath("/informes");
+}
+
+// ── Fechas importantes manuales (hito_area) ──────────────────────────────────
+// "Fechas importantes" del proyecto era 100% derivado de tarea.fecha_vencimiento
+// — esto suma hitos propios (fecha + título) que no dependen de ninguna tarea.
+
+export async function crearHitoArea(
+  areaId: string,
+  titulo: string,
+  fecha: string,
+): Promise<{ id: string } | null> {
+  const session = await requireAuth();
+  const tituloLimpio = titulo.trim();
+  if (!tituloLimpio || !fecha) return null;
+  const { id } = await withUser(session.user.id, async (tx) => {
+    await requirePlanificador(tx, areaId, session);
+    const [{ id }] = await tx<[{ id: string }]>`
+      insert into hito_area (area_id, titulo, fecha, creado_por)
+      values (${areaId}, ${tituloLimpio}, ${fecha}, mi_usuario_id())
+      returning id
+    `;
+    return { id };
+  });
+  revalidatePath(`/proyectos/${areaId}`);
+  return { id };
+}
+
+export async function eliminarHitoArea(hitoId: string, areaId: string) {
+  const session = await requireAuth();
+  await withUser(session.user.id, async (tx) => {
+    await requirePlanificador(tx, areaId, session);
+    await tx`delete from hito_area where id = ${hitoId} and area_id = ${areaId}`;
+  });
+  revalidatePath(`/proyectos/${areaId}`);
 }

@@ -11,6 +11,7 @@ export type TareaCard = {
   tipo: string;
   descripcion: string | null;
   fecha_vencimiento: string | null;
+  hora_inicio: string | null;
   area_id: string | null;
   area_nombre: string | null;
   area_color: string | null;
@@ -69,6 +70,7 @@ export default async function TableroPage() {
         t.tipo::text,
         t.descripcion,
         t.fecha_vencimiento::text,
+        t.hora_inicio::text,
         t.area_id,
         t.responsable_id,
         t.creada_por,
@@ -96,7 +98,7 @@ export default async function TableroPage() {
       from tarea t
       left join area    a on a.id = t.area_id
       left join usuario u on u.id = t.responsable_id
-      where t.organizacion_id = mi_organizacion_id() and t.archivada = false
+      where t.organizacion_id = mi_organizacion_id() and t.archivada = false and t.activa = true
       -- Las tareas urgentes (prioridad alta) van primero dentro de cada
       -- columna, arriba del resto — "(t.prioridad = 'alta') desc" ordena los
       -- true antes que los false. No hay drag-and-drop de posición dentro de
