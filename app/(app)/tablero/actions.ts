@@ -400,6 +400,7 @@ export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
         t.tipo::text,
         t.descripcion,
         t.fecha_vencimiento::text,
+        t.hora_inicio::text,
         t.area_id,
         t.responsable_id,
         t.creada_por,

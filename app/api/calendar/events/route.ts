@@ -11,8 +11,12 @@ export type CalendarEvent = {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const year = parseInt(searchParams.get("year") ?? String(new Date().getFullYear()));
-  const month = parseInt(searchParams.get("month") ?? String(new Date().getMonth() + 1));
+  const year = parseInt(
+    searchParams.get("year") ?? String(new Date().getFullYear()),
+  );
+  const month = parseInt(
+    searchParams.get("month") ?? String(new Date().getMonth() + 1),
+  );
 
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
@@ -36,7 +40,12 @@ export async function GET(req: NextRequest) {
   url.searchParams.set("orderBy", "startTime");
   url.searchParams.set("maxResults", "100");
 
-  const res = await fetch(url.toString(), { next: { revalidate: 300 } });
+  // tags: al crear una reunión sincronizada (ver crearReunion en
+  // admin/actions.ts) se invalida esta caché con revalidateTag, así no hace
+  // falta esperar los 5 minutos para verla reflejada acá.
+  const res = await fetch(url.toString(), {
+    next: { revalidate: 300, tags: ["calendar-events"] },
+  });
 
   if (!res.ok) {
     return NextResponse.json(

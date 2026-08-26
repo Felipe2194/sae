@@ -1,10 +1,11 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { auth } from "@/auth";
 import { withUser, sql } from "@/lib/db";
 import { generarPasswordTemporal } from "@/lib/passwords";
+import { crearEventoCalendar } from "@/lib/google/calendar";
 
 async function requireAdmin() {
   const session = await auth();
@@ -166,4 +167,99 @@ export async function eliminarAcceso(accesoId: string) {
   });
   revalidatePath("/admin");
   revalidatePath("/hoy");
+}
+
+// ── Reuniones ─────────────────────────────────────────────────────────────────
+// Se crean como una tarea normal (tipo = 'reunion', visible en el Tablero
+// como cualquier otra) y, si hay credenciales de escritura configuradas
+// (GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL/_KEY), además como evento real en el
+// Google Calendar compartido de la organización — ver lib/google/calendar.ts.
+// La duración reusa duracion_estimada_hs en vez de sumar una columna nueva.
+
+export type ReunionInput = {
+  titulo: string;
+  descripcion: string;
+  fecha: string; // YYYY-MM-DD
+  horaInicio: string; // HH:MM
+  horaFin: string; // HH:MM
+  responsableId: string | null;
+};
+
+export async function crearReunion(
+  input: ReunionInput,
+): Promise<{ sincronizada: boolean; error: string | null }> {
+  const session = await requireAdmin();
+
+  if (input.horaFin <= input.horaInicio) {
+    throw new Error("La hora de fin debe ser posterior a la hora de inicio.");
+  }
+  const [hIni, mIni] = input.horaInicio.split(":").map(Number);
+  const [hFin, mFin] = input.horaFin.split(":").map(Number);
+  const duracionHoras = (hFin * 60 + mFin - (hIni * 60 + mIni)) / 60;
+
+  const { tareaId, zonaHoraria } = await withUser(
+    session.user.id,
+    async (tx) => {
+      const [{ id }] = await tx<[{ id: string }]>`
+        insert into tarea (
+          organizacion_id, titulo, descripcion, tipo, prioridad,
+          responsable_id, fecha_vencimiento, hora_inicio, duracion_estimada_hs,
+          estado, creada_por, orden
+        )
+        values (
+          mi_organizacion_id(), ${input.titulo}, ${input.descripcion || null},
+          'reunion'::tipo_tarea, 'media'::prioridad_tarea,
+          ${input.responsableId}, ${input.fecha}, ${input.horaInicio}::time,
+          ${duracionHoras}, 'por_hacer', mi_usuario_id(), 0
+        )
+        returning id
+      `;
+      const [org] = await tx<[{ zona_horaria: string }]>`
+        select zona_horaria from organizacion where id = mi_organizacion_id()
+      `;
+      return { tareaId: id, zonaHoraria: org.zona_horaria };
+    },
+  );
+  revalidatePath("/admin");
+  revalidatePath("/tablero");
+  revalidatePath("/hoy");
+  revalidatePath("/calendario");
+
+  let sincronizada = false;
+  let error: string | null = null;
+  try {
+    const eventId = await crearEventoCalendar({
+      titulo: input.titulo,
+      descripcion: input.descripcion || null,
+      fecha: input.fecha,
+      horaInicio: input.horaInicio,
+      horaFin: input.horaFin,
+      timeZone: zonaHoraria,
+    });
+    if (eventId) {
+      await withUser(session.user.id, async (tx) => {
+        await tx`
+          update tarea set google_event_id = ${eventId}
+          where id = ${tareaId} and organizacion_id = mi_organizacion_id()
+        `;
+      });
+      sincronizada = true;
+      revalidatePath("/calendario");
+      // La lista de eventos de Google se pide desde el cliente a
+      // /api/calendar/events, que cachea la respuesta de Google 5 minutos
+      // (ver esa ruta) — sin esto, la reunión recién creada no aparecía en
+      // /calendario hasta que venciera ese caché. updateTag (no
+      // revalidateTag) porque esto corre dentro de un Server Action y
+      // queremos que la próxima visita ya traiga datos frescos, no
+      // stale-while-revalidate.
+      updateTag("calendar-events");
+    }
+  } catch (e) {
+    error =
+      e instanceof Error
+        ? e.message
+        : "No se pudo sincronizar con Google Calendar.";
+  }
+
+  return { sincronizada, error };
 }

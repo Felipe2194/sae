@@ -21,10 +21,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DriveIcon, esUrlDrive } from "@/components/features/drive-icon";
 import { AsignarSelect } from "./asignar-select";
 import { crearAcceso, eliminarAcceso } from "./actions";
 import { UsuariosTable, type UsuarioFila } from "./usuarios-table";
 import { OrganizacionForm } from "./organizacion-form";
+import { NuevaReunionDialog } from "./nueva-reunion-dialog";
 
 type UsuarioRow = UsuarioFila;
 
@@ -72,7 +74,7 @@ export default async function AdminPage() {
         t.responsable_id
       from tarea t
       left join area a on a.id = t.area_id
-      where t.estado != 'hecha'
+      where t.estado != 'hecha' and t.activa = true
       order by t.estado desc, a.nombre asc, t.orden asc
     `;
 
@@ -116,6 +118,10 @@ export default async function AdminPage() {
 
   const tieneCalendar =
     !!process.env.GOOGLE_CALENDAR_API_KEY && !!process.env.GOOGLE_CALENDAR_ID;
+  const tieneEscrituraCalendar =
+    tieneCalendar &&
+    !!process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL &&
+    !!process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_KEY;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8">
@@ -307,7 +313,11 @@ export default async function AdminPage() {
                       rel="noopener noreferrer"
                       className="text-muted-foreground flex max-w-sm items-center gap-1 truncate text-xs hover:underline"
                     >
-                      <ExternalLink className="size-3 shrink-0" />
+                      {esUrlDrive(ar.url) ? (
+                        <DriveIcon className="size-3 shrink-0" />
+                      ) : (
+                        <ExternalLink className="size-3 shrink-0" />
+                      )}
                       {ar.url}
                     </a>
                   </div>
@@ -371,6 +381,32 @@ export default async function AdminPage() {
                 Agregar
               </Button>
             </form>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Reuniones ────────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="text-muted-foreground size-4" />
+          <h2 className="font-semibold">Reuniones</h2>
+          {tieneEscrituraCalendar ? (
+            <Badge className="border-green-200 bg-green-100 text-green-800">
+              Sincroniza con Google Calendar
+            </Badge>
+          ) : (
+            <Badge variant="outline">Solo se crea en el sistema</Badge>
+          )}
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-start gap-3 pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-muted-foreground">
+              Crea una tarea de tipo &ldquo;Reunión&rdquo; con hora y duración
+              {tieneEscrituraCalendar
+                ? ", y la agenda como evento en el Google Calendar de la organización."
+                : ". Para que además quede agendada en Google Calendar, configurá GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL y GOOGLE_CALENDAR_SERVICE_ACCOUNT_KEY."}
+            </p>
+            <NuevaReunionDialog usuarios={usuarios} />
           </CardContent>
         </Card>
       </section>

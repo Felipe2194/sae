@@ -93,6 +93,45 @@ la clave y marcarla en Restricciones de API.
 
 ---
 
+## 2b. Escritura en Calendario (`GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_CALENDAR_SERVICE_ACCOUNT_KEY`)
+
+Habilita el botón **"Nueva reunión"** de `/admin`: además de crear la tarea en el
+sistema, crea el evento real en el Google Calendar de la organización. Una API Key
+(sección 2) no alcanza — Google no permite escribir eventos con ese tipo de credencial,
+hace falta una **cuenta de servicio**.
+
+**Dónde conseguirlo** (mismo proyecto **"SAE-Sistema"** ya usado para el resto):
+
+1. **IAM y administración → Cuentas de servicio → Crear cuenta de servicio.** Nombre
+   sugerido: `sae-calendar-writer`. No hace falta asignarle ningún rol de IAM — el
+   permiso que importa es el que se le da más abajo, directo en el calendario.
+2. Entrar a la cuenta recién creada → pestaña **Claves → Agregar clave → Crear clave
+   nueva → JSON**. Se descarga un archivo `.json` — es un secreto, no subirlo a ningún
+   repo.
+3. Copiar el **email** de la cuenta de servicio (campo `client_email` del JSON, termina
+   en `...iam.gserviceaccount.com`).
+4. En Google Calendar → configuración del calendario (el mismo de `GOOGLE_CALENDAR_ID`)
+   → **"Compartir con determinadas personas"** → agregar ese email con permiso
+   **"Hacer cambios en los eventos"** (no alcanza con "Ver los detalles del evento").
+
+**Dónde pegarlo:**
+
+```
+GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL=<client_email del JSON>
+GOOGLE_CALENDAR_SERVICE_ACCOUNT_KEY=<private_key del JSON, tal cual, con los \n literales>
+```
+
+Sin estas variables, "Nueva reunión" sigue creando la tarea en el sistema (visible en
+el Tablero y en `/calendario`), solo que sin el evento en Google Calendar.
+
+**Por qué cuenta de servicio y no ampliar el login con Google (`AUTH_GOOGLE_ID`):**
+usar el login habría requerido pedirle a cada administrador un consentimiento OAuth
+aparte para el scope de Calendar y guardar (y refrescar) un token por usuario. Una
+cuenta de servicio es más simple para este caso — un solo calendario compartido de la
+organización, no calendarios personales — y no toca el flujo de login de nadie.
+
+---
+
 ## 3. Música de la oficina — no requiere credenciales
 
 El widget "Música de la oficina" de `/hoy` es un **embed oficial de YouTube**

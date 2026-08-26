@@ -34,6 +34,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { UserAvatar } from "@/components/features/user-avatar";
 import { AsignadosPicker } from "@/components/features/asignados-picker";
+import { DriveIcon, esUrlDrive } from "@/components/features/drive-icon";
 import {
   actualizarTarea,
   archivarTarea,
@@ -115,6 +116,17 @@ function formatRelativo(fechaISO: string): string {
   if (diffH < 24) return `hace ${diffH}h`;
   const diffD = Math.floor(diffH / 24);
   return `hace ${diffD}d`;
+}
+
+// Solo se usa para tareas tipo "reunion" — la duración reusa
+// duracion_estimada_hs (ver crearReunion en admin/actions.ts).
+function horaFinReunion(horaInicio: string, duracionHs: number | null): string {
+  const inicio = horaInicio.slice(0, 5);
+  if (!duracionHs) return `${inicio} hs`;
+  const [h, m] = horaInicio.split(":").map(Number);
+  const totalMin = h * 60 + m + Math.round(duracionHs * 60);
+  const fin = `${String(Math.floor(totalMin / 60) % 24).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
+  return `${inicio} – ${fin} hs`;
 }
 
 type Props = {
@@ -592,6 +604,14 @@ export function TareaModal({
                   onChange={(e) => setFechaVencimiento(e.target.value)}
                   className="h-8"
                 />
+                {tarea.tipo === "reunion" && tarea.hora_inicio && (
+                  <p className="text-muted-foreground text-[11px]">
+                    {horaFinReunion(
+                      tarea.hora_inicio,
+                      tarea.duracion_estimada_hs,
+                    )}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -809,10 +829,15 @@ export function TareaModal({
               <div className="flex flex-col gap-1.5">
                 {adjuntos.map((a) => {
                   const driveFileId = extraerDriveFileId(a.url);
+                  const esDrive = esUrlDrive(a.url);
                   return (
                     <div key={a.id} className="flex flex-col gap-1.5">
                       <div className="group hover:bg-muted/50 flex items-center gap-2 rounded-md border px-3 py-2 transition-colors">
-                        <ExternalLink className="text-muted-foreground size-3.5 shrink-0" />
+                        {esDrive ? (
+                          <DriveIcon className="size-3.5 shrink-0" />
+                        ) : (
+                          <ExternalLink className="text-muted-foreground size-3.5 shrink-0" />
+                        )}
                         <a
                           href={a.url}
                           target="_blank"

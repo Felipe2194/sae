@@ -22,6 +22,10 @@ export default async function CalendarioPage() {
     process.env.GOOGLE_CALENDAR_API_KEY && process.env.GOOGLE_CALENDAR_ID
   );
 
+  // google_event_id is null: las reuniones que ya se sincronizaron con
+  // Google Calendar (ver crearReunion en admin/actions.ts) se excluyen acá
+  // porque ya se van a mostrar solas — via el fetch a la API de Calendar más
+  // abajo — al ser ahora un evento real. Sin esto aparecerían duplicadas.
   const tareas = await withUser(session.user.id, async (tx) => {
     return tx<TareaConFecha[]>`
       select
@@ -39,14 +43,12 @@ export default async function CalendarioPage() {
       where t.organizacion_id = mi_organizacion_id()
         and t.fecha_vencimiento is not null
         and t.estado != 'hecha'
+        and t.google_event_id is null
       order by t.fecha_vencimiento asc
     `;
   });
 
   return (
-    <CalendarioCliente
-      tareas={[...tareas]}
-      tieneCalendar={tieneCalendar}
-    />
+    <CalendarioCliente tareas={[...tareas]} tieneCalendar={tieneCalendar} />
   );
 }
