@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { TareaCardItem } from "./tarea-card";
 import { NuevaTareaDialog } from "./nueva-tarea-dialog";
-import { TareaSheet } from "./tarea-sheet";
+import { TareaModal } from "./tarea-modal";
 import { TareaArchivadaFila } from "./tarea-archivada-fila";
 import { moverEstadoTarea, fetchTareasArchivadas, restaurarTarea } from "./actions";
 import type { TareaCard, AreaOption, UsuarioOption } from "./page";
@@ -69,7 +69,7 @@ function Columna({
   colapsada,
   onToggleColapsar,
   onNueva,
-  onAbrirSheet,
+  onAbrirModal,
 }: {
   estado: string;
   titulo: string;
@@ -78,7 +78,7 @@ function Columna({
   colapsada: boolean;
   onToggleColapsar: () => void;
   onNueva: () => void;
-  onAbrirSheet: (t: TareaCard) => void;
+  onAbrirModal: (t: TareaCard) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: estado });
 
@@ -146,7 +146,7 @@ function Columna({
           <TareaCardItem
             key={t.id}
             tarea={t}
-            onClick={() => onAbrirSheet(t)}
+            onClick={() => onAbrirModal(t)}
           />
         ))}
         {tareas.length === 0 && !hayFiltros && (
@@ -179,7 +179,7 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
       state.map((t) => (t.id === tareaId ? { ...t, estado: nuevoEstado } : t)),
   );
   const [selectedTarea, setSelectedTarea] = useState<TareaCard | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogEstado, setDialogEstado] = useState("por_hacer");
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
@@ -262,9 +262,9 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
     setDialogOpen(true);
   }
 
-  function abrirSheet(tarea: TareaCard) {
+  function abrirModal(tarea: TareaCard) {
     setSelectedTarea(tarea);
-    setSheetOpen(true);
+    setModalOpen(true);
   }
 
   function toggleArchivadas() {
@@ -417,7 +417,7 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
                 colapsada={colapsadas.has(col.estado)}
                 onToggleColapsar={() => toggleColapsada(col.estado)}
                 onNueva={() => abrirDialog(col.estado)}
-                onAbrirSheet={abrirSheet}
+                onAbrirModal={abrirModal}
               />
             );
           })}
@@ -452,7 +452,7 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
                 <TareaArchivadaFila
                   key={t.id}
                   tarea={t}
-                  onAbrir={() => abrirSheet(t)}
+                  onAbrir={() => abrirModal(t)}
                   onRestaurar={() => handleRestaurarArchivada(t.id)}
                 />
               ))
@@ -470,15 +470,15 @@ export function TableroCliente({ tareas: tareasIniciales, areas, usuarios, curre
       />
 
       {selectedTarea && (
-        <TareaSheet
+        <TareaModal
           key={selectedTarea.id}
           tarea={selectedTarea}
           areas={areas}
           usuarios={usuarios}
           currentUserId={currentUserId}
-          open={sheetOpen}
+          open={modalOpen}
           onOpenChange={(v) => {
-            setSheetOpen(v);
+            setModalOpen(v);
             if (!v) setSelectedTarea(null);
           }}
         />

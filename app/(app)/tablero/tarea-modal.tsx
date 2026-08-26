@@ -3,11 +3,11 @@
 import { useState, useTransition, useEffect } from "react";
 import { Archive, ArchiveRestore, Plus, X, Send, Loader2, History, Paperclip, ExternalLink } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -113,7 +113,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
-export function TareaSheet({
+export function TareaModal({
   tarea,
   areas,
   usuarios,
@@ -345,14 +345,13 @@ export function TareaSheet({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="sm:max-w-xl flex flex-col gap-0 p-0"
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="sm:max-w-2xl w-[calc(100%-2rem)] max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden"
         showCloseButton={false}
       >
         {/* Header */}
-        <SheetHeader className="px-5 pt-5 pb-3 border-b gap-2">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b gap-2 shrink-0">
           <div className="flex items-start justify-between gap-3 pr-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span
@@ -382,13 +381,13 @@ export function TareaSheet({
               <X className="size-4" />
             </button>
           </div>
-          <SheetTitle className="text-left text-base font-semibold leading-snug">
+          <DialogTitle className="text-left text-base font-semibold leading-snug">
             {tarea.titulo}
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+        </DialogHeader>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-5">
 
           {/* Campos editables */}
           <div className="flex flex-col gap-3">
@@ -878,7 +877,7 @@ export function TareaSheet({
         </div>
 
         {/* Footer with archive */}
-        <div className="px-5 py-3 border-t flex items-center justify-end">
+        <div className="px-5 py-3 border-t flex items-center justify-end shrink-0">
           {tarea.archivada ? (
             <Button
               variant="outline"
@@ -920,7 +919,7 @@ export function TareaSheet({
             </Button>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -11,7 +11,7 @@ const isDev = process.env.NODE_ENV === "development";
 // frame-src abre youtube-nocookie.com puntualmente para el embed de música
 // (components/features/music-player.tsx), y drive/docs.google.com para el
 // selector y la vista previa de Drive (app/(app)/tablero/drive-picker-button.tsx,
-// tarea-sheet.tsx) — frame-ancestors sigue en 'none' porque eso controla lo
+// tarea-modal.tsx) — frame-ancestors sigue en 'none' porque eso controla lo
 // contrario (quién puede embeber ESTA app). script-src suma youtube.com para
 // el loader de la IFrame Player API (obligatorio para setShuffle — no hay
 // parámetro de URL que baraje una playlist) y los hosts de Google Identity
