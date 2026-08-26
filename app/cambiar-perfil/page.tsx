@@ -18,10 +18,12 @@ export default async function CambiarPerfilPage() {
 
   if (!session.user.puedeCambiarPerfil) redirect("/hoy");
 
-  const { integrantes, logoUrl } = await withUser(session.user.id, async (tx) => {
-    const integrantes = await tx<
-      { id: string; nombre: string; avatar_color: string | null }[]
-    >`
+  const { integrantes, logoUrl } = await withUser(
+    session.user.id,
+    async (tx) => {
+      const integrantes = await tx<
+        { id: string; nombre: string; avatar_color: string | null }[]
+      >`
       select id, nombre, avatar_color
       from usuario
       where organizacion_id = mi_organizacion_id()
@@ -30,11 +32,12 @@ export default async function CambiarPerfilPage() {
         and id != mi_usuario_id()
       order by nombre asc
     `;
-    const [org] = await tx<{ logo_url: string | null }[]>`
+      const [org] = await tx<{ logo_url: string | null }[]>`
       select logo_url from organizacion where id = mi_organizacion_id()
     `;
-    return { integrantes, logoUrl: org?.logo_url ?? null };
-  });
+      return { integrantes, logoUrl: org?.logo_url ?? null };
+    },
+  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-10 p-6">
@@ -44,9 +47,22 @@ export default async function CambiarPerfilPage() {
           src={logoUrl || "/LogoUTN.png"}
           alt="UTN Villa María"
           width={160}
+          className={logoUrl ? undefined : "dark:hidden"}
           style={{ objectFit: "contain", display: "block" }}
         />
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">¿Quién sos?</h1>
+        {!logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src="/LogoUTN-dark.png"
+            alt="UTN Villa María"
+            width={160}
+            className="hidden dark:block"
+            style={{ objectFit: "contain", display: "block" }}
+          />
+        )}
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+          ¿Quién sos?
+        </h1>
         <p className="text-muted-foreground text-sm">
           Elegí tu perfil para ver tus tareas y tu música.
         </p>
@@ -62,17 +78,19 @@ export default async function CambiarPerfilPage() {
             <form key={u.id} action={cambiarPerfil.bind(null, u.id)}>
               <button
                 type="submit"
-                className="flex w-full flex-col items-center gap-3 rounded-xl border bg-card p-5 transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="bg-card hover:border-primary hover:bg-accent focus-visible:ring-ring flex w-full flex-col items-center gap-3 rounded-xl border p-5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
               >
                 <Avatar size="lg" className="size-16">
                   <AvatarFallback
                     className="text-lg font-semibold text-white"
-                    style={{ backgroundColor: u.avatar_color ?? AVATAR_COLOR_DEFAULT }}
+                    style={{
+                      backgroundColor: u.avatar_color ?? AVATAR_COLOR_DEFAULT,
+                    }}
                   >
                     {iniciales(u.nombre)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-center text-sm font-medium leading-tight">
+                <span className="text-center text-sm leading-tight font-medium">
                   {u.nombre}
                 </span>
               </button>

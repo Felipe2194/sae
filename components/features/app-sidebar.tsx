@@ -123,12 +123,31 @@ export function AppSidebar({
             src={logo}
             alt="UTN Villa María"
             width={170}
+            className={logoUrl ? undefined : "dark:hidden"}
             style={{
               objectFit: "contain",
               objectPosition: "left",
               display: "block",
             }}
           />
+          {/* Organización sin logo propio: el texto del logo por defecto es
+              negro y desaparece sobre el sidebar oscuro — variante con el
+              texto en blanco (public/LogoUTN-dark.png) solo para ese caso;
+              un logo subido por la organización se muestra tal cual siempre. */}
+          {!logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/LogoUTN-dark.png"
+              alt="UTN Villa María"
+              width={170}
+              className="hidden dark:block"
+              style={{
+                objectFit: "contain",
+                objectPosition: "left",
+                display: "block",
+              }}
+            />
+          )}
           <span className="text-muted-foreground text-[12px] font-medium tracking-wide">
             Sistema de Actividades Estudiantiles
           </span>
