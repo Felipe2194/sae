@@ -321,12 +321,10 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
               <ChevronRight className="size-4" />
             </Button>
           </div>
-          {canManage && (
-            <Button size="sm" onClick={abrirNuevo} className="gap-1.5">
-              <Plus className="size-4" />
-              Nuevo turno
-            </Button>
-          )}
+          <Button size="sm" onClick={abrirNuevo} className="gap-1.5">
+            <Plus className="size-4" />
+            Nuevo turno
+          </Button>
         </div>
       </div>
 
@@ -337,12 +335,10 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
           <p className="text-sm text-muted-foreground">
             No hay turnos cargados para esta semana.
           </p>
-          {canManage && (
-            <Button size="sm" variant="outline" onClick={abrirNuevo} className="mt-1 gap-1.5">
-              <Plus className="size-4" />
-              Agregar turno
-            </Button>
-          )}
+          <Button size="sm" variant="outline" onClick={abrirNuevo} className="mt-1 gap-1.5">
+            <Plus className="size-4" />
+            Agregar turno
+          </Button>
         </div>
       ) : (
         <>
@@ -443,6 +439,7 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                         const esMio = t.usuario_id === sesionUsuarioId;
                         const ausente = ausenciasPorUsuario.get(t.usuario_id)?.has(fechaISO) ?? false;
                         const angosto = seg.total >= 3;
+                        const puedeGestionar = canManage || esMio;
 
                         const anchoLane = 100 / seg.total;
                         const left = `calc(${seg.rank * anchoLane}% + 3px)`;
@@ -458,8 +455,9 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                               left,
                               width,
                               backgroundColor: `${color}20`,
-                              borderLeft: `3px solid ${ausente ? "#94a3b8" : color}`,
-                              borderStyle: ausente ? "dashed" : "solid",
+                              borderLeftWidth: "3px",
+                              borderLeftColor: ausente ? "#94a3b8" : color,
+                              borderLeftStyle: ausente ? "dashed" : "solid",
                               boxShadow: esMio ? `0 0 0 1px ${color}40` : undefined,
                             }}
                             title={
@@ -476,7 +474,7 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                                 >
                                   {esMio ? "Vos" : t.usuario_nombre.split(" ")[0]}
                                 </p>
-                                {canManage && (
+                                {puedeGestionar && (
                                   <div className="hidden group-hover/bloque:flex items-center gap-0.5 shrink-0">
                                     <button
                                       onClick={() => abrirEditar(t)}
@@ -590,7 +588,7 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
                         En curso
                       </Badge>
                     )}
-                    {canManage && (
+                    {(canManage || esMio) && (
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => abrirEditar(t)}
@@ -693,14 +691,14 @@ export function CronogramaCliente({ turnos, usuarios, excepciones, sesionUsuario
         )}
       </div>
 
-      {canManage && (
-        <TurnoDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          turno={turnoEditar}
-          usuarios={usuarios}
-        />
-      )}
+      <TurnoDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        turno={turnoEditar}
+        usuarios={usuarios}
+        canManage={canManage}
+        usuarioActualId={sesionUsuarioId}
+      />
 
       <AusenciaDialog
         open={ausenciaDialogOpen}

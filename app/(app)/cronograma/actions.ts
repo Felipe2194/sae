@@ -10,14 +10,15 @@ async function requireAuth() {
   return session;
 }
 
-async function requireCoord() {
-  const session = await auth();
-  if (!session?.user) throw new Error('No autenticado');
+// Cualquiera puede cargar/editar/borrar su propio turno; coordinador y
+// administrador pueden hacerlo por cualquiera (mismo criterio que las
+// excepciones de turno más abajo). RLS (turno_insert/update/delete) refuerza
+// esto mismo del lado de la base.
+function requierePropioOManage(session: Awaited<ReturnType<typeof requireAuth>>, usuarioId: string) {
   const rol = (session.user as { rol: string }).rol;
-  if (rol !== 'coordinador' && rol !== 'administrador') {
-    throw new Error('Se requiere rol coordinador o administrador');
+  if (usuarioId !== session.user.id && rol !== 'coordinador' && rol !== 'administrador') {
+    throw new Error('Solo podés gestionar tu propio turno');
   }
-  return session;
 }
 
 export async function crearTurno(data: {
@@ -28,7 +29,8 @@ export async function crearTurno(data: {
   vigente_desde: string;
   vigente_hasta: string | null;
 }) {
-  const session = await requireCoord();
+  const session = await requireAuth();
+  requierePropioOManage(session, data.usuario_id);
   await withUser(session.user.id, async (tx) => {
     await tx`
       insert into turno (organizacion_id, usuario_id, dia_semana, hora_inicio, hora_fin, vigente_desde, vigente_hasta)
@@ -58,7 +60,8 @@ export async function actualizarTurno(
     vigente_hasta: string | null;
   },
 ) {
-  const session = await requireCoord();
+  const session = await requireAuth();
+  requierePropioOManage(session, data.usuario_id);
   await withUser(session.user.id, async (tx) => {
     await tx`
       update turno set
@@ -77,7 +80,9 @@ export async function actualizarTurno(
 }
 
 export async function eliminarTurno(turnoId: string) {
-  const session = await requireCoord();
+  // Sin chequeo explícito de dueño acá: RLS (turno_delete) es quien decide
+  // si esta fila se puede borrar (propio turno, o coordinador/administrador).
+  const session = await requireAuth();
   await withUser(session.user.id, async (tx) => {
     await tx`
       delete from turno

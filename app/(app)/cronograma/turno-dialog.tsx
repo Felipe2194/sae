@@ -35,28 +35,32 @@ type Props = {
   onOpenChange: (v: boolean) => void;
   turno?: TurnoData | null; // null = crear nuevo
   usuarios: UsuarioOpt[];
+  canManage: boolean;
+  usuarioActualId: string;
 };
 
-export function TurnoDialog({ open, onOpenChange, turno, usuarios }: Props) {
+export function TurnoDialog({ open, onOpenChange, turno, usuarios, canManage, usuarioActualId }: Props) {
   const esEdicion = !!turno?.id;
   const [pending, startTransition] = useTransition();
 
   const hoy = new Date().toISOString().slice(0, 10);
 
-  const [usuarioId, setUsuarioId] = useState(turno?.usuario_id ?? "");
+  // Sin permiso de gestión, solo puede cargar/editar su propio turno.
+  const [usuarioId, setUsuarioId] = useState(turno?.usuario_id ?? (canManage ? "" : usuarioActualId));
   const [dia, setDia] = useState(String(turno?.dia_semana ?? 0));
   const [inicio, setInicio] = useState(turno?.hora_inicio ?? "08:00");
   const [fin, setFin] = useState(turno?.hora_fin ?? "12:00");
   const [desde, setDesde] = useState(turno?.vigente_desde ?? hoy);
   const [hasta, setHasta] = useState(turno?.vigente_hasta ?? "");
 
-  const USUARIO_ITEMS = Object.fromEntries(usuarios.map((u) => [u.id, u.nombre]));
+  const opcionesUsuario = canManage ? usuarios : usuarios.filter((u) => u.id === usuarioActualId);
+  const USUARIO_ITEMS = Object.fromEntries(opcionesUsuario.map((u) => [u.id, u.nombre]));
   const DIA_ITEMS = Object.fromEntries(DIAS.map((d) => [String(d.value), d.label]));
 
   // Resetear cuando cambia el turno
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset de formulario al cambiar de turno
-    setUsuarioId(turno?.usuario_id ?? "");
+    setUsuarioId(turno?.usuario_id ?? (canManage ? "" : usuarioActualId));
     setDia(String(turno?.dia_semana ?? 0));
     setInicio(turno?.hora_inicio ?? "08:00");
     setFin(turno?.hora_fin ?? "12:00");
@@ -96,22 +100,24 @@ export function TurnoDialog({ open, onOpenChange, turno, usuarios }: Props) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
-          {/* Usuario */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">Persona</Label>
-            <Select value={usuarioId} onValueChange={(v) => setUsuarioId(v ?? "")} items={USUARIO_ITEMS} required>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Seleccioná una persona" />
-              </SelectTrigger>
-              <SelectContent>
-                {usuarios.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Usuario: solo coordinador/administrador eligen a quién asignar */}
+          {canManage && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Persona</Label>
+              <Select value={usuarioId} onValueChange={(v) => setUsuarioId(v ?? "")} items={USUARIO_ITEMS} required>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Seleccioná una persona" />
+                </SelectTrigger>
+                <SelectContent>
+                  {opcionesUsuario.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Día */}
           <div className="flex flex-col gap-1.5">
