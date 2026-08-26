@@ -3,6 +3,7 @@
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 import { headers } from 'next/headers';
+import { revalidatePath } from 'next/cache';
 import { obtenerIp, registrarIntento, verificarLimiteIntentos } from '@/lib/rate-limit';
 
 const VENTANA_MS = 15 * 60 * 1000;
@@ -25,6 +26,10 @@ export async function login(
   }
 
   try {
+    // Sin esto, el Router Cache del navegador puede reusar el HTML de /hoy
+    // (u otra página) ya renderizado para la sesión anterior — mostrando
+    // tareas, playlist, etc. de quien estaba antes logueado en esta pestaña.
+    revalidatePath('/', 'layout');
     await signIn('credentials', {
       email,
       password: formData.get('password') as string,
@@ -41,5 +46,6 @@ export async function login(
 }
 
 export async function loginWithGoogle(): Promise<void> {
+  revalidatePath('/', 'layout');
   await signIn('google', { redirectTo: '/hoy' });
 }

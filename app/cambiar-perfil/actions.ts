@@ -3,9 +3,14 @@
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 
 export async function cambiarPerfil(usuarioId: string) {
   try {
+    // Sin esto, el Router Cache del navegador puede reusar el HTML ya
+    // renderizado para el perfil anterior (tareas, playlist, etc. de quien
+    // estaba antes elegido) en vez de pedir de nuevo con la sesión nueva.
+    revalidatePath('/', 'layout');
     await signIn('quick-switch', { usuarioId, redirectTo: '/hoy' });
   } catch (error) {
     if (error instanceof AuthError) {
