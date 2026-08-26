@@ -1,9 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
-  LayoutDashboard,
-  CalendarRange,
-  Layers3,
   AlertCircle,
   CheckCircle2,
   Clock,
@@ -154,14 +151,6 @@ type NovedadRow = {
   creada_en: string;
 };
 
-// ── Navegación rápida ─────────────────────────────────────────────────────────
-
-const NAV_ITEMS = [
-  { href: "/tablero", label: "Tablero", icon: LayoutDashboard },
-  { href: "/cronograma", label: "Cronograma", icon: CalendarRange },
-  { href: "/proyectos", label: "Proyectos", icon: Layers3 },
-];
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function HoyPage() {
@@ -200,6 +189,7 @@ export default async function HoyPage() {
           )
           and t.estado != 'hecha'
           and t.archivada = false
+          and t.activa = true
         order by t.fecha_vencimiento asc nulls last, t.orden asc
       `;
 
@@ -212,25 +202,40 @@ export default async function HoyPage() {
         from tarea
         where organizacion_id = mi_organizacion_id()
           and archivada = false
+          and activa = true
       `;
 
+    // "En la oficina ahora": excluye a quien marcó ausencia o cambio de
+    // turno hoy — si es cambio, se suma más abajo a quien lo cubre en vez de
+    // a quien tenía el turno original. Es un reemplazo puntual: el turno fijo
+    // (tabla turno) no se toca, mañana vuelve a figurar la persona de siempre.
     const enOficina = await tx<PersonaRow[]>`
+        with turno_activo as (
+          select t.usuario_id
+          from turno t
+          where t.organizacion_id = mi_organizacion_id()
+            and t.dia_semana = (extract(isodow from current_date)::int - 1)
+            and t.hora_inicio <= current_time
+            and t.hora_fin    >  current_time
+            and t.vigente_desde <= current_date
+            and (t.vigente_hasta is null or t.vigente_hasta >= current_date)
+        )
         select u.nombre
-        from turno t
-        join usuario u on u.id = t.usuario_id
-        where t.organizacion_id = mi_organizacion_id()
-          and t.dia_semana = (extract(isodow from current_date)::int - 1)
-          and t.hora_inicio <= current_time
-          and t.hora_fin    >  current_time
-          and t.vigente_desde <= current_date
-          and (t.vigente_hasta is null or t.vigente_hasta >= current_date)
-          and not exists (
-            select 1 from excepcion_turno e
-            where e.usuario_id = t.usuario_id
-              and e.tipo = 'ausencia'
-              and e.fecha = current_date
-          )
-        order by u.nombre asc
+        from turno_activo ta
+        join usuario u on u.id = ta.usuario_id
+        where not exists (
+          select 1 from excepcion_turno e
+          where e.usuario_id = ta.usuario_id
+            and e.tipo in ('ausencia', 'cambio')
+            and e.fecha = current_date
+        )
+        union
+        select ur.nombre
+        from turno_activo ta
+        join excepcion_turno e
+          on e.usuario_id = ta.usuario_id and e.tipo = 'cambio' and e.fecha = current_date
+        join usuario ur on ur.id = e.usuario_reemplazo_id
+        order by nombre asc
       `;
 
     const accesos = await tx<AccesoRow[]>`
@@ -619,24 +624,6 @@ export default async function HoyPage() {
                 </CollapsibleContent>
               </Card>
             </Collapsible>
-          )}
-
-          {/* Ir al tablero si no hay nada */}
-          {tareas.length === 0 && (
-            <div className="flex flex-wrap gap-2">
-              {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-                <Button
-                  key={href}
-                  variant="outline"
-                  size="sm"
-                  nativeButton={false}
-                  render={<Link href={href} />}
-                >
-                  <Icon className="size-3.5" />
-                  {label}
-                </Button>
-              ))}
-            </div>
           )}
         </div>
 

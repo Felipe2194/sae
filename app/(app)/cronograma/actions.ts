@@ -107,21 +107,33 @@ export async function crearExcepcion(data: {
   fecha: string;
   tipo: "ausencia" | "cambio";
   nota: string | null;
+  usuario_reemplazo_id: string | null;
 }) {
   const session = await requireAuth();
   const rol = (session.user as { rol: string }).rol;
   if (data.usuario_id !== session.user.id && rol !== "administrador") {
     throw new Error("Solo podés marcar tu propia ausencia");
   }
+  if (data.tipo === "cambio") {
+    if (!data.usuario_reemplazo_id) {
+      throw new Error("Elegí quién cubre el turno ese día.");
+    }
+    if (data.usuario_reemplazo_id === data.usuario_id) {
+      throw new Error("El reemplazo tiene que ser otra persona.");
+    }
+  }
   await withUser(session.user.id, async (tx) => {
     await tx`
-      insert into excepcion_turno (organizacion_id, usuario_id, fecha, tipo, nota, creada_por)
+      insert into excepcion_turno (
+        organizacion_id, usuario_id, fecha, tipo, nota, usuario_reemplazo_id, creada_por
+      )
       values (
         mi_organizacion_id(),
         ${data.usuario_id},
         ${data.fecha},
         ${data.tipo}::tipo_excepcion_turno,
         ${data.nota || null},
+        ${data.tipo === "cambio" ? data.usuario_reemplazo_id : null},
         mi_usuario_id()
       )
     `;

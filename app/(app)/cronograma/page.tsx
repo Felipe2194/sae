@@ -23,6 +23,8 @@ export type ExcepcionData = {
   fecha: string;
   tipo: string;
   nota: string | null;
+  usuario_reemplazo_id: string | null;
+  usuario_reemplazo_nombre: string | null;
 };
 
 export default async function CronogramaPage() {
@@ -68,9 +70,12 @@ export default async function CronogramaPage() {
         u.nombre    as usuario_nombre,
         e.fecha::text,
         e.tipo::text,
-        e.nota
+        e.nota,
+        e.usuario_reemplazo_id,
+        ur.nombre   as usuario_reemplazo_nombre
       from excepcion_turno e
       join usuario u on u.id = e.usuario_id
+      left join usuario ur on ur.id = e.usuario_reemplazo_id
       where e.organizacion_id = mi_organizacion_id()
         and e.fecha between (current_date - interval '14 days') and (current_date + interval '90 days')
       order by e.fecha asc

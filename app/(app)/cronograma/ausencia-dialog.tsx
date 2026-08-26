@@ -46,36 +46,47 @@ export function AusenciaDialog({
   const hoy = new Date().toISOString().slice(0, 10);
 
   // Sin permiso de gestión, solo puede marcar su propia ausencia.
-  const [usuarioId, setUsuarioId] = useState(
-    canManage ? "" : usuarioActualId,
-  );
+  const [usuarioId, setUsuarioId] = useState(canManage ? "" : usuarioActualId);
   const [fecha, setFecha] = useState(hoy);
   const [tipo, setTipo] = useState("ausencia");
+  const [reemplazoId, setReemplazoId] = useState("");
   const [nota, setNota] = useState("");
 
   const opcionesUsuario = canManage
     ? usuarios
     : usuarios.filter((u) => u.id === usuarioActualId);
+  // El reemplazo tiene que ser otra persona, no quien ya está seleccionado.
+  const opcionesReemplazo = usuarios.filter((u) => u.id !== usuarioId);
 
-  const USUARIO_ITEMS = Object.fromEntries(opcionesUsuario.map((u) => [u.id, u.nombre]));
-  const TIPO_ITEMS = Object.fromEntries(TIPO_OPTS.map((t) => [t.value, t.label]));
+  const USUARIO_ITEMS = Object.fromEntries(
+    opcionesUsuario.map((u) => [u.id, u.nombre]),
+  );
+  const REEMPLAZO_ITEMS = Object.fromEntries(
+    opcionesReemplazo.map((u) => [u.id, u.nombre]),
+  );
+  const TIPO_ITEMS = Object.fromEntries(
+    TIPO_OPTS.map((t) => [t.value, t.label]),
+  );
 
   function resetForm() {
     setUsuarioId(canManage ? "" : usuarioActualId);
     setFecha(hoy);
     setTipo("ausencia");
+    setReemplazoId("");
     setNota("");
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!usuarioId || !fecha) return;
+    if (tipo === "cambio" && !reemplazoId) return;
     startTransition(async () => {
       await crearExcepcion({
         usuario_id: usuarioId,
         fecha,
         tipo: tipo as "ausencia" | "cambio",
         nota: nota.trim() || null,
+        usuario_reemplazo_id: tipo === "cambio" ? reemplazoId : null,
       });
       resetForm();
       onOpenChange(false);
@@ -86,14 +97,24 @@ export function AusenciaDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Marcar ausencia</DialogTitle>
+          <DialogTitle>
+            {tipo === "cambio" ? "Cambiar turno" : "Marcar ausencia"}
+          </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
+        <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-4">
           {canManage && (
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Persona</Label>
-              <Select value={usuarioId} onValueChange={(v) => setUsuarioId(v ?? "")} items={USUARIO_ITEMS} required>
+              <Select
+                value={usuarioId}
+                onValueChange={(v) => {
+                  setUsuarioId(v ?? "");
+                  if (v === reemplazoId) setReemplazoId("");
+                }}
+                items={USUARIO_ITEMS}
+                required
+              >
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Seleccioná una persona" />
                 </SelectTrigger>
@@ -121,7 +142,11 @@ export function AusenciaDialog({
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Tipo</Label>
-            <Select value={tipo} onValueChange={(v) => setTipo(v ?? "")} items={TIPO_ITEMS}>
+            <Select
+              value={tipo}
+              onValueChange={(v) => setTipo(v ?? "")}
+              items={TIPO_ITEMS}
+            >
               <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
@@ -135,22 +160,66 @@ export function AusenciaDialog({
             </Select>
           </div>
 
+          {tipo === "cambio" && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">¿Quién cubre ese día?</Label>
+              <Select
+                value={reemplazoId}
+                onValueChange={(v) => setReemplazoId(v ?? "")}
+                items={REEMPLAZO_ITEMS}
+                required
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Seleccioná quién cubre" />
+                </SelectTrigger>
+                <SelectContent>
+                  {opcionesReemplazo.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-[11px]">
+                Solo ese día — al siguiente vuelve a regir el turno de siempre.
+              </p>
+            </div>
+          )}
+
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Nota (opcional)</Label>
             <Textarea
               value={nota}
               onChange={(e) => setNota(e.target.value)}
-              placeholder="Motivo, a quién cubre, etc."
+              placeholder="Motivo (opcional)"
               rows={2}
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
-            <Button type="submit" size="sm" disabled={pending || !usuarioId || !fecha}>
-              {pending ? "Guardando…" : "Marcar"}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={
+                pending ||
+                !usuarioId ||
+                !fecha ||
+                (tipo === "cambio" && !reemplazoId)
+              }
+            >
+              {pending
+                ? "Guardando…"
+                : tipo === "cambio"
+                  ? "Cambiar turno"
+                  : "Marcar"}
             </Button>
           </div>
         </form>
