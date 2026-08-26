@@ -16,12 +16,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,7 +74,8 @@ function fechaRelativa(fechaISO: string, hoyISO: string): string {
       new Date(hoyISO + "T00:00:00").getTime()) /
       86400000,
   );
-  if (diff < 0) return `hace ${Math.abs(diff)} ${Math.abs(diff) === 1 ? "día" : "días"}`;
+  if (diff < 0)
+    return `hace ${Math.abs(diff)} ${Math.abs(diff) === 1 ? "día" : "días"}`;
   if (diff === 0) return "hoy";
   if (diff === 1) return "mañana";
   if (diff < 7) return `en ${diff} días`;
@@ -90,8 +86,15 @@ function fechaRelativa(fechaISO: string, hoyISO: string): string {
 }
 
 const PALETTE = [
-  "#ef4444", "#f97316", "#eab308", "#22c55e",
-  "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6",
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#06b6d4",
+  "#3b82f6",
+  "#8b5cf6",
+  "#ec4899",
+  "#14b8a6",
 ];
 
 function colorParaNombre(nombre: string, todos: string[]): string {
@@ -171,10 +174,17 @@ export default async function HoyPage() {
   const canManage = rol === "coordinador" || rol === "administrador";
   const hoyISO = new Date().toISOString().slice(0, 10);
 
-  const { tareas, stats, enOficina, accesos, bitacoraHoy, bitacoraEquipo, prefillHecho, novedad } = await withUser(
-    session.user.id,
-    async (tx) => {
-      const tareas = await tx<TareaRow[]>`
+  const {
+    tareas,
+    stats,
+    enOficina,
+    accesos,
+    bitacoraHoy,
+    bitacoraEquipo,
+    prefillHecho,
+    novedad,
+  } = await withUser(session.user.id, async (tx) => {
+    const tareas = await tx<TareaRow[]>`
         select
           t.id,
           t.titulo,
@@ -195,7 +205,7 @@ export default async function HoyPage() {
         order by t.fecha_vencimiento asc nulls last, t.orden asc
       `;
 
-      const [stats] = await tx<[StatRow]>`
+    const [stats] = await tx<[StatRow]>`
         select
           count(*)         filter (where estado != 'hecha')::int                           as abiertas,
           count(*)         filter (where estado = 'en_progreso')::int                      as en_progreso,
@@ -206,7 +216,7 @@ export default async function HoyPage() {
           and archivada = false
       `;
 
-      const enOficina = await tx<PersonaRow[]>`
+    const enOficina = await tx<PersonaRow[]>`
         select u.nombre
         from turno t
         join usuario u on u.id = t.usuario_id
@@ -225,16 +235,17 @@ export default async function HoyPage() {
         order by u.nombre asc
       `;
 
-      const accesos = await tx<AccesoRow[]>`
+    const accesos = await tx<AccesoRow[]>`
         select id, etiqueta, url
         from acceso_rapido
         where organizacion_id = mi_organizacion_id()
+          and area_id is null
         order by orden asc
       `;
 
-      // Última novedad de cualquier área — banner discreto para que no haga
-      // falta entrar a cada área a ver si hay algo nuevo.
-      const [novedad] = await tx<NovedadRow[]>`
+    // Última novedad de cualquier área — banner discreto para que no haga
+    // falta entrar a cada área a ver si hay algo nuevo.
+    const [novedad] = await tx<NovedadRow[]>`
         select
           n.contenido,
           a.nombre  as area_nombre,
@@ -249,16 +260,16 @@ export default async function HoyPage() {
         limit 1
       `;
 
-      const [bitacoraHoy] = await tx<BitacoraHoyRow[]>`
+    const [bitacoraHoy] = await tx<BitacoraHoyRow[]>`
         select hecho, pendiente, observaciones
         from bitacora_diaria
         where usuario_id = mi_usuario_id() and fecha = current_date
       `;
 
-      // Bitácora del resto del equipo, hoy — para que el turno siguiente vea
-      // acá qué se hizo y qué quedó pendiente en vez de por WhatsApp. La
-      // propia no se repite (ya está arriba, en bitacoraHoy).
-      const bitacoraEquipo = await tx<BitacoraEquipoRow[]>`
+    // Bitácora del resto del equipo, hoy — para que el turno siguiente vea
+    // acá qué se hizo y qué quedó pendiente en vez de por WhatsApp. La
+    // propia no se repite (ya está arriba, en bitacoraHoy).
+    const bitacoraEquipo = await tx<BitacoraEquipoRow[]>`
         select
           u.nombre, u.avatar_color,
           b.hecho, b.pendiente, b.observaciones,
@@ -271,7 +282,7 @@ export default async function HoyPage() {
         order by b.creada_en asc
       `;
 
-      const tareasCompletadasHoy = await tx<{ titulo: string }[]>`
+    const tareasCompletadasHoy = await tx<{ titulo: string }[]>`
         select titulo
         from tarea t
         where (
@@ -284,9 +295,11 @@ export default async function HoyPage() {
         order by t.completada_en asc
       `;
 
-      // Subtareas que el usuario resolvió hoy en sus propias tareas — evita
-      // que tenga que reescribir a mano el avance que ya quedó registrado.
-      const subtareasCompletadasHoy = await tx<{ titulo: string; tarea_titulo: string }[]>`
+    // Subtareas que el usuario resolvió hoy en sus propias tareas — evita
+    // que tenga que reescribir a mano el avance que ya quedó registrado.
+    const subtareasCompletadasHoy = await tx<
+      { titulo: string; tarea_titulo: string }[]
+    >`
         select s.titulo, t.titulo as tarea_titulo
         from subtarea s
         join tarea t on t.id = s.tarea_id
@@ -299,8 +312,10 @@ export default async function HoyPage() {
         order by s.completada_en asc
       `;
 
-      // Comentarios que el usuario dejó hoy en cualquier tarea.
-      const comentariosHoy = await tx<{ contenido: string; tarea_titulo: string }[]>`
+    // Comentarios que el usuario dejó hoy en cualquier tarea.
+    const comentariosHoy = await tx<
+      { contenido: string; tarea_titulo: string }[]
+    >`
         select c.contenido, t.titulo as tarea_titulo
         from comentario c
         join tarea t on t.id = c.tarea_id
@@ -309,31 +324,32 @@ export default async function HoyPage() {
         order by c.creado_en asc
       `;
 
-      const lineasHecho = [
-        ...tareasCompletadasHoy.map((t) => `- ${t.titulo}`),
-        ...subtareasCompletadasHoy.map(
-          (s) => `- ${s.titulo} (en "${s.tarea_titulo}")`,
-        ),
-        ...comentariosHoy.map(
-          (c) =>
-            `- Comentario en "${c.tarea_titulo}": ${
-              c.contenido.length > 80 ? c.contenido.slice(0, 80) + "…" : c.contenido
-            }`,
-        ),
-      ];
+    const lineasHecho = [
+      ...tareasCompletadasHoy.map((t) => `- ${t.titulo}`),
+      ...subtareasCompletadasHoy.map(
+        (s) => `- ${s.titulo} (en "${s.tarea_titulo}")`,
+      ),
+      ...comentariosHoy.map(
+        (c) =>
+          `- Comentario en "${c.tarea_titulo}": ${
+            c.contenido.length > 80
+              ? c.contenido.slice(0, 80) + "…"
+              : c.contenido
+          }`,
+      ),
+    ];
 
-      return {
-        tareas: [...tareas],
-        stats,
-        enOficina: [...enOficina],
-        accesos: [...accesos],
-        bitacoraHoy: bitacoraHoy ?? null,
-        bitacoraEquipo: [...bitacoraEquipo],
-        prefillHecho: lineasHecho.join("\n"),
-        novedad: novedad ?? null,
-      };
-    },
-  );
+    return {
+      tareas: [...tareas],
+      stats,
+      enOficina: [...enOficina],
+      accesos: [...accesos],
+      bitacoraHoy: bitacoraHoy ?? null,
+      bitacoraEquipo: [...bitacoraEquipo],
+      prefillHecho: lineasHecho.join("\n"),
+      novedad: novedad ?? null,
+    };
+  });
 
   // Clasificar tareas
   const vencidas = tareas.filter(
@@ -363,15 +379,16 @@ export default async function HoyPage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1">
         <p className="text-muted-foreground text-sm">{fechaLarga()}</p>
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <SaludoIcono className="size-5 text-muted-foreground" />
+          <SaludoIcono className="text-muted-foreground size-5" />
           {saludo()}, {session.user.name.split(" ")[0]}
         </h1>
-        <p className={`text-sm ${vencidas.length > 0 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+        <p
+          className={`text-sm ${vencidas.length > 0 ? "text-destructive font-medium" : "text-muted-foreground"}`}
+        >
           {subtituloHoy}
         </p>
       </div>
@@ -382,10 +399,13 @@ export default async function HoyPage() {
           className="flex items-start gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm"
           style={{ borderLeftColor: novedad.area_color, borderLeftWidth: 3 }}
         >
-          <Megaphone className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <Megaphone className="text-muted-foreground mt-0.5 size-4 shrink-0" />
           <p className="min-w-0 flex-1">
             <span className="font-medium">{novedad.area_nombre}</span>
-            <span className="text-muted-foreground"> · {novedad.autor_nombre} </span>
+            <span className="text-muted-foreground">
+              {" "}
+              · {novedad.autor_nombre}{" "}
+            </span>
             <span className="text-muted-foreground text-xs">
               ({formatFechaRelativaCorta(novedad.creada_en)})
             </span>
@@ -397,20 +417,18 @@ export default async function HoyPage() {
 
       {/* ── Body 2-col ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_320px]">
-
         {/* ── Columna izquierda ─────────────────────────────────────────────── */}
         <div className="flex flex-col gap-4">
-
           {/* Vencidas */}
           {vencidas.length > 0 && (
             <Card className="border-destructive/40 bg-destructive/5">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="flex items-center gap-2 text-sm text-destructive font-semibold">
+              <CardHeader className="px-4 pt-4 pb-2">
+                <CardTitle className="text-destructive flex items-center gap-2 text-sm font-semibold">
                   <AlertCircle className="size-4" />
                   Vencidas
                 </CardTitle>
               </CardHeader>
-              <CardContent className="px-4 pb-3 divide-y divide-destructive/10">
+              <CardContent className="divide-destructive/10 divide-y px-4 pb-3">
                 {vencidas.map((t) => (
                   <TareaFila
                     key={t.id}
@@ -422,7 +440,11 @@ export default async function HoyPage() {
                     areaColor={t.area_color}
                     areaNombre={t.area_nombre}
                     fecha={t.fecha_vencimiento}
-                    fechaRelativa={t.fecha_vencimiento ? fechaRelativa(t.fecha_vencimiento, hoyISO) : null}
+                    fechaRelativa={
+                      t.fecha_vencimiento
+                        ? fechaRelativa(t.fecha_vencimiento, hoyISO)
+                        : null
+                    }
                     vencida
                   />
                 ))}
@@ -432,7 +454,7 @@ export default async function HoyPage() {
 
           {/* Mis tareas de hoy */}
           <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
+            <CardHeader className="px-4 pt-4 pb-2">
               <CardTitle className="flex items-center justify-between text-sm font-semibold">
                 Mis tareas de hoy
                 {paraHoy.length > 0 && (
@@ -440,14 +462,19 @@ export default async function HoyPage() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-3 divide-y">
+            <CardContent className="divide-y px-4 pb-3">
               {paraHoy.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-8 text-center">
                   <CheckCircle2 className="size-8 text-green-500 opacity-60" />
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     No tenés nada pendiente para hoy.
                   </p>
-                  <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/tablero" />}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<Link href="/tablero" />}
+                  >
                     Ver tablero completo
                   </Button>
                 </div>
@@ -474,46 +501,54 @@ export default async function HoyPage() {
           {/* Pulso + En la oficina ahora + Accesos rápidos: fila horizontal
               debajo de las tareas de hoy en vez de apiladas. La música ahora
               vive en un reproductor global (ver components/features/music-player.tsx). */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Card>
-              <CardHeader className="pb-2 pt-4 px-4">
+              <CardHeader className="px-4 pt-4 pb-2">
                 <CardTitle className="text-sm font-semibold">Pulso</CardTitle>
               </CardHeader>
-              <CardContent className="px-4 pb-4 flex flex-col gap-1.5">
+              <CardContent className="flex flex-col gap-1.5 px-4 pb-4">
                 <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                  <span className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
                     <ListTodo className="size-3 shrink-0" />
                     Abiertas
                   </span>
-                  <span className="text-xs font-semibold tabular-nums">{stats.abiertas}</span>
+                  <span className="text-xs font-semibold tabular-nums">
+                    {stats.abiertas}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                  <span className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
                     <Clock className="size-3 shrink-0" />
                     En progreso
                   </span>
-                  <span className="text-xs font-semibold tabular-nums text-blue-600">{stats.en_progreso}</span>
+                  <span className="text-xs font-semibold text-blue-600 tabular-nums">
+                    {stats.en_progreso}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                  <span className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
                     <CheckCircle2 className="size-3 shrink-0" />
                     Hoy
                   </span>
-                  <span className="text-xs font-semibold tabular-nums text-green-600">{stats.completadas_hoy}</span>
+                  <span className="text-xs font-semibold text-green-600 tabular-nums">
+                    {stats.completadas_hoy}
+                  </span>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <span className={`size-2 rounded-full ${enOficina.length > 0 ? "bg-green-500" : "bg-muted-foreground/40"}`} />
+              <CardHeader className="px-4 pt-4 pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <span
+                    className={`size-2 rounded-full ${enOficina.length > 0 ? "bg-green-500" : "bg-muted-foreground/40"}`}
+                  />
                   En la oficina
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 {enOficina.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     Fuera del horario de oficina.
                   </p>
                 ) : (
@@ -523,14 +558,19 @@ export default async function HoyPage() {
                         <Avatar key={p.nombre} className="size-8">
                           <AvatarFallback
                             className="text-[11px] font-semibold text-white"
-                            style={{ backgroundColor: colorParaNombre(p.nombre, nombresPaleta) }}
+                            style={{
+                              backgroundColor: colorParaNombre(
+                                p.nombre,
+                                nombresPaleta,
+                              ),
+                            }}
                           >
                             {iniciales(p.nombre)}
                           </AvatarFallback>
                         </Avatar>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs">
                       {enOficina.map((p) => p.nombre.split(" ")[0]).join(", ")}
                     </p>
                   </div>
@@ -547,7 +587,9 @@ export default async function HoyPage() {
               <Card>
                 <CollapsibleTrigger
                   nativeButton={false}
-                  render={<CardHeader className="cursor-pointer select-none pb-2 pt-4 px-4" />}
+                  render={
+                    <CardHeader className="cursor-pointer px-4 pt-4 pb-2 select-none" />
+                  }
                 >
                   <CardTitle className="flex items-center justify-between text-sm font-semibold">
                     Próximamente
@@ -555,7 +597,7 @@ export default async function HoyPage() {
                   </CardTitle>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <CardContent className="px-4 pb-3 divide-y">
+                  <CardContent className="divide-y px-4 pb-3">
                     {proximas.map((t) => (
                       <TareaFila
                         key={t.id}
@@ -567,7 +609,11 @@ export default async function HoyPage() {
                         areaColor={t.area_color}
                         areaNombre={t.area_nombre}
                         fecha={t.fecha_vencimiento}
-                        fechaRelativa={t.fecha_vencimiento ? fechaRelativa(t.fecha_vencimiento, hoyISO) : null}
+                        fechaRelativa={
+                          t.fecha_vencimiento
+                            ? fechaRelativa(t.fecha_vencimiento, hoyISO)
+                            : null
+                        }
                         vencida={false}
                       />
                     ))}
@@ -581,7 +627,13 @@ export default async function HoyPage() {
           {tareas.length === 0 && (
             <div className="flex flex-wrap gap-2">
               {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-                <Button key={href} variant="outline" size="sm" nativeButton={false} render={<Link href={href} />}>
+                <Button
+                  key={href}
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={href} />}
+                >
                   <Icon className="size-3.5" />
                   {label}
                 </Button>
@@ -592,15 +644,16 @@ export default async function HoyPage() {
 
         {/* ── Columna derecha ───────────────────────────────────────────────── */}
         <div className="flex flex-col gap-4">
-
           {/* Bitácora del día */}
           <div id="bitacora" className="scroll-mt-4">
-            <BitacoraCard bitacoraHoy={bitacoraHoy} prefillHecho={prefillHecho} />
+            <BitacoraCard
+              bitacoraHoy={bitacoraHoy}
+              prefillHecho={prefillHecho}
+            />
           </div>
 
           {/* Bitácora del resto del equipo, hoy — para el handoff entre turnos */}
           <BitacoraEquipoCard entradas={bitacoraEquipo} />
-
         </div>
       </div>
     </div>

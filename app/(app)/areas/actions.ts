@@ -1,27 +1,31 @@
-'use server';
+"use server";
 
-import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
-import { withUser } from '@/lib/db';
+import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
+import { withUser } from "@/lib/db";
 
 async function requireAuth() {
   const session = await auth();
-  if (!session?.user) throw new Error('No autenticado');
+  if (!session?.user) throw new Error("No autenticado");
   return session;
 }
 
 async function requireCoord() {
   const session = await auth();
-  if (!session?.user) throw new Error('No autenticado');
+  if (!session?.user) throw new Error("No autenticado");
   const rol = (session.user as { rol: string }).rol;
-  if (rol !== 'coordinador' && rol !== 'administrador') {
-    throw new Error('Se requiere rol coordinador o administrador');
+  if (rol !== "coordinador" && rol !== "administrador") {
+    throw new Error("Se requiere rol coordinador o administrador");
   }
   return session;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
-async function sincronizarColaboradores(tx: any, areaId: string, asignadosIds: string[]) {
+async function sincronizarColaboradores(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+  tx: any,
+  areaId: string,
+  asignadosIds: string[],
+) {
   await tx`delete from area_asignado where area_id = ${areaId}`;
   for (const usuarioId of new Set(asignadosIds)) {
     await tx`
@@ -47,8 +51,8 @@ export async function crearArea(data: {
     `;
     await sincronizarColaboradores(tx, id, data.asignados_ids ?? []);
   });
-  revalidatePath('/areas');
-  revalidatePath('/coordinacion');
+  revalidatePath("/areas");
+  revalidatePath("/coordinacion");
 }
 
 // ── Notas de área ─────────────────────────────────────────────────────────────
@@ -56,7 +60,7 @@ export async function crearArea(data: {
 export async function crearNota(
   areaId: string,
   contenido: string,
-  tipo: 'nota' | 'idea' | 'actividad' | 'progreso',
+  tipo: "nota" | "idea" | "actividad" | "progreso",
 ) {
   const session = await requireAuth();
   const texto = contenido.trim();
@@ -76,6 +80,45 @@ export async function eliminarNota(notaId: string, areaId: string) {
     await tx`
       delete from nota_area
       where id = ${notaId}
+    `;
+  });
+  revalidatePath(`/areas/${areaId}`);
+}
+
+// ── Documentos compartidos del área ─────────────────────────────────────────
+// Reusa acceso_rapido (ya tenía area_id, sin usar hasta ahora — los de
+// /admin siempre quedan con area_id null). Mismas políticas RLS, mismo
+// criterio de permisos que /admin: coordinador/administrador arma la lista.
+
+export async function crearAccesoArea(
+  areaId: string,
+  etiqueta: string,
+  url: string,
+) {
+  const session = await requireCoord();
+  const etiquetaLimpia = etiqueta.trim();
+  const urlLimpia = url.trim();
+  if (!etiquetaLimpia || !urlLimpia) return;
+  await withUser(session.user.id, async (tx) => {
+    const [{ max_orden }] = await tx<[{ max_orden: number | null }]>`
+      select max(orden) as max_orden from acceso_rapido where area_id = ${areaId}
+    `;
+    await tx`
+      insert into acceso_rapido (organizacion_id, area_id, etiqueta, url, orden)
+      values (mi_organizacion_id(), ${areaId}, ${etiquetaLimpia}, ${urlLimpia}, ${(max_orden ?? -1) + 1})
+    `;
+  });
+  revalidatePath(`/areas/${areaId}`);
+}
+
+export async function eliminarAccesoArea(accesoId: string, areaId: string) {
+  const session = await requireCoord();
+  await withUser(session.user.id, async (tx) => {
+    await tx`
+      delete from acceso_rapido
+      where id = ${accesoId}
+        and area_id = ${areaId}
+        and organizacion_id = mi_organizacion_id()
     `;
   });
   revalidatePath(`/areas/${areaId}`);
@@ -110,10 +153,10 @@ export async function archivarArea(areaId: string) {
         and estado != 'hecha'
     `;
   });
-  revalidatePath('/areas');
+  revalidatePath("/areas");
   revalidatePath(`/areas/${areaId}`);
-  revalidatePath('/tablero');
-  revalidatePath('/coordinacion');
+  revalidatePath("/tablero");
+  revalidatePath("/coordinacion");
 }
 
 export type TareaCierreRow = { id: string; titulo: string };
@@ -124,7 +167,9 @@ export type TareaCierreRow = { id: string; titulo: string };
 // mecanismo (o se archivó con la versión vieja de archivarArea, antes de
 // esta migración), area.archivada_en es null y esto devuelve vacío — la
 // UI de reactivar, en ese caso, no ofrece nada para elegir.
-export async function fetchTareasCierre(areaId: string): Promise<TareaCierreRow[]> {
+export async function fetchTareasCierre(
+  areaId: string,
+): Promise<TareaCierreRow[]> {
   const session = await requireAuth();
   return withUser(session.user.id, async (tx) => {
     const rows = await tx<TareaCierreRow[]>`
@@ -145,7 +190,10 @@ export async function fetchTareasCierre(areaId: string): Promise<TareaCierreRow[
 // titulosNuevos: los títulos elegidos de fetchTareasCierre() para recrear
 // como tareas frescas en 'por_hacer' al reactivar — vacío si se eligió
 // arrancar la temporada en blanco.
-export async function reactivarArea(areaId: string, titulosNuevos: string[] = []) {
+export async function reactivarArea(
+  areaId: string,
+  titulosNuevos: string[] = [],
+) {
   const session = await requireCoord();
   await withUser(session.user.id, async (tx) => {
     await tx`
@@ -160,10 +208,10 @@ export async function reactivarArea(areaId: string, titulosNuevos: string[] = []
       `;
     }
   });
-  revalidatePath('/areas');
+  revalidatePath("/areas");
   revalidatePath(`/areas/${areaId}`);
-  revalidatePath('/tablero');
-  revalidatePath('/coordinacion');
+  revalidatePath("/tablero");
+  revalidatePath("/coordinacion");
 }
 
 // ── Plantillas de tareas ─────────────────────────────────────────────────────
@@ -254,8 +302,8 @@ export async function aplicarPlantilla(plantillaId: string, areaId: string) {
     `;
   });
   revalidatePath(`/areas/${areaId}`);
-  revalidatePath('/tablero');
-  revalidatePath('/coordinacion');
+  revalidatePath("/tablero");
+  revalidatePath("/coordinacion");
 }
 
 export async function fetchAreasArchivadas(): Promise<AreaArchivadaRow[]> {
@@ -296,7 +344,7 @@ export async function actualizarArea(
       await sincronizarColaboradores(tx, areaId, data.asignados_ids);
     }
   });
-  revalidatePath('/areas');
+  revalidatePath("/areas");
   revalidatePath(`/areas/${areaId}`);
-  revalidatePath('/coordinacion');
+  revalidatePath("/coordinacion");
 }
