@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { MascotaTigre } from "@/components/features/mascota-tigre";
 
 export default function GlobalError({
@@ -13,6 +14,18 @@ export default function GlobalError({
   useEffect(() => {
     console.error(error);
   }, [error]);
+
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  // Ver comentario equivalente en app/error.tsx: reset() solo no alcanza
+  // si Next tiene cacheado el fallo del Server Component.
+  const reintentar = () => {
+    startTransition(() => {
+      router.refresh();
+      reset();
+    });
+  };
 
   return (
     <html lang="es">
@@ -27,8 +40,9 @@ export default function GlobalError({
             Ocurrió un error inesperado al cargar la aplicación.
           </p>
           <button
-            onClick={() => reset()}
-            className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+            onClick={reintentar}
+            disabled={isPending}
+            className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-60"
           >
             Reintentar
           </button>

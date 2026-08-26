@@ -34,13 +34,13 @@ export function LoginScreen({ logo, brandColor }: Props) {
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <motion.div
           className="absolute top-[-14rem] left-1/2 h-[38rem] w-[38rem] -translate-x-1/2 rounded-full opacity-50 blur-[110px]"
-          style={{ background: GRADIENTES_FONDO.atardecer.css }}
+          style={{ background: GRADIENTES_FONDO.atardecer.dark }}
           animate={{ x: [0, 40, -30, 0], y: [0, 20, -15, 0] }}
           transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
           className="absolute right-[-10rem] bottom-[-10rem] h-[30rem] w-[30rem] rounded-full opacity-40 blur-[100px]"
-          style={{ background: GRADIENTES_FONDO.lavanda.css }}
+          style={{ background: GRADIENTES_FONDO.lavanda.dark }}
           animate={{ x: [0, -25, 15, 0], y: [0, -20, 10, 0] }}
           transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
         />

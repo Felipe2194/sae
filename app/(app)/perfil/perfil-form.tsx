@@ -77,16 +77,17 @@ export function PerfilForm({
   // (ver app/(app)/layout.tsx). Al guardar, el revalidate del server action
   // pisa este estilo manual con el valor confirmado — no hace falta limpiarlo
   // a mano. Si se navega afuera sin guardar, el cleanup del primer efecto lo
-  // restaura al valor original.
+  // restaura al valor original (se guarda cssText completo, no solo
+  // `background`, porque el gradiente vive en --fondo-light/--fondo-dark).
   const fondoWrapperRef = useRef<HTMLElement | null>(null);
   const fondoOriginalRef = useRef<string>("");
 
   useEffect(() => {
     const el = document.querySelector<HTMLElement>('[data-slot="sidebar-wrapper"]');
     fondoWrapperRef.current = el;
-    fondoOriginalRef.current = el?.style.background ?? "";
+    fondoOriginalRef.current = el?.style.cssText ?? "";
     return () => {
-      if (fondoWrapperRef.current) fondoWrapperRef.current.style.background = fondoOriginalRef.current;
+      if (fondoWrapperRef.current) fondoWrapperRef.current.style.cssText = fondoOriginalRef.current;
     };
   }, []);
 
@@ -94,9 +95,14 @@ export function PerfilForm({
     const el = fondoWrapperRef.current;
     if (!el) return;
     if (fondoTipo === "gradiente" && fondoGradiente) {
-      el.style.background = GRADIENTES_FONDO[fondoGradiente].css;
+      const g = GRADIENTES_FONDO[fondoGradiente];
+      el.style.background = "";
+      el.style.setProperty("--fondo-light", g.light);
+      el.style.setProperty("--fondo-dark", g.dark);
     } else if (fondoTipo === "ninguno") {
       el.style.background = "";
+      el.style.removeProperty("--fondo-light");
+      el.style.removeProperty("--fondo-dark");
     }
   }, [fondoTipo, fondoGradiente]);
 
@@ -109,6 +115,8 @@ export function PerfilForm({
     const el = fondoWrapperRef.current;
     if (!el || !fondoImagenUrl.trim()) return;
     const id = setTimeout(() => {
+      el.style.removeProperty("--fondo-light");
+      el.style.removeProperty("--fondo-dark");
       el.style.background = `url("${fondoImagenUrl.trim()}") center / cover no-repeat fixed`;
     }, 600);
     return () => clearTimeout(id);
@@ -252,10 +260,10 @@ export function PerfilForm({
                   key={key}
                   type="button"
                   onClick={() => setFondoGradiente(key as GradienteFondoKey)}
-                  className={`h-12 rounded-lg transition-all hover:scale-105 ${
+                  className={`fondo-mesh h-12 rounded-lg transition-all hover:scale-105 ${
                     fondoGradiente === key ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
                   }`}
-                  style={{ background: g.css }}
+                  style={{ "--fondo-light": g.light, "--fondo-dark": g.dark } as React.CSSProperties}
                   aria-label={g.label}
                   title={g.label}
                 />

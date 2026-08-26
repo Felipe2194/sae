@@ -1,11 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { MascotaTigre } from "@/components/features/mascota-tigre";
-import { GRADIENTES_FONDO } from "@/lib/fondos";
+
+// Blobs decorativos (círculos difuminados, no el mural completo de
+// lib/fondos.ts — ese trae una base sólida pensada para cubrir toda la
+// pantalla, se vería mal recortada a un círculo). Mismos tonos que los
+// temas "Atardecer", "Lavanda" y "Océano" de /perfil, como color puro. La
+// intensidad entre modo claro/oscuro la maneja el dark:opacity-* de cada
+// blob, no el color en sí.
+const BLOB_ATARDECER =
+  "radial-gradient(circle, rgba(255,141,120,0.9) 0%, rgba(168,88,199,0.55) 55%, transparent 75%)";
+const BLOB_LAVANDA =
+  "radial-gradient(circle, rgba(160,80,220,0.9) 0%, rgba(250,181,158,0.5) 55%, transparent 75%)";
+const BLOB_OCEANO =
+  "radial-gradient(circle, rgba(79,172,254,0.9) 0%, rgba(0,242,254,0.5) 55%, transparent 75%)";
 
 // Cada cuánto rota la frase de abajo, sola, mientras la pantalla de error
 // sigue en pantalla (ver el useEffect en el componente).
@@ -57,6 +70,20 @@ export default function Error({
     console.error(error);
   }, [error]);
 
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  // reset() por sí solo reintenta el render con lo que Next ya tenga
+  // cacheado para ese segmento — si el fallo fue un fetch/DB caído, puede
+  // devolver el mismo error. router.refresh() invalida esa caché y vuelve
+  // a pedir los Server Components antes de reintentar.
+  const reintentar = () => {
+    startTransition(() => {
+      router.refresh();
+      reset();
+    });
+  };
+
   const [quip, setQuip] = useState(() => QUIPS[Math.floor(Math.random() * QUIPS.length)]);
 
   // Rota sola cada ROTACION_MS mientras la pantalla siga en pie — evita
@@ -79,19 +106,19 @@ export default function Error({
       <div className="absolute inset-0 -z-10 bg-background">
         <motion.div
           className="absolute -top-32 -left-32 h-96 w-96 rounded-full opacity-40 blur-3xl dark:opacity-25"
-          style={{ background: GRADIENTES_FONDO.atardecer.css }}
+          style={{ background: BLOB_ATARDECER }}
           animate={{ x: [0, 40, -20, 0], y: [0, 30, -10, 0] }}
           transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
           className="absolute top-1/3 -right-40 h-[28rem] w-[28rem] rounded-full opacity-40 blur-3xl dark:opacity-20"
-          style={{ background: GRADIENTES_FONDO.lavanda.css }}
+          style={{ background: BLOB_LAVANDA }}
           animate={{ x: [0, -30, 20, 0], y: [0, -20, 15, 0] }}
           transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
           className="absolute bottom-[-8rem] left-1/3 h-80 w-80 rounded-full opacity-30 blur-3xl dark:opacity-15"
-          style={{ background: GRADIENTES_FONDO.oceano.css }}
+          style={{ background: BLOB_OCEANO }}
           animate={{ x: [0, 25, -25, 0], y: [0, -25, 10, 0] }}
           transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -124,7 +151,9 @@ export default function Error({
         </div>
 
         <div className="mt-2 flex items-center gap-2">
-          <Button onClick={() => reset()}>Reintentar</Button>
+          <Button onClick={reintentar} disabled={isPending}>
+            Reintentar
+          </Button>
           <Button variant="ghost" nativeButton={false} render={<Link href="/hoy" />}>
             Ir a Hoy
           </Button>

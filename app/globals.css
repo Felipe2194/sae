@@ -162,15 +162,32 @@
 }
 
 /* ── Efecto "glass" ────────────────────────────────────────────────────────
-   El fondo elegido en /admin → Organización (ver lib/fondos.ts) se pinta
-   sobre el wrapper del sidebar, en app/(app)/layout.tsx. Estas reglas solo
-   vacían el color sólido que lo taparía y le dan blur al sidebar — sin
-   fondo custom configurado, el resultado es visualmente igual a antes
-   (se ve el --background de siempre debajo). */
+   El fondo elegido en /perfil (ver lib/fondos.ts) se pinta sobre el wrapper
+   del sidebar, en app/(app)/layout.tsx. Estas reglas solo vacían el color
+   sólido que lo taparía y le dan blur al sidebar — sin fondo custom
+   configurado, el resultado es visualmente igual a antes (se ve el
+   --background de siempre debajo). */
 [data-slot="sidebar-inset"] {
   background-color: transparent;
 }
 [data-slot="sidebar-inner"] {
   background-color: color-mix(in oklch, var(--sidebar) 72%, transparent);
   backdrop-filter: blur(20px);
+}
+
+/* Cada fondo de lib/fondos.ts trae una variante `light` y una `dark` —
+   se pasan como custom properties (--fondo-light / --fondo-dark) desde el
+   server y acá se elige cuál pintar según `.dark` esté presente o no en
+   <html>. Así el cambio de tema no necesita JS ni recalcular nada: el
+   navegador resuelve el var() correcto solo. Sin custom properties seteadas
+   (nadie eligió fondo), cae a `transparent` y se ve el --background normal.
+   `.fondo-mesh` es la misma regla para consumidores fuera del sidebar
+   (swatches del picker en /perfil, blobs decorativos de error.tsx). */
+[data-slot="sidebar-wrapper"],
+.fondo-mesh {
+  background: var(--fondo-light, transparent);
+}
+.dark [data-slot="sidebar-wrapper"],
+.dark .fondo-mesh {
+  background: var(--fondo-dark, var(--fondo-light, transparent));
 }
