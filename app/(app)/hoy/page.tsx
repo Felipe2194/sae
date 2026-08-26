@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   CalendarRange,
   Layers3,
-  Users,
   AlertCircle,
   CheckCircle2,
   Clock,
@@ -160,8 +159,7 @@ type NovedadRow = {
 const NAV_ITEMS = [
   { href: "/tablero", label: "Tablero", icon: LayoutDashboard },
   { href: "/cronograma", label: "Cronograma", icon: CalendarRange },
-  { href: "/areas", label: "Áreas", icon: Layers3 },
-  { href: "/coordinacion", label: "Coordinación", icon: Users },
+  { href: "/proyectos", label: "Proyectos", icon: Layers3 },
 ];
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -171,7 +169,7 @@ export default async function HoyPage() {
   if (!session?.user) redirect("/login");
 
   const rol = (session.user as { rol: string }).rol;
-  const canManage = rol === "coordinador" || rol === "administrador";
+  const canManage = rol === "administrador";
   const hoyISO = new Date().toISOString().slice(0, 10);
 
   const {

@@ -25,13 +25,17 @@ import { AreaEquipo, type MiembroResumen } from "./area-equipo";
 import { AreaDocumentos, type DocumentoRow } from "./area-documentos";
 import { AreaDeadlines, type DeadlineRow } from "./area-deadlines";
 import { AreaPlantillas } from "./area-plantillas";
-import { fetchPlantillas } from "../actions";
+import { fetchPlantillas, type CategoriaArea } from "../actions";
 
 type AreaRow = {
   id: string;
   nombre: string;
   color: string;
   descripcion: string | null;
+  tipo: "continua" | "evento";
+  categoria: string;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
   responsable_id: string | null;
   responsable_nombre: string | null;
   activa: boolean;
@@ -39,6 +43,15 @@ type AreaRow = {
   tareas_total: number;
   tareas_hechas: number;
   tareas_abiertas: number;
+};
+
+const CATEGORIA_LABEL: Record<string, string> = {
+  deportes: "Deportes",
+  becas: "Becas",
+  institucional: "Institucional",
+  cultura: "Cultura",
+  academico: "Académico",
+  general: "General",
 };
 
 type TareaRow = {
@@ -89,6 +102,26 @@ function iniciales(nombre: string): string {
   return (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
 
+function formatFechaCorta(iso: string): string {
+  return new Date(iso + "T00:00:00").toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+/** "Faltan N días" / "Finaliza hoy" / "Finalizado hace N días", a partir de fecha_fin. */
+function cuentaRegresiva(fechaFin: string, hoyISO: string): string {
+  const dias = Math.round(
+    (new Date(fechaFin + "T00:00:00").getTime() -
+      new Date(hoyISO + "T00:00:00").getTime()) /
+      86_400_000,
+  );
+  if (dias > 0) return `Faltan ${dias} día${dias === 1 ? "" : "s"}`;
+  if (dias === 0) return "Finaliza hoy";
+  return `Finalizado hace ${-dias} día${-dias === 1 ? "" : "s"}`;
+}
+
 export default async function AreaDetallePage({
   params,
 }: {
@@ -99,13 +132,15 @@ export default async function AreaDetallePage({
   if (!session?.user) redirect("/login");
 
   const rol = (session.user as { rol: string }).rol;
-  const canManage = rol === "coordinador" || rol === "administrador";
+  const canManage = rol === "administrador";
 
   const { area, tareas, usuarios, notas, logRows, documentos, historial } =
     await withUser(session.user.id, async (tx) => {
       const [area] = await tx<AreaRow[]>`
       select
         a.id, a.nombre, a.color, a.descripcion, a.responsable_id, a.activa,
+        a.tipo::text as tipo, a.categoria::text as categoria,
+        a.fecha_inicio::text, a.fecha_fin::text,
         u.nombre  as responsable_nombre,
         coalesce(
           (
@@ -319,10 +354,10 @@ export default async function AreaDetallePage({
           size="sm"
           className="-ml-2 w-fit"
           nativeButton={false}
-          render={<Link href="/areas" />}
+          render={<Link href="/proyectos" />}
         >
           <ArrowLeft className="size-4" />
-          Áreas
+          Proyectos
         </Button>
 
         <AreaDetalleCliente
@@ -331,6 +366,10 @@ export default async function AreaDetallePage({
             nombre: area.nombre,
             descripcion: area.descripcion,
             color: area.color,
+            tipo: area.tipo,
+            categoria: area.categoria as CategoriaArea,
+            fecha_inicio: area.fecha_inicio,
+            fecha_fin: area.fecha_fin,
             responsable_id: area.responsable_id,
             activa: area.activa,
             asignados: area.asignados,
@@ -352,6 +391,14 @@ export default async function AreaDetallePage({
               <h1 className="text-2xl font-semibold tracking-tight">
                 {area.nombre}
               </h1>
+              <Badge variant="outline" className="font-normal">
+                {CATEGORIA_LABEL[area.categoria] ?? area.categoria}
+              </Badge>
+              {area.tipo === "evento" && (
+                <Badge variant="outline" className="font-normal">
+                  Evento
+                </Badge>
+              )}
               {!area.activa && (
                 <Badge variant="outline" className="text-muted-foreground">
                   Archivada
@@ -361,6 +408,17 @@ export default async function AreaDetallePage({
             {area.descripcion && (
               <p className="text-muted-foreground text-sm">
                 {area.descripcion}
+              </p>
+            )}
+            {area.tipo === "evento" && area.fecha_inicio && area.fecha_fin && (
+              <p className="text-muted-foreground text-sm">
+                {formatFechaCorta(area.fecha_inicio)} –{" "}
+                {formatFechaCorta(area.fecha_fin)}
+                {area.activa && (
+                  <span className="ml-1.5">
+                    · {cuentaRegresiva(area.fecha_fin, hoyISO)}
+                  </span>
+                )}
               </p>
             )}
           </div>
@@ -507,7 +565,7 @@ export default async function AreaDetallePage({
             {tareas.length === 0 && (
               <div className="py-12 text-center">
                 <p className="text-muted-foreground text-sm">
-                  Esta área todavía no tiene tareas.
+                  Este proyecto todavía no tiene tareas.
                 </p>
                 <Button
                   variant="outline"
@@ -591,8 +649,8 @@ export default async function AreaDetallePage({
             </table>
           </div>
           <p className="text-muted-foreground mt-2 text-[11px]">
-            Incluye todas las tareas del área alguna vez creadas ese año, estén
-            archivadas o no — no se pierde nada al cerrar una temporada.
+            Incluye todas las tareas del proyecto alguna vez creadas ese año,
+            estén archivadas o no — no se pierde nada al cerrar una temporada.
           </p>
         </div>
       )}

@@ -32,7 +32,6 @@ const COLORES = [
 
 const ROL_LABEL: Record<string, string> = {
   miembro: "Miembro",
-  coordinador: "Coordinador/a",
   administrador: "Administrador/a",
 };
 
@@ -62,12 +61,15 @@ export function PerfilForm({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const [fondoTipo, setFondoTipo] = useState<"ninguno" | "gradiente" | "imagen">(
-    fondoTipoInicial ?? "ninguno",
-  );
-  const [fondoGradiente, setFondoGradiente] = useState<GradienteFondoKey | null>(
-    fondoTipoInicial === "gradiente" ? (fondoValorInicial as GradienteFondoKey) : null,
-  );
+  const [fondoTipo, setFondoTipo] = useState<
+    "ninguno" | "gradiente" | "imagen"
+  >(fondoTipoInicial ?? "ninguno");
+  const [fondoGradiente, setFondoGradiente] =
+    useState<GradienteFondoKey | null>(
+      fondoTipoInicial === "gradiente"
+        ? (fondoValorInicial as GradienteFondoKey)
+        : null,
+    );
   const [fondoImagenUrl, setFondoImagenUrl] = useState(
     fondoTipoInicial === "imagen" ? (fondoValorInicial ?? "") : "",
   );
@@ -83,11 +85,14 @@ export function PerfilForm({
   const fondoOriginalRef = useRef<string>("");
 
   useEffect(() => {
-    const el = document.querySelector<HTMLElement>('[data-slot="sidebar-wrapper"]');
+    const el = document.querySelector<HTMLElement>(
+      '[data-slot="sidebar-wrapper"]',
+    );
     fondoWrapperRef.current = el;
     fondoOriginalRef.current = el?.style.cssText ?? "";
     return () => {
-      if (fondoWrapperRef.current) fondoWrapperRef.current.style.cssText = fondoOriginalRef.current;
+      if (fondoWrapperRef.current)
+        fondoWrapperRef.current.style.cssText = fondoOriginalRef.current;
     };
   }, []);
 
@@ -146,10 +151,10 @@ export function PerfilForm({
   }
 
   return (
-    <div className="mx-auto max-w-2xl flex flex-col gap-6">
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Mi perfil</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+        <p className="text-muted-foreground mt-1 text-sm">
           Personalizá tu cuenta y cómo te ven los demás en el sistema.
         </p>
       </div>
@@ -159,7 +164,8 @@ export function PerfilForm({
         <CardHeader>
           <CardTitle className="text-base">Avatar</CardTitle>
           <CardDescription>
-            Elegí un color para tu avatar. La foto de perfil estará disponible próximamente.
+            Elegí un color para tu avatar. La foto de perfil estará disponible
+            próximamente.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
@@ -175,14 +181,14 @@ export function PerfilForm({
               </Avatar>
               <button
                 type="button"
-                className="absolute -bottom-1 -right-1 size-7 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                className="bg-card border-border hover:bg-muted absolute -right-1 -bottom-1 flex size-7 items-center justify-center rounded-full border transition-colors"
                 aria-label="Subir foto (próximamente)"
               >
-                <Camera className="size-3.5 text-muted-foreground" />
+                <Camera className="text-muted-foreground size-3.5" />
               </button>
             </div>
             <div className="flex flex-col gap-0.5">
-              <p className="font-semibold text-base">{nombre.split(" ")[0]}</p>
+              <p className="text-base font-semibold">{nombre.split(" ")[0]}</p>
               <p className="text-muted-foreground text-sm">{email}</p>
               <Badge variant="secondary" className="mt-1 w-fit text-xs">
                 {ROL_LABEL[rol] ?? rol}
@@ -199,12 +205,15 @@ export function PerfilForm({
                   type="button"
                   onClick={() => setColor(c.hex)}
                   title={c.label}
-                  className="size-8 rounded-full transition-all hover:scale-110 flex items-center justify-center"
+                  className="flex size-8 items-center justify-center rounded-full transition-all hover:scale-110"
                   style={{ backgroundColor: c.hex }}
                   aria-label={c.label}
                 >
                   {color === c.hex && (
-                    <Check className="size-4 text-white drop-shadow" strokeWidth={3} />
+                    <Check
+                      className="size-4 text-white drop-shadow"
+                      strokeWidth={3}
+                    />
                   )}
                 </button>
               ))}
@@ -218,8 +227,9 @@ export function PerfilForm({
         <CardHeader>
           <CardTitle className="text-base">Fondo</CardTitle>
           <CardDescription>
-            Se pinta detrás de toda la app cuando entrás vos — las tarjetas quedan
-            translúcidas por encima. Es solo tuyo, no lo ven las demás personas.
+            Se pinta detrás de toda la app cuando entrás vos — las tarjetas
+            quedan translúcidas por encima. Es solo tuyo, no lo ven las demás
+            personas.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -239,7 +249,9 @@ export function PerfilForm({
                   // Sin esto, pasar a "Gradiente" sin elegir ninguno todavía
                   // guardaba fondo_valor null — quedaba sin fondo, en silencio.
                   if (opt.value === "gradiente" && !fondoGradiente) {
-                    setFondoGradiente(Object.keys(GRADIENTES_FONDO)[0] as GradienteFondoKey);
+                    setFondoGradiente(
+                      Object.keys(GRADIENTES_FONDO)[0] as GradienteFondoKey,
+                    );
                   }
                 }}
                 className={`h-8 rounded-md border px-3 text-xs font-medium transition-colors ${
@@ -261,9 +273,16 @@ export function PerfilForm({
                   type="button"
                   onClick={() => setFondoGradiente(key as GradienteFondoKey)}
                   className={`fondo-mesh h-12 rounded-lg transition-all hover:scale-105 ${
-                    fondoGradiente === key ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
+                    fondoGradiente === key
+                      ? "ring-primary ring-offset-background ring-2 ring-offset-2"
+                      : ""
                   }`}
-                  style={{ "--fondo-light": g.light, "--fondo-dark": g.dark } as React.CSSProperties}
+                  style={
+                    {
+                      "--fondo-light": g.light,
+                      "--fondo-dark": g.dark,
+                    } as React.CSSProperties
+                  }
                   aria-label={g.label}
                   title={g.label}
                 />
@@ -310,7 +329,7 @@ export function PerfilForm({
                     : ""
               }
             />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="nombre">Nombre completo</Label>
                 <Input
@@ -350,19 +369,17 @@ export function PerfilForm({
                 className="h-11"
               />
               <p className="text-muted-foreground text-xs">
-                Un link de YouTube o YouTube Music. Va a aparecer como opción para elegir
-                en el widget de música de &ldquo;Hoy&rdquo;.
+                Un link de YouTube o YouTube Music. Va a aparecer como opción
+                para elegir en el widget de música de &ldquo;Hoy&rdquo;.
               </p>
             </div>
 
-            {error && (
-              <p className="text-destructive text-sm">{error}</p>
-            )}
+            {error && <p className="text-destructive text-sm">{error}</p>}
 
-            <div className="flex items-center gap-3 mt-2">
+            <div className="mt-2 flex items-center gap-3">
               <Button
                 type="submit"
-                className="h-11 text-base px-6"
+                className="h-11 px-6 text-base"
                 disabled={isPending}
               >
                 {guardado ? (

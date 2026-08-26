@@ -16,7 +16,7 @@ export default function PendienteDeAprobacionPage() {
         <Clock className="text-muted-foreground mb-2 size-8" />
         <CardTitle>Cuenta pendiente de aprobación</CardTitle>
         <CardDescription>
-          Un coordinador todavía no aprobó tu registro. Te vamos a avisar por
+          Un administrador todavía no aprobó tu registro. Te vamos a avisar por
           email en cuanto puedas entrar.
         </CardDescription>
       </CardHeader>

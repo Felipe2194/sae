@@ -1,15 +1,55 @@
-'use server';
+"use server";
 
-import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
-import { withUser } from '@/lib/db';
-import { notificarAsignacion, notificarComentario } from '@/lib/notificaciones';
-import type { TareaCard } from './page';
+import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
+import { withUser } from "@/lib/db";
+import { notificarAsignacion, notificarComentario } from "@/lib/notificaciones";
+import type { TareaCard } from "./page";
 
 async function requireAuth() {
   const session = await auth();
-  if (!session?.user) throw new Error('No autenticado');
+  if (!session?.user) throw new Error("No autenticado");
   return session;
+}
+
+// Mover una tarea de columna (estado) es más restrictivo que editarla: acá
+// no alcanza con ser quien la creó, como sí permite tarea_update de RLS —
+// tiene que ser responsable, co-asignado, administrador, o la tarea tiene
+// que estar "libre" (sin responsable ni co-asignados, así que cualquiera
+// puede tomarla). Se resuelve a mano porque RLS no puede distinguir
+// "cambiar el estado" de "editar cualquier otro campo" dentro de un mismo
+// UPDATE.
+async function puedeMoverEstado(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+  tx: any,
+  tareaId: string,
+  session: Awaited<ReturnType<typeof requireAuth>>,
+): Promise<boolean> {
+  const rol = (session.user as { rol: string }).rol;
+  if (rol === "administrador") return true;
+
+  const [fila] = await tx<
+    {
+      responsable_id: string | null;
+      tiene_asignados: boolean;
+      soy_asignado: boolean;
+    }[]
+  >`
+    select
+      t.responsable_id,
+      exists (select 1 from tarea_asignado ta where ta.tarea_id = t.id) as tiene_asignados,
+      exists (
+        select 1 from tarea_asignado ta
+        where ta.tarea_id = t.id and ta.usuario_id = mi_usuario_id()
+      ) as soy_asignado
+    from tarea t
+    where t.id = ${tareaId} and t.organizacion_id = mi_organizacion_id()
+  `;
+  if (!fila) return false;
+
+  const esResponsable = fila.responsable_id === session.user.id;
+  const libre = fila.responsable_id === null && !fila.tiene_asignados;
+  return esResponsable || fila.soy_asignado || libre;
 }
 
 // ── Tareas recurrentes ───────────────────────────────────────────────────────
@@ -18,28 +58,35 @@ async function requireAuth() {
 // instancias futuras por adelantado). Más simple y no ensucia el tablero con
 // tareas de fechas lejanas que capaz nunca hacen falta.
 
-type Frecuencia = 'diaria' | 'semanal' | 'mensual';
+type Frecuencia = "diaria" | "semanal" | "mensual";
 type Recurrencia = { frecuencia: Frecuencia } | null;
 
-function calcularSiguienteFecha(fechaISO: string, frecuencia: Frecuencia): string {
-  const [y, m, d] = fechaISO.split('-').map(Number);
+function calcularSiguienteFecha(
+  fechaISO: string,
+  frecuencia: Frecuencia,
+): string {
+  const [y, m, d] = fechaISO.split("-").map(Number);
   const fecha = new Date(y, m - 1, d);
 
-  if (frecuencia === 'diaria') {
+  if (frecuencia === "diaria") {
     fecha.setDate(fecha.getDate() + 1);
-  } else if (frecuencia === 'semanal') {
+  } else if (frecuencia === "semanal") {
     fecha.setDate(fecha.getDate() + 7);
   } else {
     // Clamp al último día del mes destino — evita que "setMonth" desborde
     // al mes siguiente (31 ene + 1 mes = 3 mar sin este ajuste, no 28/29 feb).
     const mesDestino = fecha.getMonth() + 1;
-    const ultimoDiaMesDestino = new Date(fecha.getFullYear(), mesDestino + 1, 0).getDate();
+    const ultimoDiaMesDestino = new Date(
+      fecha.getFullYear(),
+      mesDestino + 1,
+      0,
+    ).getDate();
     fecha.setDate(1);
     fecha.setMonth(mesDestino);
     fecha.setDate(Math.min(d, ultimoDiaMesDestino));
   }
 
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}`;
 }
 
@@ -47,7 +94,7 @@ function calcularSiguienteFecha(fechaISO: string, frecuencia: Frecuencia): strin
 async function generarSiguienteOcurrencia(tx: any, tareaId: string) {
   const [tarea] = await tx<
     {
-      area_id: string;
+      area_id: string | null;
       titulo: string;
       descripcion: string | null;
       tipo: string;
@@ -65,7 +112,10 @@ async function generarSiguienteOcurrencia(tx: any, tareaId: string) {
 
   if (!tarea?.recurrencia || !tarea.fecha_vencimiento) return;
 
-  const siguiente = calcularSiguienteFecha(tarea.fecha_vencimiento, tarea.recurrencia.frecuencia);
+  const siguiente = calcularSiguienteFecha(
+    tarea.fecha_vencimiento,
+    tarea.recurrencia.frecuencia,
+  );
 
   await tx`
     insert into tarea (
@@ -83,8 +133,12 @@ async function generarSiguienteOcurrencia(tx: any, tareaId: string) {
 
 // ── Tarea ─────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
-async function sincronizarAsignados(tx: any, tareaId: string, asignadosIds: string[]) {
+async function sincronizarAsignados(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+  tx: any,
+  tareaId: string,
+  asignadosIds: string[],
+) {
   // Reemplazo completo: se borra todo y se vuelve a insertar el set nuevo.
   // Simple y suficiente — la cantidad de asignados por tarea siempre es chica.
   await tx`delete from tarea_asignado where tarea_id = ${tareaId}`;
@@ -101,7 +155,7 @@ export async function crearTarea(input: {
   descripcion: string;
   tipo: string;
   prioridad: string;
-  area_id: string;
+  area_id: string | null;
   responsable_id: string | null;
   asignados_ids?: string[];
   fecha_vencimiento: string | null;
@@ -139,9 +193,9 @@ export async function crearTarea(input: {
       await notificarAsignacion(tx, aNotificar, input.titulo);
     }
   });
-  revalidatePath('/tablero');
-  revalidatePath('/hoy');
-  revalidatePath('/coordinacion');
+  revalidatePath("/tablero");
+  revalidatePath("/hoy");
+  revalidatePath("/informes");
 }
 
 export async function actualizarTarea(
@@ -151,7 +205,7 @@ export async function actualizarTarea(
     descripcion: string | null;
     tipo: string;
     prioridad: string;
-    area_id: string;
+    area_id: string | null;
     responsable_id: string | null;
     asignados_ids?: string[];
     fecha_vencimiento: string | null;
@@ -165,7 +219,7 @@ export async function actualizarTarea(
     descripcion: string | null;
     tipo: string;
     prioridad: string;
-    area_id: string;
+    area_id: string | null;
     responsable_id: string | null;
     fecha_vencimiento: string | null;
     estado: string;
@@ -173,8 +227,18 @@ export async function actualizarTarea(
   },
 ) {
   const session = await requireAuth();
-  const completada_en = data.estado === 'hecha' ? new Date() : null;
+  const completada_en = data.estado === "hecha" ? new Date() : null;
   await withUser(session.user.id, async (tx) => {
+    if (
+      prev &&
+      data.estado !== prev.estado &&
+      !(await puedeMoverEstado(tx, tareaId, session))
+    ) {
+      throw new Error(
+        "Solo quien está asignado a esta tarea (o administrador) puede cambiar su estado.",
+      );
+    }
+
     const actualizadas = await tx`
       update tarea set
         titulo               = ${data.titulo},
@@ -194,12 +258,12 @@ export async function actualizarTarea(
     `;
 
     // La política de RLS deja pasar el UPDATE pero lo filtra a 0 filas si
-    // quien edita no es responsable/creador/coordinador/admin de la tarea.
+    // quien edita no es responsable/creador/administrador de la tarea.
     // Sin este chequeo, el resto de la función seguía de largo como si el
     // guardado hubiera funcionado (incluyendo el log de auditoría).
     if (actualizadas.count === 0) {
       throw new Error(
-        'No se pudo guardar: no tenés permiso para editar esta tarea.',
+        "No se pudo guardar: no tenés permiso para editar esta tarea.",
       );
     }
 
@@ -211,7 +275,9 @@ export async function actualizarTarea(
     // ya estaba, para no repetir el aviso en cada guardado sin cambios reales.
     if (prev) {
       const antes = new Set(prev.asignados_ids ?? []);
-      const nuevosCoasignados = (data.asignados_ids ?? []).filter((id) => !antes.has(id));
+      const nuevosCoasignados = (data.asignados_ids ?? []).filter(
+        (id) => !antes.has(id),
+      );
       const aNotificar = [
         ...(data.responsable_id && data.responsable_id !== prev.responsable_id
           ? [data.responsable_id]
@@ -224,20 +290,20 @@ export async function actualizarTarea(
     }
 
     // Tarea recurrente que se acaba de completar -> clonar la siguiente ocurrencia
-    if (data.estado === 'hecha' && prev?.estado !== 'hecha') {
+    if (data.estado === "hecha" && prev?.estado !== "hecha") {
       await generarSiguienteOcurrencia(tx, tareaId);
     }
 
     // Registrar cambios en el log
     if (prev) {
       const CAMPOS: { key: keyof NonNullable<typeof prev>; label: string }[] = [
-        { key: 'titulo',            label: 'Título' },
-        { key: 'estado',            label: 'Estado' },
-        { key: 'prioridad',         label: 'Prioridad' },
-        { key: 'tipo',              label: 'Tipo' },
-        { key: 'responsable_id',    label: 'Responsable' },
-        { key: 'fecha_vencimiento', label: 'Vencimiento' },
-        { key: 'descripcion',       label: 'Descripción' },
+        { key: "titulo", label: "Título" },
+        { key: "estado", label: "Estado" },
+        { key: "prioridad", label: "Prioridad" },
+        { key: "tipo", label: "Tipo" },
+        { key: "responsable_id", label: "Responsable" },
+        { key: "fecha_vencimiento", label: "Vencimiento" },
+        { key: "descripcion", label: "Descripción" },
       ];
       for (const { key, label } of CAMPOS) {
         const antes = prev[key] ?? null;
@@ -251,22 +317,31 @@ export async function actualizarTarea(
       }
     }
   });
-  revalidatePath('/tablero');
-  revalidatePath('/hoy');
-  revalidatePath('/coordinacion');
+  revalidatePath("/tablero");
+  revalidatePath("/hoy");
+  revalidatePath("/informes");
 }
 
 export async function moverEstadoTarea(tareaId: string, estado: string) {
   const session = await requireAuth();
-  const completada_en = estado === 'hecha' ? new Date() : null;
+  const completada_en = estado === "hecha" ? new Date() : null;
   await withUser(session.user.id, async (tx) => {
-    await tx`
+    if (!(await puedeMoverEstado(tx, tareaId, session))) {
+      throw new Error(
+        "Solo quien está asignado a esta tarea (o administrador) puede cambiar su estado.",
+      );
+    }
+
+    const actualizadas = await tx`
       update tarea set
         estado        = ${estado}::estado_tarea,
         completada_en = ${completada_en}
       where id = ${tareaId}
         and organizacion_id = mi_organizacion_id()
     `;
+    if (actualizadas.count === 0) {
+      throw new Error("No se pudo mover la tarea: no tenés permiso.");
+    }
     await tx`
       insert into tarea_log (tarea_id, usuario_id, campo, valor_antes, valor_despues)
       select ${tareaId}, mi_usuario_id(), 'Estado', estado::text, ${estado}
@@ -276,13 +351,13 @@ export async function moverEstadoTarea(tareaId: string, estado: string) {
     // El drag-and-drop del lado del cliente ya evita llamar acá si no hubo
     // cambio real de estado, así que llegar con 'hecha' implica que antes no
     // lo estaba.
-    if (estado === 'hecha') {
+    if (estado === "hecha") {
       await generarSiguienteOcurrencia(tx, tareaId);
     }
   });
-  revalidatePath('/tablero');
-  revalidatePath('/hoy');
-  revalidatePath('/coordinacion');
+  revalidatePath("/tablero");
+  revalidatePath("/hoy");
+  revalidatePath("/informes");
 }
 
 export async function archivarTarea(tareaId: string) {
@@ -294,9 +369,9 @@ export async function archivarTarea(tareaId: string) {
         and organizacion_id = mi_organizacion_id()
     `;
   });
-  revalidatePath('/tablero');
-  revalidatePath('/hoy');
-  revalidatePath('/coordinacion');
+  revalidatePath("/tablero");
+  revalidatePath("/hoy");
+  revalidatePath("/informes");
 }
 
 export async function restaurarTarea(tareaId: string) {
@@ -308,9 +383,9 @@ export async function restaurarTarea(tareaId: string) {
         and organizacion_id = mi_organizacion_id()
     `;
   });
-  revalidatePath('/tablero');
-  revalidatePath('/hoy');
-  revalidatePath('/coordinacion');
+  revalidatePath("/tablero");
+  revalidatePath("/hoy");
+  revalidatePath("/informes");
 }
 
 export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
@@ -388,7 +463,9 @@ export async function fetchTareaDetalle(tareaId: string): Promise<{
       where tarea_id = ${tareaId}
       order by orden asc, creada_en asc
     `;
-    const comentarios = await tx<(Omit<ComentarioRow, 'es_propio'> & { es_propio: boolean })[]>`
+    const comentarios = await tx<
+      (Omit<ComentarioRow, "es_propio"> & { es_propio: boolean })[]
+    >`
       select
         c.id,
         c.contenido,
@@ -403,7 +480,10 @@ export async function fetchTareaDetalle(tareaId: string): Promise<{
     `;
     return {
       subtareas: [...subtareas],
-      comentarios: comentarios.map(c => ({ ...c, es_propio: Boolean(c.es_propio) })),
+      comentarios: comentarios.map((c) => ({
+        ...c,
+        es_propio: Boolean(c.es_propio),
+      })),
     };
   });
 }
@@ -431,7 +511,7 @@ export async function crearSubtarea(tareaId: string, titulo: string) {
       values (${tareaId}, ${titulo}, ${(max_orden ?? -1) + 1})
     `;
   });
-  revalidatePath('/tablero');
+  revalidatePath("/tablero");
 }
 
 export async function toggleSubtarea(subtareaId: string, hecha: boolean) {
@@ -443,8 +523,8 @@ export async function toggleSubtarea(subtareaId: string, hecha: boolean) {
       where id = ${subtareaId}
     `;
   });
-  revalidatePath('/tablero');
-  revalidatePath('/hoy');
+  revalidatePath("/tablero");
+  revalidatePath("/hoy");
 }
 
 export async function eliminarSubtarea(subtareaId: string) {
@@ -452,7 +532,7 @@ export async function eliminarSubtarea(subtareaId: string) {
   await withUser(session.user.id, async (tx) => {
     await tx`delete from subtarea where id = ${subtareaId}`;
   });
-  revalidatePath('/tablero');
+  revalidatePath("/tablero");
 }
 
 export async function crearComentario(tareaId: string, contenido: string) {
@@ -464,14 +544,21 @@ export async function crearComentario(tareaId: string, contenido: string) {
     `;
 
     // Notificar al responsable de la tarea si no es el autor
-    const [tarea] = await tx<[{ responsable_id: string | null; titulo: string }]>`
+    const [tarea] = await tx<
+      [{ responsable_id: string | null; titulo: string }]
+    >`
       select responsable_id, titulo from tarea where id = ${tareaId}
     `;
     if (tarea?.responsable_id) {
-      await notificarComentario(tx, tarea.responsable_id, tarea.titulo, session.user.name ?? 'Alguien');
+      await notificarComentario(
+        tx,
+        tarea.responsable_id,
+        tarea.titulo,
+        session.user.name ?? "Alguien",
+      );
     }
   });
-  revalidatePath('/tablero');
+  revalidatePath("/tablero");
 }
 
 export async function eliminarComentario(comentarioId: string) {
@@ -480,10 +567,10 @@ export async function eliminarComentario(comentarioId: string) {
     await tx`
       delete from comentario
       where id = ${comentarioId}
-        and (autor_id = mi_usuario_id() or mi_rol() in ('coordinador', 'administrador'))
+        and (autor_id = mi_usuario_id() or mi_rol() = 'administrador')
     `;
   });
-  revalidatePath('/tablero');
+  revalidatePath("/tablero");
 }
 
 // ── Adjuntos ──────────────────────────────────────────────────────────────────
@@ -491,7 +578,7 @@ export async function eliminarComentario(comentarioId: string) {
 export type AdjuntoRow = {
   id: string;
   nombre: string;
-  tipo: 'archivo' | 'enlace';
+  tipo: "archivo" | "enlace";
   url: string;
   subido_por_nombre: string;
   creado_en: string;
@@ -528,7 +615,7 @@ export async function crearAdjunto(
       values (${tareaId}, ${data.nombre}, 'enlace'::tipo_adjunto, ${data.url}, mi_usuario_id())
     `;
   });
-  revalidatePath('/tablero');
+  revalidatePath("/tablero");
 }
 
 export async function eliminarAdjunto(adjuntoId: string) {
@@ -537,10 +624,10 @@ export async function eliminarAdjunto(adjuntoId: string) {
     await tx`
       delete from adjunto
       where id = ${adjuntoId}
-        and (subido_por = mi_usuario_id() or mi_rol() in ('coordinador', 'administrador'))
+        and (subido_por = mi_usuario_id() or mi_rol() = 'administrador')
     `;
   });
-  revalidatePath('/tablero');
+  revalidatePath("/tablero");
 }
 
 // ── Historial ─────────────────────────────────────────────────────────────────

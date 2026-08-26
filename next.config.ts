@@ -38,6 +38,19 @@ const nextConfig: NextConfig = {
   // el Dockerfile para self-hosting (ver docs/migracion-servidores-propios.md).
   // No afecta el deploy en Vercel, que ignora esta opción.
   output: "standalone",
+  // "Áreas" pasó a llamarse "Proyectos" (ver db/migrations/026_proyectos.sql) —
+  // no permanent para no cachear el redirect a fuego en el navegador mientras
+  // el rename todavía es reciente.
+  async redirects() {
+    return [
+      { source: "/areas", destination: "/proyectos", permanent: false },
+      {
+        source: "/areas/:path*",
+        destination: "/proyectos/:path*",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

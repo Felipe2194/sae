@@ -4,11 +4,11 @@
 // Uso: npm run db:seed
 // Requiere que las migraciones ya estén aplicadas (npm run db:migrate).
 
-import { config } from 'dotenv';
-config({ path: '.env.local' });
+import { config } from "dotenv";
+config({ path: ".env.local" });
 
-import postgres from 'postgres';
-import bcrypt from 'bcryptjs';
+import postgres from "postgres";
+import bcrypt from "bcryptjs";
 
 async function seed() {
   const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
@@ -18,11 +18,13 @@ async function seed() {
       select id from organizacion where slug = 'sae-frvm' limit 1
     `;
     if (existente) {
-      console.log('El seed ya fue aplicado. Para resetear: docker compose down -v && docker compose up -d && npm run db:migrate && npm run db:seed');
+      console.log(
+        "El seed ya fue aplicado. Para resetear: docker compose down -v && docker compose up -d && npm run db:migrate && npm run db:seed",
+      );
       return;
     }
 
-    const passwordHash = await bcrypt.hash('password123', 10);
+    const passwordHash = await bcrypt.hash("password123", 10);
 
     // ── Organización ─────────────────────────────────────────────────────────
     const [org] = await sql`
@@ -39,7 +41,7 @@ async function seed() {
     `;
     const [coord] = await sql`
       insert into usuario (organizacion_id, nombre, email, password_hash, rol, estado)
-      values (${org.id}, 'Carlos Coordinador', 'coordinador@sae.test', ${passwordHash}, 'coordinador', 'activo')
+      values (${org.id}, 'Carlos Miembro', 'carlos@sae.test', ${passwordHash}, 'miembro', 'activo')
       returning id
     `;
     const [miembro] = await sql`
@@ -59,30 +61,50 @@ async function seed() {
       return r.id as string;
     };
 
-    const joaId  = await insertMiembro('Joaco',  'joaco@sae.test');
-    const canId  = await insertMiembro('Cande',  'cande@sae.test');
-    const milId  = await insertMiembro('Mili',   'mili@sae.test');
-    const vicId  = await insertMiembro('Viki',   'vicky@sae.test');
-    const lucId  = await insertMiembro('Luchi',  'luchi@sae.test');
-    const felId  = await insertMiembro('Felipe', 'feli@sae.test');
-    const leoId  = await insertMiembro('Leo',    'leo@sae.test');
-    const camId  = await insertMiembro('Cami',   'cami@sae.test');
+    const joaId = await insertMiembro("Joaco", "joaco@sae.test");
+    const canId = await insertMiembro("Cande", "cande@sae.test");
+    const milId = await insertMiembro("Mili", "mili@sae.test");
+    const vicId = await insertMiembro("Viki", "vicky@sae.test");
+    const lucId = await insertMiembro("Luchi", "luchi@sae.test");
+    const felId = await insertMiembro("Felipe", "feli@sae.test");
+    const leoId = await insertMiembro("Leo", "leo@sae.test");
+    const camId = await insertMiembro("Cami", "cami@sae.test");
 
     // Reciben tareas pero no tienen turno fijo en el cartel de oficina.
-    await insertMiembro('Julian', 'julian@sae.test');
-    await insertMiembro('Edu',    'edu@sae.test');
-    await insertMiembro('Agus',   'agus@sae.test');
+    await insertMiembro("Julian", "julian@sae.test");
+    await insertMiembro("Edu", "edu@sae.test");
+    await insertMiembro("Agus", "agus@sae.test");
 
     // ── Áreas ─────────────────────────────────────────────────────────────────
     const nombresAreas = [
-      'Becas', 'Deportes', 'Visitas', 'Seminario de Ingreso', 'Salud',
-      'Charlas y Capacitaciones', 'Residencias', 'Viajes', 'UTN Corre',
-      'Tutorías', 'Relaciones Internacionales', 'Género', 'Discapacidad',
+      "Becas",
+      "Deportes",
+      "Visitas",
+      "Seminario de Ingreso",
+      "Salud",
+      "Charlas y Capacitaciones",
+      "Residencias",
+      "Viajes",
+      "UTN Corre",
+      "Tutorías",
+      "Relaciones Internacionales",
+      "Género",
+      "Discapacidad",
     ];
     const colores = [
-      '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
-      '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6',
-      '#6366f1', '#a855f7', '#ec4899',
+      "#ef4444",
+      "#f97316",
+      "#f59e0b",
+      "#eab308",
+      "#84cc16",
+      "#22c55e",
+      "#10b981",
+      "#14b8a6",
+      "#06b6d4",
+      "#3b82f6",
+      "#6366f1",
+      "#a855f7",
+      "#ec4899",
     ];
 
     const areaIds: string[] = [];
@@ -96,15 +118,23 @@ async function seed() {
     }
 
     const [
-      areaBecas, areaDeportes, areaVisitas, areaSeminario, areaSalud,
-      areaCharlas, areaResidencias, areaViajes, areaUtn, areaTutorias,
+      areaBecas,
+      areaDeportes,
+      areaVisitas,
+      areaSeminario,
+      areaSalud,
+      areaCharlas,
+      areaResidencias,
+      areaViajes,
+      areaUtn,
+      areaTutorias,
     ] = areaIds;
 
     // Helper: fecha relativa desde hoy
     const d = (n: number) => {
       const date = new Date();
       date.setDate(date.getDate() + n);
-      return date.toISOString().split('T')[0];
+      return date.toISOString().split("T")[0];
     };
 
     // ── Tareas ────────────────────────────────────────────────────────────────
@@ -141,44 +171,44 @@ async function seed() {
     type T = [string, number, string, string]; // [userId, dia, inicio, fin]
     const turnos: T[] = [
       // ── Lunes
-      [joaId, 0, '08:00', '12:00'],
-      [canId, 0, '08:00', '12:00'],
-      [milId, 0, '14:00', '18:00'],
-      [felId, 0, '16:00', '17:00'],
-      [lucId, 0, '17:00', '21:00'],
-      [camId, 0, '18:00', '21:00'],
+      [joaId, 0, "08:00", "12:00"],
+      [canId, 0, "08:00", "12:00"],
+      [milId, 0, "14:00", "18:00"],
+      [felId, 0, "16:00", "17:00"],
+      [lucId, 0, "17:00", "21:00"],
+      [camId, 0, "18:00", "21:00"],
 
       // ── Martes
-      [joaId, 1, '08:00', '12:00'],
-      [milId, 1, '08:00', '12:00'],
-      [canId, 1, '14:00', '15:00'],
-      [lucId, 1, '14:00', '18:00'],
-      [felId, 1, '17:00', '20:00'],
-      [leoId, 1, '18:00', '20:00'],
-      [canId, 1, '18:00', '21:00'],
+      [joaId, 1, "08:00", "12:00"],
+      [milId, 1, "08:00", "12:00"],
+      [canId, 1, "14:00", "15:00"],
+      [lucId, 1, "14:00", "18:00"],
+      [felId, 1, "17:00", "20:00"],
+      [leoId, 1, "18:00", "20:00"],
+      [canId, 1, "18:00", "21:00"],
 
       // ── Miércoles
-      [joaId, 2, '08:00', '12:00'],
-      [vicId, 2, '08:00', '12:00'],
-      [milId, 2, '14:00', '18:00'],
-      [lucId, 2, '14:00', '18:00'],
-      [felId, 2, '17:00', '20:00'],
-      [canId, 2, '18:00', '21:00'],
+      [joaId, 2, "08:00", "12:00"],
+      [vicId, 2, "08:00", "12:00"],
+      [milId, 2, "14:00", "18:00"],
+      [lucId, 2, "14:00", "18:00"],
+      [felId, 2, "17:00", "20:00"],
+      [canId, 2, "18:00", "21:00"],
 
       // ── Jueves
-      [joaId, 3, '08:00', '12:00'],
-      [milId, 3, '08:00', '12:00'],
-      [vicId, 3, '14:00', '18:00'],
-      [canId, 3, '14:00', '16:00'],
-      [felId, 3, '14:00', '18:00'],
-      [lucId, 3, '17:00', '21:00'],
+      [joaId, 3, "08:00", "12:00"],
+      [milId, 3, "08:00", "12:00"],
+      [vicId, 3, "14:00", "18:00"],
+      [canId, 3, "14:00", "16:00"],
+      [felId, 3, "14:00", "18:00"],
+      [lucId, 3, "17:00", "21:00"],
 
       // ── Viernes
-      [joaId, 4, '08:00', '12:00'],
-      [milId, 4, '08:00', '12:00'],
-      [lucId, 4, '14:00', '18:00'],
-      [canId, 4, '18:00', '21:00'],
-      [camId, 4, '18:00', '21:00'],
+      [joaId, 4, "08:00", "12:00"],
+      [milId, 4, "08:00", "12:00"],
+      [lucId, 4, "14:00", "18:00"],
+      [canId, 4, "18:00", "21:00"],
+      [camId, 4, "18:00", "21:00"],
     ];
 
     for (const [userId, dia, inicio, fin] of turnos) {
@@ -188,18 +218,20 @@ async function seed() {
       `;
     }
 
-    console.log('✓ Seed completado.');
+    console.log("✓ Seed completado.");
     console.log(`  org_id : ${org.id}`);
-    console.log('  usuarios auth:');
+    console.log("  usuarios auth:");
     console.log(`    admin@sae.test       (administrador) id: ${admin.id}`);
-    console.log(`    coordinador@sae.test (coordinador)   id: ${coord.id}`);
+    console.log(`    carlos@sae.test      (miembro)       id: ${coord.id}`);
     console.log(`    miembro@sae.test     (miembro)       id: ${miembro.id}`);
-    console.log('  integrantes con turno: Joaco, Cande, Mili, Viki, Luchi, Felipe, Leo, Cami');
-    console.log('  integrantes sin turno (reciben tareas): Julian, Edu, Agus');
+    console.log(
+      "  integrantes con turno: Joaco, Cande, Mili, Viki, Luchi, Felipe, Leo, Cami",
+    );
+    console.log("  integrantes sin turno (reciben tareas): Julian, Edu, Agus");
     console.log(`  áreas   : ${nombresAreas.length}`);
-    console.log('  tareas  : 15');
+    console.log("  tareas  : 15");
     console.log(`  turnos  : ${turnos.length}`);
-    console.log('  password de todos: password123');
+    console.log("  password de todos: password123");
   } finally {
     await sql.end();
   }

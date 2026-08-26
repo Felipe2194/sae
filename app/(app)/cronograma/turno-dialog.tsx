@@ -39,23 +39,38 @@ type Props = {
   usuarioActualId: string;
 };
 
-export function TurnoDialog({ open, onOpenChange, turno, usuarios, canManage, usuarioActualId }: Props) {
+export function TurnoDialog({
+  open,
+  onOpenChange,
+  turno,
+  usuarios,
+  canManage,
+  usuarioActualId,
+}: Props) {
   const esEdicion = !!turno?.id;
   const [pending, startTransition] = useTransition();
 
   const hoy = new Date().toISOString().slice(0, 10);
 
   // Sin permiso de gestión, solo puede cargar/editar su propio turno.
-  const [usuarioId, setUsuarioId] = useState(turno?.usuario_id ?? (canManage ? "" : usuarioActualId));
+  const [usuarioId, setUsuarioId] = useState(
+    turno?.usuario_id ?? (canManage ? "" : usuarioActualId),
+  );
   const [dia, setDia] = useState(String(turno?.dia_semana ?? 0));
   const [inicio, setInicio] = useState(turno?.hora_inicio ?? "08:00");
   const [fin, setFin] = useState(turno?.hora_fin ?? "12:00");
   const [desde, setDesde] = useState(turno?.vigente_desde ?? hoy);
   const [hasta, setHasta] = useState(turno?.vigente_hasta ?? "");
 
-  const opcionesUsuario = canManage ? usuarios : usuarios.filter((u) => u.id === usuarioActualId);
-  const USUARIO_ITEMS = Object.fromEntries(opcionesUsuario.map((u) => [u.id, u.nombre]));
-  const DIA_ITEMS = Object.fromEntries(DIAS.map((d) => [String(d.value), d.label]));
+  const opcionesUsuario = canManage
+    ? usuarios
+    : usuarios.filter((u) => u.id === usuarioActualId);
+  const USUARIO_ITEMS = Object.fromEntries(
+    opcionesUsuario.map((u) => [u.id, u.nombre]),
+  );
+  const DIA_ITEMS = Object.fromEntries(
+    DIAS.map((d) => [String(d.value), d.label]),
+  );
 
   // Resetear cuando cambia el turno
   useEffect(() => {
@@ -66,7 +81,7 @@ export function TurnoDialog({ open, onOpenChange, turno, usuarios, canManage, us
     setFin(turno?.hora_fin ?? "12:00");
     setDesde(turno?.vigente_desde ?? hoy);
     setHasta(turno?.vigente_hasta ?? "");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turno]);
 
   function handleSubmit(e: React.FormEvent) {
@@ -96,15 +111,22 @@ export function TurnoDialog({ open, onOpenChange, turno, usuarios, canManage, us
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{esEdicion ? "Editar turno" : "Nuevo turno"}</DialogTitle>
+          <DialogTitle>
+            {esEdicion ? "Editar turno" : "Nuevo turno"}
+          </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
-          {/* Usuario: solo coordinador/administrador eligen a quién asignar */}
+        <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-4">
+          {/* Usuario: solo administrador elige a quién asignar */}
           {canManage && (
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Persona</Label>
-              <Select value={usuarioId} onValueChange={(v) => setUsuarioId(v ?? "")} items={USUARIO_ITEMS} required>
+              <Select
+                value={usuarioId}
+                onValueChange={(v) => setUsuarioId(v ?? "")}
+                items={USUARIO_ITEMS}
+                required
+              >
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Seleccioná una persona" />
                 </SelectTrigger>
@@ -122,7 +144,11 @@ export function TurnoDialog({ open, onOpenChange, turno, usuarios, canManage, us
           {/* Día */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Día</Label>
-            <Select value={dia} onValueChange={(v) => setDia(v ?? "")} items={DIA_ITEMS}>
+            <Select
+              value={dia}
+              onValueChange={(v) => setDia(v ?? "")}
+              items={DIA_ITEMS}
+            >
               <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
@@ -173,7 +199,10 @@ export function TurnoDialog({ open, onOpenChange, turno, usuarios, canManage, us
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Vigente hasta <span className="text-muted-foreground">(opcional)</span></Label>
+              <Label className="text-xs">
+                Vigente hasta{" "}
+                <span className="text-muted-foreground">(opcional)</span>
+              </Label>
               <Input
                 type="date"
                 value={hasta}
@@ -184,11 +213,20 @@ export function TurnoDialog({ open, onOpenChange, turno, usuarios, canManage, us
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
             <Button type="submit" size="sm" disabled={pending || !usuarioId}>
-              {pending ? "Guardando…" : esEdicion ? "Guardar cambios" : "Crear turno"}
+              {pending
+                ? "Guardando…"
+                : esEdicion
+                  ? "Guardar cambios"
+                  : "Crear turno"}
             </Button>
           </div>
         </form>

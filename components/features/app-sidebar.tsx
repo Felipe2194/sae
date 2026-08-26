@@ -9,7 +9,6 @@ import {
   Calendar,
   CalendarRange,
   Layers3,
-  UsersRound,
   ShieldCheck,
   CircleUser,
   LogOut,
@@ -38,20 +37,44 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { signOut } from "@/app/(app)/actions";
 
-const ITEMS_BASE: { href: string; label: string; icon: React.ElementType; roles: string[] | null }[] = [
+const ITEMS_BASE: {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  roles: string[] | null;
+}[] = [
   { href: "/hoy", label: "Hoy", icon: Sparkles, roles: null },
   { href: "/tablero", label: "Tablero", icon: LayoutDashboard, roles: null },
   { href: "/calendario", label: "Calendario", icon: Calendar, roles: null },
-  { href: "/cronograma", label: "Cronograma", icon: CalendarRange, roles: null },
-  { href: "/areas", label: "Áreas", icon: Layers3, roles: null },
-  { href: "/coordinacion", label: "Coordinación", icon: UsersRound, roles: ["coordinador", "administrador"] },
-  { href: "/informes", label: "Informes", icon: BarChart3, roles: ["administrador"] },
-  { href: "/admin", label: "Admin", icon: ShieldCheck, roles: ["administrador"] },
+  {
+    href: "/cronograma",
+    label: "Cronograma",
+    icon: CalendarRange,
+    roles: null,
+  },
+  { href: "/proyectos", label: "Proyectos", icon: Layers3, roles: null },
+  {
+    href: "/informes",
+    label: "Informes",
+    icon: BarChart3,
+    roles: ["administrador"],
+  },
+  {
+    href: "/admin",
+    label: "Admin",
+    icon: ShieldCheck,
+    roles: ["administrador"],
+  },
 ];
 
 // Aparte de ITEMS_BASE: no es un rol de rol_usuario (que es siempre relativo
 // a una organización), sino el dueño de la plataforma — ver auth.ts.
-const ITEM_PLATAFORMA = { href: "/plataforma", label: "Plataforma", icon: Globe, roles: null };
+const ITEM_PLATAFORMA = {
+  href: "/plataforma",
+  label: "Plataforma",
+  icon: Globe,
+  roles: null,
+};
 
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/);
@@ -83,7 +106,9 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const inits = iniciales(user.name);
-  const items = ITEMS_BASE.filter((item) => item.roles === null || item.roles.includes(rol));
+  const items = ITEMS_BASE.filter(
+    (item) => item.roles === null || item.roles.includes(rol),
+  );
   if (esSuperadmin) items.push(ITEM_PLATAFORMA);
   const colorFondo = avatarColor ?? AVATAR_COLOR_DEFAULT;
   const logo = logoUrl || "/LogoUTN.png";
@@ -92,20 +117,24 @@ export function AppSidebar({
     <Sidebar collapsible="icon">
       <SidebarHeader>
         {/* Sidebar expandido: logo completo */}
-        <div className="group-data-[collapsible=icon]:hidden px-3 py-3 flex flex-col gap-1">
+        <div className="flex flex-col gap-1 px-3 py-3 group-data-[collapsible=icon]:hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={logo}
             alt="UTN Villa María"
             width={170}
-            style={{ objectFit: "contain", objectPosition: "left", display: "block" }}
+            style={{
+              objectFit: "contain",
+              objectPosition: "left",
+              display: "block",
+            }}
           />
           <span className="text-muted-foreground text-[12px] font-medium tracking-wide">
             Sistema de Actividades Estudiantiles
           </span>
         </div>
         {/* Sidebar colapsado: símbolo UTN */}
-        <div className="hidden group-data-[collapsible=icon]:flex items-center justify-center py-3">
+        <div className="hidden items-center justify-center py-3 group-data-[collapsible=icon]:flex">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/icon.jpg"
@@ -128,10 +157,12 @@ export function AppSidebar({
                     isActive={pathname.startsWith(item.href)}
                     tooltip={item.label}
                     size="lg"
-                    className="text-base gap-3 px-3"
+                    className="gap-3 px-3 text-base"
                   >
                     <item.icon className="size-5 shrink-0" />
-                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      {item.label}
+                    </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -142,11 +173,15 @@ export function AppSidebar({
 
       <SidebarFooter>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<SidebarMenuButton size="lg" className="h-auto py-2" />}>
+          <DropdownMenuTrigger
+            render={<SidebarMenuButton size="lg" className="h-auto py-2" />}
+          >
             {/* Expandido: logo + nombre */}
-            <div className="flex flex-col gap-1.5 group-data-[collapsible=icon]:hidden w-full">
+            <div className="flex w-full flex-col gap-1.5 group-data-[collapsible=icon]:hidden">
               <div className="flex items-center gap-1.5 opacity-60">
-                <span className="text-[11px] font-medium tracking-wide uppercase">UTN FRVM</span>
+                <span className="text-[11px] font-medium tracking-wide uppercase">
+                  UTN FRVM
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Avatar className="size-7">
@@ -158,13 +193,17 @@ export function AppSidebar({
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name.split(" ")[0]}</span>
-                  <span className="text-muted-foreground truncate text-xs">{user.email}</span>
+                  <span className="truncate font-medium">
+                    {user.name.split(" ")[0]}
+                  </span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    {user.email}
+                  </span>
                 </div>
               </div>
             </div>
             {/* Colapsado: solo avatar */}
-            <Avatar className="size-6 group-data-[collapsible=icon]:flex hidden">
+            <Avatar className="hidden size-6 group-data-[collapsible=icon]:flex">
               <AvatarFallback
                 className="text-[11px] font-semibold text-white"
                 style={{ backgroundColor: colorFondo }}
@@ -191,7 +230,13 @@ export function AppSidebar({
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => (document.getElementById("signout-form") as HTMLFormElement)?.requestSubmit()}>
+            <DropdownMenuItem
+              onClick={() =>
+                (
+                  document.getElementById("signout-form") as HTMLFormElement
+                )?.requestSubmit()
+              }
+            >
               <LogOut className="size-4" />
               Cerrar sesión
             </DropdownMenuItem>

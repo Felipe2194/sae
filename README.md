@@ -55,19 +55,23 @@ Lo primero que ve cualquiera al entrar. Responde "¿qué tengo que hacer hoy?" s
 
 Donde vive el trabajo día a día. Tres columnas fijas y no configurables (Por hacer · En progreso · Hecha), a propósito, para evitar la complejidad de un Kanban tipo Jira:
 
-- Tarjetas arrastrables entre columnas (drag-and-drop).
-- Filtros por área, responsable y estado.
-- Cada tarjeta se abre en un panel con: descripción, tipo (tarea/evento/entrega/reunión), prioridad, fecha de vencimiento, **repetición** (diaria/semanal/mensual — al completarla se clona sola la siguiente), responsable, horas estimadas/reales, **subtareas** (checklist), **comentarios**, **adjuntos** (enlaces, o elegidos directo desde Google Drive) y el **historial de cambios** de la tarea.
-- Crear una tarea nueva es un paso: título + área. Todo lo demás es opcional.
+- Tarjetas arrastrables entre columnas (drag-and-drop) — solo quien es responsable, colaborador de la tarea, o administrador puede moverla (o cualquiera si está "libre", sin nadie asignado).
+- Filtros por proyecto (incluye "Sin proyecto"), categoría, responsable y estado.
+- Cada tarjeta se abre en una ventana emergente con: descripción, tipo (tarea/evento/entrega/reunión), prioridad, fecha de vencimiento, **repetición** (diaria/semanal/mensual — al completarla se clona sola la siguiente), responsable, horas estimadas/reales, **subtareas** (checklist), **comentarios**, **adjuntos** (enlaces, o elegidos directo desde Google Drive) y el **historial de cambios** de la tarea.
+- Crear una tarea nueva es un paso: título. El proyecto es opcional (se puede dejar "Sin proyecto", para lo cotidiano) y todo lo demás también.
 - **Archivar en vez de borrar**: preserva el historial y las métricas de los reportes. Hay una vista aparte de tareas archivadas, con opción de restaurar.
 
-### 2.3 `/areas` — Áreas de trabajo
+### 2.3 `/proyectos` — Proyectos
 
-Listado de las líneas de trabajo de la secretaría, con color, responsable y % de tareas completadas. Al entrar a una en particular:
+Unifica el trabajo continuo de la secretaría con los eventos puntuales, en tres pestañas: **Líneas y Áreas** (continuas, todo el año), **Eventos e Iniciativas** (con fecha de inicio/cierre y cuenta regresiva) y **Archivados**. Cada proyecto tiene una modalidad (Área continua / Evento) y una categoría (Deportes, Becas, Institucional, Cultura, Académico, General). Al entrar a uno en particular:
 
-- Sus tareas agrupadas por estado.
+- Sus tareas agrupadas por estado, y quién del equipo está haciendo qué (avatares + carga por persona).
+- **Documentos compartidos**: enlaces a Drive, formularios o planillas del proyecto.
 - **Plantillas de tareas**: un nombre + una lista de títulos reutilizable, para procesos que se repiten (una inscripción a becas, un torneo). "Aplicar" clona esos títulos como tareas reales.
-- **Bitácora de notas del área**: novedades y observaciones libres, sin atar a una tarea puntual.
+- **Actividad del proyecto**: bitácora manual + el log automático de cambios de sus tareas, todo junto y ordenado por fecha.
+- **Fechas importantes**: próximos vencimientos del proyecto.
+
+Una tarea del tablero puede no pertenecer a ningún proyecto ("Sin proyecto") — para lo cotidiano que no encaja en ninguna línea de trabajo.
 
 ### 2.4 `/cronograma` — Turnos del equipo
 
@@ -77,15 +81,11 @@ Grilla semanal (lunes a viernes) de quién cubre cada franja horaria. Cuando alg
 
 Vista mensual que combina en un mismo grid las tareas del sistema con fecha de vencimiento y los eventos de un calendario público de Google Calendar de la secretaría.
 
-### 2.6 `/coordinacion` — Reportes de estado actual (coordinador/admin)
+### 2.6 `/informes` — Cómo viene la organización (solo administrador)
 
-Foto del momento para quien coordina el equipo: totales globales, las tareas abiertas más antiguas sin resolver, carga de trabajo por persona, avance por área y precisión de estimación (horas estimadas vs. reales).
+La pestaña que usa el administrador para ver de un pantallazo cómo viene el equipo: estado general (totales, vencidas, avance), medidores de avance por área, carga de trabajo por persona, tareas más antiguas sin resolver y precisión de estimación — más la evolución en el tiempo: tareas creadas vs. completadas por semana, adopción de la bitácora, antigüedad de tareas vencidas, uso de plantillas, colaboración por comentarios, ausencias y último login por persona.
 
-### 2.7 `/informes` — Analíticas en el tiempo (coordinador/admin)
-
-Complementa a `/coordinacion` con la evolución de la actividad: tareas creadas vs. completadas por semana, ritmo de cierre por área, adopción de la bitácora, antigüedad de tareas vencidas, uso de plantillas, colaboración por comentarios, ausencias y último login por persona.
-
-### 2.8 `/admin` — Administración (solo administrador)
+### 2.7 `/admin` — Administración (solo administrador)
 
 - **Organización**: nombre, logo, color principal y zona horaria — se reflejan en toda la app.
 - **Usuarios**: aprobar registros pendientes, cambiar rol, activar/desactivar cuentas.
@@ -93,11 +93,11 @@ Complementa a `/coordinacion` con la evolución de la actividad: tareas creadas 
 - **Accesos rápidos**: los enlaces que ve todo el equipo en `/hoy`.
 - **Google Calendar**: estado de la conexión e instrucciones de configuración.
 
-### 2.9 `/perfil`
+### 2.8 `/perfil`
 
 Datos básicos del usuario, color de avatar y un link opcional a una playlist propia de YouTube/YouTube Music, que después aparece como opción en el reproductor de `/hoy`.
 
-### 2.10 Presentes en toda la app
+### 2.9 Presentes en toda la app
 
 - **Notificaciones**: campana con avisos al asignar una tarea o comentar en una de la que alguien es responsable; opcionalmente también se avisa por Telegram al grupo del equipo.
 - **Modo oscuro por defecto**, con botón para pasar a claro.
@@ -106,13 +106,12 @@ Datos básicos del usuario, color de avatar y un link opcional a una playlist pr
 
 ## 3. Roles y permisos
 
-El sistema tiene tres roles, que determinan qué se ve en el menú lateral y qué acciones están habilitadas:
+El sistema tiene dos roles, que determinan qué se ve en el menú lateral y qué acciones están habilitadas:
 
 | Rol | Puede hacer |
 |---|---|
-| **Miembro** *(por defecto)* | Ver `/hoy`, usar el tablero, cambiar el estado de sus propias tareas, comentar, cargar su bitácora diaria. |
-| **Coordinador** | Todo lo del Miembro + crear/asignar tareas a cualquiera, gestionar áreas y accesos rápidos, armar el cronograma de turnos, ver `/coordinacion` e `/informes`. |
-| **Administrador** | Todo lo del Coordinador + `/admin`: aprobar registros, cambiar roles, activar/desactivar cuentas, asignar tareas sin dueño, configurar la organización. |
+| **Miembro** *(por defecto)* | Ver `/hoy`, usar el tablero, cargar/editar su propio turno y ausencias, cambiar el estado de las tareas donde es responsable o colaborador (o que estén libres, sin nadie asignado), comentar, cargar su bitácora diaria. |
+| **Administrador** | Todo lo del Miembro + crear/asignar tareas a cualquiera, gestionar áreas, accesos rápidos y turnos de cualquiera, ver `/informes` (cómo viene la organización), y `/admin`: aprobar registros, cambiar roles, activar/desactivar cuentas, asignar tareas sin dueño, configurar la organización. |
 
 ---
 
@@ -166,8 +165,8 @@ Para el detalle completo (modelo de datos tabla por tabla, convenciones de códi
 1. **Entrar**: con email/contraseña en `/login`, o con el botón "Continuar con Google". Si es tu primera vez, la cuenta se crea automáticamente en estado **pendiente** hasta que un administrador la active.
 2. **Empezar el día por `/hoy`**: es la pantalla de inicio. Ahí ves tus tareas de hoy y las vencidas, marcás como hechas las que termines, y completás tu bitácora antes de irte.
 3. **El trabajo del equipo vive en `/tablero`**: creá una tarea con título y área, arrastrala entre columnas a medida que avanza, y abrila para sumar detalle (fecha, responsable, subtareas, adjuntos).
-4. **Mirá `/areas`** para ver el estado general de cada línea de trabajo, o `/cronograma` para saber quién está de turno.
-5. Si sos **coordinador o administrador**, `/coordinacion` e `/informes` te dan la foto del equipo (carga de trabajo, avance, actividad), y `/admin` te deja gestionar usuarios y la configuración general.
+4. **Mirá `/proyectos`** para ver el estado general de cada línea de trabajo o evento, o `/cronograma` para saber quién está de turno.
+5. Si sos **administrador**, `/informes` te da la foto del equipo (carga de trabajo, avance, actividad), y `/admin` te deja gestionar usuarios y la configuración general.
 
 Para el detalle pantalla por pantalla, con capturas de flujo, ver [`docs/manual-de-usuario.md`](docs/manual-de-usuario.md).
 
@@ -193,7 +192,7 @@ npm run db:seed                # datos de prueba
 npm run dev
 ```
 
-La app queda en [http://localhost:3000](http://localhost:3000). Con el seed de prueba podés entrar con `admin@sae.test` / `password123` (también existen `coordinador@sae.test` y `miembro@sae.test`).
+La app queda en [http://localhost:3000](http://localhost:3000). Con el seed de prueba podés entrar con `admin@sae.test` / `password123` (también existe `miembro@sae.test`).
 
 ### Scripts disponibles
 

@@ -30,10 +30,12 @@ export default async function CronogramaPage() {
   if (!session?.user) redirect("/login");
 
   const rol = (session.user as { rol: string }).rol;
-  const canManage = rol === "coordinador" || rol === "administrador";
+  const canManage = rol === "administrador";
 
-  const { turnos, usuarios, excepciones } = await withUser(session.user.id, async (tx) => {
-    const turnos = await tx<TurnoData[]>`
+  const { turnos, usuarios, excepciones } = await withUser(
+    session.user.id,
+    async (tx) => {
+      const turnos = await tx<TurnoData[]>`
       select
         t.id,
         t.usuario_id,
@@ -50,16 +52,16 @@ export default async function CronogramaPage() {
       order by t.dia_semana, t.hora_inicio, u.nombre
     `;
 
-    // Se usa tanto para asignar turnos (coordinador/admin) como para que
-    // cualquiera pueda marcar su propia ausencia — se trae siempre.
-    const usuarios = await tx<UsuarioOpt[]>`
+      // Se usa tanto para asignar turnos (administrador) como para que
+      // cualquiera pueda marcar su propia ausencia — se trae siempre.
+      const usuarios = await tx<UsuarioOpt[]>`
       select id, nombre from usuario
       where organizacion_id = mi_organizacion_id() and estado = 'activo'
       order by nombre asc
     `;
 
-    // Ventana razonable para navegar semanas hacia atrás/adelante sin recargar.
-    const excepciones = await tx<ExcepcionData[]>`
+      // Ventana razonable para navegar semanas hacia atrás/adelante sin recargar.
+      const excepciones = await tx<ExcepcionData[]>`
       select
         e.id,
         e.usuario_id,
@@ -74,8 +76,13 @@ export default async function CronogramaPage() {
       order by e.fecha asc
     `;
 
-    return { turnos: [...turnos], usuarios: [...usuarios], excepciones: [...excepciones] };
-  });
+      return {
+        turnos: [...turnos],
+        usuarios: [...usuarios],
+        excepciones: [...excepciones],
+      };
+    },
+  );
 
   return (
     <CronogramaCliente

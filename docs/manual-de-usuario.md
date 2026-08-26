@@ -35,9 +35,8 @@ como Becas o Deportes) y **Tarea** (algo concreto para hacer dentro de un
 
 | Rol | Qué puede hacer |
 |---|---|
-| **Miembro** (por defecto) | Ver `/hoy`, usar el tablero, cambiar el estado de sus propias tareas, comentar, cargar su bitácora diaria. |
-| **Coordinador** | Todo lo del miembro + crear/asignar tareas a cualquiera, gestionar áreas y accesos rápidos, armar el cronograma de turnos, ver `/coordinacion` e `/informes`. |
-| **Administrador** | Todo lo del coordinador + `/admin`: aprobar registros, cambiar roles, activar/desactivar cuentas, asignar tareas sin dueño, y ahora también configurar nombre/logo/color/zona horaria de la organización. |
+| **Miembro** (por defecto) | Ver `/hoy`, usar el tablero, cargar/editar su propio turno y ausencias, cambiar el estado de las tareas donde es responsable o colaborador (o que estén libres, sin nadie asignado), comentar, cargar su bitácora diaria. |
+| **Administrador** | Todo lo del miembro + crear/asignar tareas a cualquiera, gestionar áreas, accesos rápidos y turnos de cualquiera, ver `/informes`, y `/admin`: aprobar registros, cambiar roles, activar/desactivar cuentas, asignar tareas sin dueño, configurar nombre/logo/color/zona horaria de la organización. |
 
 El sidebar solo muestra las secciones a las que tenés acceso.
 
@@ -68,9 +67,15 @@ Responde "¿qué tengo que hacer hoy?" sin que tengas que ir a buscarlo:
 
 Kanban con tres columnas fijas: **Por hacer · En progreso · Hecha**.
 
-- **Crear una tarea**: título + área, nada más — el resto lo completás
-  después si hace falta.
-- **Arrastrá** una tarjeta entre columnas para cambiar su estado.
+- **Crear una tarea**: título, nada más — el proyecto es opcional (podés
+  dejarla "Sin proyecto", para lo cotidiano) y el resto lo completás después
+  si hace falta.
+- **Filtros**: por proyecto (incluye "Sin proyecto"), categoría,
+  responsable y estado.
+- **Arrastrá** una tarjeta entre columnas para cambiar su estado — solo
+  podés hacerlo si sos responsable o colaborador de esa tarea (o
+  administrador, o si la tarea está "libre", sin nadie asignado). Si no te
+  corresponde, la tarjeta no se deja arrastrar.
 - **Prioridad alta primero**: las tarjetas de prioridad alta se muestran
   arriba del todo en su columna, antes que el resto — para tareas urgentes
   que no se tienen que perder entre las demás.
@@ -95,32 +100,45 @@ Kanban con tres columnas fijas: **Por hacer · En progreso · Hecha**.
   solas, para que la columna no acumule tareas ya resueltas — siguen
   contando en los reportes.
 
-## 6. `/areas` — las líneas de trabajo
+## 6. `/proyectos` — líneas de trabajo y eventos
 
-Tarjetas con color, responsable y % de tareas completadas por área. Si sos
-coordinador o admin, podés crear, editar o archivar áreas.
+Tres pestañas:
+- **Líneas y Áreas**: los frentes continuos de siempre (Becas, Salud,
+  Deportes...), con color, responsable y % de avance.
+- **Eventos e Iniciativas**: proyectos con fecha de inicio y cierre
+  (un torneo, una convocatoria, unas jornadas), con barra de progreso y
+  cuenta regresiva de días restantes.
+- **Archivados**: proyectos cerrados, para consultar su historial.
 
-**Cerrar la temporada de un área**: al archivarla, sus tareas que no estén
-"Hecha" se archivan junto con ella — no quedan dando vueltas en el tablero
-de un área ya cerrada. Cuando la reactivés (por ejemplo, al arrancar el
-año siguiente), el sistema te muestra esas tareas y te deja elegir cuáles
-recrear para la temporada nueva, o arrancar directamente en blanco.
+Cada proyecto tiene además una **categoría** (Deportes, Becas,
+Institucional, Cultura, Académico, General) — se usa para filtrar en el
+tablero. Si sos administrador, podés crear, editar o archivar proyectos.
 
-Al entrar a una área específica:
-- Sus tareas, agrupadas por estado.
+**Cerrar la temporada de un proyecto**: al archivarlo, sus tareas que no
+estén "Hecha" se archivan junto con él — no quedan dando vueltas en el
+tablero de un proyecto ya cerrado. Cuando lo reactivés (por ejemplo, al
+arrancar el año siguiente), el sistema te muestra esas tareas y te deja
+elegir cuáles recrear para la temporada nueva, o arrancar directamente en
+blanco.
+
+Al entrar a un proyecto específico:
+- Sus tareas, agrupadas por estado, y quién del equipo está haciendo qué.
+- **Documentos compartidos**: enlaces a Drive, formularios o planillas.
 - **Plantillas**: un nombre + una lista de títulos reutilizable, para
   procesos que se repiten (inscripciones, torneos). "Aplicar" clona esos
   títulos como tareas nuevas en Por hacer.
-- **Bitácora del área**: novedades y observaciones que no son una tarea
-  puntual — el banner de "última novedad" en `/hoy` sale de acá.
+- **Actividad del proyecto**: novedades y observaciones que cargó el
+  equipo, junto con el registro automático de cambios en sus tareas — el
+  banner de "última novedad" en `/hoy` sale de acá.
+- **Fechas importantes**: próximos vencimientos del proyecto.
 
 ## 7. `/cronograma` — quién está de turno
 
-Grilla semanal de lunes a viernes. Coordinadores/admins editan; el resto ve
-en solo lectura.
+Grilla semanal de lunes a viernes. Cada uno carga, edita o borra su propio
+turno; el administrador puede hacerlo por cualquiera.
 
 - **Marcar tu ausencia**: cualquiera puede hacerlo para su propio turno
-  (coordinador/admin, para el de cualquiera). Ese bloque se ve atenuado ese
+  (el administrador, para el de cualquiera). Ese bloque se ve atenuado ese
   día, y deja de contar en "En la oficina ahora".
 - Cuando alguien deja el equipo, su turno se **cierra** (no se borra) — así
   el histórico de coordinación queda correcto.
@@ -131,20 +149,16 @@ Vista mensual que junta en un mismo grid las tareas del sistema con fecha de
 vencimiento y los eventos del calendario compartido de Google de la
 secretaría (si está configurado).
 
-## 9. `/coordinacion` — para coordinar el equipo (coordinador/admin)
+## 9. `/informes` — cómo viene la organización (solo administrador)
 
-Foto del estado *actual* del trabajo: totales, las tareas abiertas más
+Foto del estado actual del trabajo — totales, las tareas abiertas más
 viejas sin resolver, carga por persona, avance por área y precisión de
-estimación (horas estimadas vs. reales).
+estimación (horas estimadas vs. reales) — más la evolución en el tiempo:
+tareas por semana, actividad de bitácora, antigüedad de tareas vencidas,
+uso de plantillas, colaboración por comentarios, ausencias y último login
+por persona.
 
-## 10. `/informes` — actividad a lo largo del tiempo (coordinador/admin)
-
-Complementa a `/coordinacion` con la evolución en el tiempo: tareas por
-semana, ritmo de cierre por área, actividad de bitácora, antigüedad de
-tareas vencidas, uso de plantillas, colaboración por comentarios, ausencias
-y último login por persona.
-
-## 11. `/admin` — configuración del sistema (solo administrador)
+## 10. `/admin` — configuración del sistema (solo administrador)
 
 - **Organización**: nombre, logo, color principal y zona horaria de la
   organización — se aplican en todo el sistema (sidebar, pantallas de
@@ -156,7 +170,7 @@ y último login por persona.
 - **Google Calendar**: estado de la conexión e instrucciones si falta
   configurar.
 
-## 12. `/perfil`
+## 11. `/perfil`
 
 Tus datos básicos, color de avatar (se ve reflejado al toque en el sidebar),
 un link opcional a tu playlist de YouTube/YouTube Music, que después aparece
@@ -164,7 +178,7 @@ como opción en el widget de música de `/hoy`, y tu **fondo personal**
 (gradiente o imagen propia por URL) — solo vos lo ves, no afecta a nadie
 más del equipo.
 
-## 13. Elementos que están en todas las páginas
+## 12. Elementos que están en todas las páginas
 
 - **Notificaciones**: campana con no leídas, cuando te asignan una tarea o
   alguien comenta en una tuya. Si el equipo configuró Telegram, también te

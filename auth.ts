@@ -1,12 +1,12 @@
-import NextAuth from 'next-auth';
-import Credentials from 'next-auth/providers/credentials';
-import Google from 'next-auth/providers/google';
-import { getToken } from 'next-auth/jwt';
-import bcrypt from 'bcryptjs';
-import { randomUUID } from 'node:crypto';
-import { sql } from '@/lib/db';
-import { logger } from '@/lib/logger';
-import type { RolUsuario } from '@/types/database';
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
+import { getToken } from "next-auth/jwt";
+import bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
+import { sql } from "@/lib/db";
+import { logger } from "@/lib/logger";
+import type { RolUsuario } from "@/types/database";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -16,8 +16,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
     Credentials({
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Contraseña', type: 'password' },
+        email: { label: "Email", type: "email" },
+        password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
@@ -28,7 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             nombre: string;
             email: string;
             password_hash: string;
-            rol: 'miembro' | 'coordinador' | 'administrador';
+            rol: "miembro" | "administrador";
             estado: string;
             organizacion_id: string;
             es_cuenta_generica: boolean;
@@ -42,7 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         `;
 
         if (!usuario) return null;
-        if (usuario.estado !== 'activo') return null;
+        if (usuario.estado !== "activo") return null;
 
         const valido = await bcrypt.compare(
           credentials.password as string,
@@ -71,16 +71,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // getToken() porque acá no hay `auth()` de por medio — quien dispara esto
     // es el propio signIn('quick-switch', ...), no un usuario nuevo.
     Credentials({
-      id: 'quick-switch',
-      name: 'Cambiar de perfil',
+      id: "quick-switch",
+      name: "Cambiar de perfil",
       credentials: {
-        usuarioId: { label: 'Usuario', type: 'text' },
+        usuarioId: { label: "Usuario", type: "text" },
       },
       async authorize(credentials, request) {
         const usuarioId = credentials?.usuarioId as string | undefined;
         if (!usuarioId) return null;
 
-        const tokenActual = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+        const tokenActual = await getToken({
+          req: request,
+          secret: process.env.AUTH_SECRET,
+        });
         if (!tokenActual) return null;
 
         const origenGenericoId = tokenActual.esCuentaGenerica
@@ -96,7 +99,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!origen) return null;
 
         const [destino] = await sql<
-          { id: string; nombre: string; email: string; rol: RolUsuario; organizacion_id: string; es_superadmin: boolean }[]
+          {
+            id: string;
+            nombre: string;
+            email: string;
+            rol: RolUsuario;
+            organizacion_id: string;
+            es_superadmin: boolean;
+          }[]
         >`
           select id, nombre, email, rol, organizacion_id, es_superadmin
           from usuario
@@ -123,7 +133,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
 
-  session: { strategy: 'jwt' },
+  session: { strategy: "jwt" },
 
   callbacks: {
     // Login con Google: no hay adapter ni tabla de sesiones, así que la
@@ -133,7 +143,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // - Email existente pero no activo → también a la pantalla de espera.
     // - Email existente y activo → sigue el login normal.
     async signIn({ user, account }) {
-      if (account?.provider !== 'google') return true;
+      if (account?.provider !== "google") return true;
       if (!user.email) return false;
 
       const [usuario] = await sql<{ id: string; estado: string }[]>`
@@ -157,7 +167,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // hay ningún administrador que pueda hacerlo.
         const esSuperadmin =
           !!process.env.SUPERADMIN_EMAIL &&
-          user.email.toLowerCase() === process.env.SUPERADMIN_EMAIL.toLowerCase();
+          user.email.toLowerCase() ===
+            process.env.SUPERADMIN_EMAIL.toLowerCase();
 
         await sql`
           insert into usuario (organizacion_id, nombre, email, password_hash, rol, estado, es_superadmin)
@@ -166,26 +177,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             ${user.name ?? user.email},
             ${user.email},
             ${passwordHash},
-            ${esSuperadmin ? 'administrador' : 'miembro'},
-            ${esSuperadmin ? 'activo' : 'pendiente'},
+            ${esSuperadmin ? "administrador" : "miembro"},
+            ${esSuperadmin ? "activo" : "pendiente"},
             ${esSuperadmin}
           )
         `;
 
         if (esSuperadmin) {
-          logger.info('alta de superadmin de plataforma vía Google', { email: user.email });
+          logger.info("alta de superadmin de plataforma vía Google", {
+            email: user.email,
+          });
           return true;
         }
-        logger.info('alta automática vía Google', { email: user.email });
-        return '/pendiente-de-aprobacion';
+        logger.info("alta automática vía Google", { email: user.email });
+        return "/pendiente-de-aprobacion";
       }
 
-      if (usuario.estado !== 'activo') {
-        logger.warn('login bloqueado: usuario no activo', {
+      if (usuario.estado !== "activo") {
+        logger.warn("login bloqueado: usuario no activo", {
           email: user.email,
           estado: usuario.estado,
         });
-        return '/pendiente-de-aprobacion';
+        return "/pendiente-de-aprobacion";
       }
 
       await sql`update usuario set ultimo_login = now() where id = ${usuario.id}`;
@@ -193,19 +206,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
     async jwt({ token, user, account }) {
-      if (user && account?.provider === 'credentials') {
+      if (user && account?.provider === "credentials") {
         token.id = user.id as string;
         token.rol = user.rol;
         token.organizacion_id = user.organizacion_id;
         token.esCuentaGenerica = user.esCuentaGenerica ?? false;
         token.esSuperadmin = user.esSuperadmin ?? false;
         delete token.origenGenericoId;
-      } else if (user && account?.provider === 'google' && user.email) {
+      } else if (user && account?.provider === "google" && user.email) {
         // Volver a buscar el usuario acá porque el `user` que entrega el
         // provider de Google no trae rol/organizacion_id (no son parte del
         // perfil de OAuth) — son propios de nuestra tabla `usuario`.
         const [usuario] = await sql<
-          { id: string; rol: RolUsuario; organizacion_id: string; es_cuenta_generica: boolean; es_superadmin: boolean }[]
+          {
+            id: string;
+            rol: RolUsuario;
+            organizacion_id: string;
+            es_cuenta_generica: boolean;
+            es_superadmin: boolean;
+          }[]
         >`
           select id, rol, organizacion_id, es_cuenta_generica, es_superadmin from usuario where email = ${user.email} limit 1
         `;
@@ -217,7 +236,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.esSuperadmin = usuario.es_superadmin;
           delete token.origenGenericoId;
         }
-      } else if (user && account?.provider === 'quick-switch') {
+      } else if (user && account?.provider === "quick-switch") {
         token.id = user.id as string;
         token.rol = user.rol;
         token.organizacion_id = user.organizacion_id;
@@ -241,6 +260,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   pages: {
-    signIn: '/login',
+    signIn: "/login",
   },
 });

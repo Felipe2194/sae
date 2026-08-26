@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useActionState } from 'react';
-import Link from 'next/link';
+import { useActionState } from "react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -9,11 +9,11 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { registrar } from './actions';
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { registrar } from "./actions";
 
 export default function RegistroPage() {
   const [state, action, isPending] = useActionState(registrar, null);
@@ -23,7 +23,7 @@ export default function RegistroPage() {
       <CardHeader>
         <CardTitle>Crear cuenta</CardTitle>
         <CardDescription>
-          Tu cuenta queda pendiente hasta que un coordinador la apruebe.
+          Tu cuenta queda pendiente hasta que un administrador la apruebe.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -61,13 +61,13 @@ export default function RegistroPage() {
             <p className="text-sm text-red-500">{state.error}</p>
           )}
           <Button type="submit" className="mt-2" disabled={isPending}>
-            {isPending ? 'Creando cuenta…' : 'Crear cuenta'}
+            {isPending ? "Creando cuenta…" : "Crear cuenta"}
           </Button>
         </form>
       </CardContent>
       <CardFooter className="text-sm">
         <span className="text-muted-foreground">
-          ¿Ya tenés cuenta?{' '}
+          ¿Ya tenés cuenta?{" "}
           <Link href="/login" className="text-foreground underline">
             Iniciá sesión
           </Link>

@@ -110,7 +110,7 @@ eliminó del repo. Todo el front lee/escribe contra Postgres vía `withUser()`:
 - `/tablero` — Kanban con drag-and-drop (dnd-kit), filtros, subtareas,
   comentarios, adjuntos (solo enlaces, no upload de archivos), historial de
   cambios por tarea.
-- `/areas` y `/areas/[areaId]` — CRUD para coordinadores/admins + bitácora de
+- `/proyectos` y `/proyectos/[areaId]` — CRUD para administradores + bitácora de
   notas por área.
 - `/cronograma` — turnos del equipo, timeline visual.
 - `/calendario` — integra Google Calendar API (opcional; sin las env vars

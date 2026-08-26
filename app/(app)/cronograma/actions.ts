@@ -1,23 +1,26 @@
-'use server';
+"use server";
 
-import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
-import { withUser } from '@/lib/db';
+import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
+import { withUser } from "@/lib/db";
 
 async function requireAuth() {
   const session = await auth();
-  if (!session?.user) throw new Error('No autenticado');
+  if (!session?.user) throw new Error("No autenticado");
   return session;
 }
 
-// Cualquiera puede cargar/editar/borrar su propio turno; coordinador y
-// administrador pueden hacerlo por cualquiera (mismo criterio que las
-// excepciones de turno más abajo). RLS (turno_insert/update/delete) refuerza
-// esto mismo del lado de la base.
-function requierePropioOManage(session: Awaited<ReturnType<typeof requireAuth>>, usuarioId: string) {
+// Cualquiera puede cargar/editar/borrar su propio turno; administrador
+// puede hacerlo por cualquiera (mismo criterio que las excepciones de turno
+// más abajo). RLS (turno_insert/update/delete) refuerza esto mismo del lado
+// de la base.
+function requierePropioOManage(
+  session: Awaited<ReturnType<typeof requireAuth>>,
+  usuarioId: string,
+) {
   const rol = (session.user as { rol: string }).rol;
-  if (usuarioId !== session.user.id && rol !== 'coordinador' && rol !== 'administrador') {
-    throw new Error('Solo podés gestionar tu propio turno');
+  if (usuarioId !== session.user.id && rol !== "administrador") {
+    throw new Error("Solo podés gestionar tu propio turno");
   }
 }
 
@@ -45,8 +48,8 @@ export async function crearTurno(data: {
       )
     `;
   });
-  revalidatePath('/cronograma');
-  revalidatePath('/hoy');
+  revalidatePath("/cronograma");
+  revalidatePath("/hoy");
 }
 
 export async function actualizarTurno(
@@ -75,13 +78,13 @@ export async function actualizarTurno(
         and organizacion_id = mi_organizacion_id()
     `;
   });
-  revalidatePath('/cronograma');
-  revalidatePath('/hoy');
+  revalidatePath("/cronograma");
+  revalidatePath("/hoy");
 }
 
 export async function eliminarTurno(turnoId: string) {
   // Sin chequeo explícito de dueño acá: RLS (turno_delete) es quien decide
-  // si esta fila se puede borrar (propio turno, o coordinador/administrador).
+  // si esta fila se puede borrar (propio turno, o administrador).
   const session = await requireAuth();
   await withUser(session.user.id, async (tx) => {
     await tx`
@@ -90,25 +93,25 @@ export async function eliminarTurno(turnoId: string) {
         and organizacion_id = mi_organizacion_id()
     `;
   });
-  revalidatePath('/cronograma');
-  revalidatePath('/hoy');
+  revalidatePath("/cronograma");
+  revalidatePath("/hoy");
 }
 
 // ── Excepciones de turno (ausencias / cambios) ──────────────────────────────
-// Cualquiera puede marcar su propia ausencia; coordinador/admin pueden marcar
-// la de cualquiera. RLS (excepcion_turno_insert/delete) refuerza esto mismo
-// del lado de la base.
+// Cualquiera puede marcar su propia ausencia; administrador puede marcar la
+// de cualquiera. RLS (excepcion_turno_insert/delete) refuerza esto mismo del
+// lado de la base.
 
 export async function crearExcepcion(data: {
   usuario_id: string;
   fecha: string;
-  tipo: 'ausencia' | 'cambio';
+  tipo: "ausencia" | "cambio";
   nota: string | null;
 }) {
   const session = await requireAuth();
   const rol = (session.user as { rol: string }).rol;
-  if (data.usuario_id !== session.user.id && rol !== 'coordinador' && rol !== 'administrador') {
-    throw new Error('Solo podés marcar tu propia ausencia');
+  if (data.usuario_id !== session.user.id && rol !== "administrador") {
+    throw new Error("Solo podés marcar tu propia ausencia");
   }
   await withUser(session.user.id, async (tx) => {
     await tx`
@@ -123,8 +126,8 @@ export async function crearExcepcion(data: {
       )
     `;
   });
-  revalidatePath('/cronograma');
-  revalidatePath('/hoy');
+  revalidatePath("/cronograma");
+  revalidatePath("/hoy");
 }
 
 export async function eliminarExcepcion(excepcionId: string) {
@@ -132,6 +135,6 @@ export async function eliminarExcepcion(excepcionId: string) {
   await withUser(session.user.id, async (tx) => {
     await tx`delete from excepcion_turno where id = ${excepcionId}`;
   });
-  revalidatePath('/cronograma');
-  revalidatePath('/hoy');
+  revalidatePath("/cronograma");
+  revalidatePath("/hoy");
 }

@@ -5,7 +5,7 @@ import { Pencil, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AreaDialog, type UsuarioOption } from "../area-dialog";
 import { ReactivarAreaBoton } from "../reactivar-area-boton";
-import { archivarArea } from "../actions";
+import { archivarArea, type TipoArea, type CategoriaArea } from "../actions";
 
 type Props = {
   area: {
@@ -13,6 +13,10 @@ type Props = {
     nombre: string;
     descripcion: string | null;
     color: string;
+    tipo: TipoArea;
+    categoria: CategoriaArea;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
     responsable_id: string | null;
     activa: boolean;
     asignados: { id: string; nombre: string; avatar_color: string | null }[];
@@ -44,19 +48,28 @@ export function AreaDetalleCliente({ area, usuarios, canManage }: Props) {
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
           <Pencil className="size-3.5" />
-          Editar área
+          Editar proyecto
         </Button>
 
         {area.activa ? (
           confirmArchivar ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                ¿Archivar área? Sus tareas sin terminar se archivan con ella.
+              <span className="text-muted-foreground text-sm">
+                ¿Archivar proyecto? Sus tareas sin terminar se archivan con él.
               </span>
-              <Button variant="outline" size="sm" onClick={() => setConfirmArchivar(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmArchivar(false)}
+              >
                 Cancelar
               </Button>
-              <Button variant="destructive" size="sm" onClick={handleArchivar} disabled={isPending}>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleArchivar}
+                disabled={isPending}
+              >
                 {isPending ? "Archivando..." : "Confirmar"}
               </Button>
             </div>
@@ -68,13 +81,13 @@ export function AreaDetalleCliente({ area, usuarios, canManage }: Props) {
               onClick={handleArchivar}
             >
               <Archive className="size-3.5" />
-              Archivar área
+              Archivar proyecto
             </Button>
           )
         ) : (
           <ReactivarAreaBoton
             areaId={area.id}
-            label="Reactivar área"
+            label="Reactivar proyecto"
             labelPendiente="Reactivando..."
           />
         )}

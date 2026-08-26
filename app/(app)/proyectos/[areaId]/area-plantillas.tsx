@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { crearPlantilla, eliminarPlantilla, aplicarPlantilla, type PlantillaRow } from "../actions";
+import {
+  crearPlantilla,
+  eliminarPlantilla,
+  aplicarPlantilla,
+  type PlantillaRow,
+} from "../actions";
 
 type Props = {
   areaId: string;
@@ -14,8 +19,13 @@ type Props = {
   canManage: boolean;
 };
 
-export function AreaPlantillas({ areaId, plantillasIniciales, canManage }: Props) {
-  const [plantillas, setPlantillas] = useState<PlantillaRow[]>(plantillasIniciales);
+export function AreaPlantillas({
+  areaId,
+  plantillasIniciales,
+  canManage,
+}: Props) {
+  const [plantillas, setPlantillas] =
+    useState<PlantillaRow[]>(plantillasIniciales);
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
   const [items, setItems] = useState("");
@@ -57,8 +67,9 @@ export function AreaPlantillas({ areaId, plantillasIniciales, canManage }: Props
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold">Plantillas de tareas</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Para procesos que se repiten — creá el conjunto de tareas de un saque.
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            Para procesos que se repiten — creá el conjunto de tareas de un
+            saque.
           </p>
         </div>
         {canManage && (
@@ -74,7 +85,7 @@ export function AreaPlantillas({ areaId, plantillasIniciales, canManage }: Props
       </div>
 
       {abierto && (
-        <div className="rounded-xl border bg-card p-4 flex flex-col gap-3 shadow-sm">
+        <div className="bg-card flex flex-col gap-3 rounded-xl border p-4 shadow-sm">
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Nombre</Label>
             <Input
@@ -89,7 +100,9 @@ export function AreaPlantillas({ areaId, plantillasIniciales, canManage }: Props
             <Textarea
               value={items}
               onChange={(e) => setItems(e.target.value)}
-              placeholder={"Reservar cancha\nDifundir en redes\nArmar planilla de inscripción"}
+              placeholder={
+                "Reservar cancha\nDifundir en redes\nArmar planilla de inscripción"
+              }
               rows={4}
               className="text-sm"
             />
@@ -98,8 +111,16 @@ export function AreaPlantillas({ areaId, plantillasIniciales, canManage }: Props
             <Button variant="ghost" size="sm" onClick={() => setAbierto(false)}>
               Cancelar
             </Button>
-            <Button size="sm" onClick={handleCrear} disabled={pending || !nombre.trim()}>
-              {pending ? <Loader2 className="size-4 animate-spin" /> : "Guardar plantilla"}
+            <Button
+              size="sm"
+              onClick={handleCrear}
+              disabled={pending || !nombre.trim()}
+            >
+              {pending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                "Guardar plantilla"
+              )}
             </Button>
           </div>
         </div>
@@ -114,18 +135,19 @@ export function AreaPlantillas({ areaId, plantillasIniciales, canManage }: Props
           {plantillas.map((p) => (
             <div
               key={p.id}
-              className="flex items-start gap-3 rounded-xl border bg-card px-4 py-3"
+              className="bg-card flex items-start gap-3 rounded-xl border px-4 py-3"
             >
-              <div className="mt-0.5 shrink-0 size-7 rounded-full flex items-center justify-center bg-muted">
-                <ClipboardList className="size-3.5 text-muted-foreground" />
+              <div className="bg-muted mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full">
+                <ClipboardList className="text-muted-foreground size-3.5" />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{p.nombre}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {p.items.length} tarea{p.items.length !== 1 ? "s" : ""}: {p.items.join(", ")}
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  {p.items.length} tarea{p.items.length !== 1 ? "s" : ""}:{" "}
+                  {p.items.join(", ")}
                 </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   variant="outline"
                   size="sm"
@@ -143,7 +165,7 @@ export function AreaPlantillas({ areaId, plantillasIniciales, canManage }: Props
                 {canManage && (
                   <button
                     onClick={() => handleEliminar(p.id)}
-                    className="text-muted-foreground hover:text-destructive p-1 rounded-md hover:bg-destructive/10"
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md p-1"
                     title="Eliminar plantilla"
                   >
                     <Trash2 className="size-3.5" />

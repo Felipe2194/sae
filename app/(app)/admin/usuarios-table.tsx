@@ -29,7 +29,7 @@ export type UsuarioFila = {
   id: string;
   nombre: string;
   email: string;
-  rol: "miembro" | "coordinador" | "administrador";
+  rol: "miembro" | "administrador";
   estado: "pendiente" | "activo" | "inactivo";
   creada_en: string;
   es_cuenta_generica: boolean;
@@ -55,7 +55,6 @@ const ESTADO_BADGE: Record<
 
 const ROL_LABEL: Record<UsuarioFila["rol"], string> = {
   miembro: "Miembro",
-  coordinador: "Coordinador",
   administrador: "Administrador",
 };
 
@@ -85,7 +84,9 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
   }
 
   function toggleCuentaGenerica() {
-    startTransition(() => marcarCuentaGenerica(usuario.id, !usuario.es_cuenta_generica));
+    startTransition(() =>
+      marcarCuentaGenerica(usuario.id, !usuario.es_cuenta_generica),
+    );
   }
 
   function resetPassword() {
@@ -139,19 +140,28 @@ function PasswordDialog({
   copiarPassword: () => void;
 }) {
   return (
-    <Dialog open={tempPassword !== null} onOpenChange={(v) => !v && setTempPassword(null)}>
+    <Dialog
+      open={tempPassword !== null}
+      onOpenChange={(v) => !v && setTempPassword(null)}
+    >
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Contraseña restablecida</DialogTitle>
           <DialogDescription>
-            Compartila con {usuario.nombre} de forma segura. No se va a poder ver de nuevo.
+            Compartila con {usuario.nombre} de forma segura. No se va a poder
+            ver de nuevo.
           </DialogDescription>
         </DialogHeader>
         <div className="flex items-center gap-2">
-          <code className="flex-1 rounded-lg border bg-muted px-3 py-2 text-sm font-mono tracking-wide">
+          <code className="bg-muted flex-1 rounded-lg border px-3 py-2 font-mono text-sm tracking-wide">
             {tempPassword}
           </code>
-          <Button size="sm" variant="outline" onClick={copiarPassword} className="h-9 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={copiarPassword}
+            className="h-9 shrink-0"
+          >
             {copiado ? "Copiado" : "Copiar"}
           </Button>
         </div>
@@ -169,11 +179,16 @@ function AccionesUsuario({
   esSelf: boolean;
   a: ReturnType<typeof useUsuarioRowActions>;
 }) {
-  if (esSelf) return <span className="text-xs text-muted-foreground">—</span>;
+  if (esSelf) return <span className="text-muted-foreground text-xs">—</span>;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {usuario.estado === "pendiente" ? (
-        <Button size="sm" onClick={a.aprobar} disabled={a.pending} className="h-8 text-xs">
+        <Button
+          size="sm"
+          onClick={a.aprobar}
+          disabled={a.pending}
+          className="h-8 text-xs"
+        >
           Aprobar
         </Button>
       ) : usuario.estado === "activo" ? (
@@ -182,7 +197,7 @@ function AccionesUsuario({
           variant="outline"
           onClick={a.desactivar}
           disabled={a.pending}
-          className="h-8 text-xs text-destructive hover:text-destructive"
+          className="text-destructive hover:text-destructive h-8 text-xs"
         >
           Desactivar
         </Button>
@@ -218,7 +233,7 @@ function AccionesUsuario({
       {usuario.estado !== "pendiente" &&
         (a.confirmReset ? (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">¿Confirmar?</span>
+            <span className="text-muted-foreground text-xs">¿Confirmar?</span>
             <Button
               size="sm"
               variant="ghost"
@@ -241,7 +256,7 @@ function AccionesUsuario({
           <Button
             size="sm"
             variant="ghost"
-            className="h-8 text-xs text-muted-foreground"
+            className="text-muted-foreground h-8 text-xs"
             onClick={a.resetPassword}
             title="Resetear contraseña"
           >
@@ -264,21 +279,24 @@ function RolUsuario({
   className?: string;
 }) {
   if (esSelf || usuario.estado !== "activo") {
-    return <span className="text-sm text-muted-foreground">{ROL_LABEL[usuario.rol]}</span>;
+    return (
+      <span className="text-muted-foreground text-sm">
+        {ROL_LABEL[usuario.rol]}
+      </span>
+    );
   }
   return (
     <Select
       value={usuario.rol}
       onValueChange={(rol) => rol && a.onRolChange(rol)}
       disabled={a.pending}
-      items={{ miembro: "Miembro", coordinador: "Coordinador", administrador: "Administrador" }}
+      items={{ miembro: "Miembro", administrador: "Administrador" }}
     >
       <SelectTrigger className={className ?? "h-8 w-36 text-xs"}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="miembro">Miembro</SelectItem>
-        <SelectItem value="coordinador">Coordinador</SelectItem>
         <SelectItem value="administrador">Administrador</SelectItem>
       </SelectContent>
     </Select>
@@ -298,10 +316,10 @@ function UsuarioRow({
   return (
     <tr className={`border-b last:border-0 ${a.pending ? "opacity-50" : ""}`}>
       <td className="px-4 py-3">
-        <p className="font-medium text-sm leading-tight">
+        <p className="text-sm leading-tight font-medium">
           {usuario.nombre}
           {esSelf && (
-            <span className="ml-2 text-[11px] text-muted-foreground font-normal">
+            <span className="text-muted-foreground ml-2 text-[11px] font-normal">
               (vos)
             </span>
           )}
@@ -311,7 +329,7 @@ function UsuarioRow({
             </Badge>
           )}
         </p>
-        <p className="text-xs text-muted-foreground">{usuario.email}</p>
+        <p className="text-muted-foreground text-xs">{usuario.email}</p>
       </td>
       <td className="px-3 py-3 whitespace-nowrap">
         <Badge className={badge.className}>{badge.label}</Badge>
@@ -345,28 +363,40 @@ function UsuarioCard({
   const badge = ESTADO_BADGE[usuario.estado];
 
   return (
-    <div className={`flex flex-col gap-2.5 border-b p-4 last:border-0 ${a.pending ? "opacity-50" : ""}`}>
+    <div
+      className={`flex flex-col gap-2.5 border-b p-4 last:border-0 ${a.pending ? "opacity-50" : ""}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-medium text-sm leading-tight">
+          <p className="text-sm leading-tight font-medium">
             {usuario.nombre}
             {esSelf && (
-              <span className="ml-2 text-[11px] text-muted-foreground font-normal">
+              <span className="text-muted-foreground ml-2 text-[11px] font-normal">
                 (vos)
               </span>
             )}
             {usuario.es_cuenta_generica && (
-              <Badge variant="outline" className="ml-2 align-middle text-[10px]">
+              <Badge
+                variant="outline"
+                className="ml-2 align-middle text-[10px]"
+              >
                 Cuenta de oficina
               </Badge>
             )}
           </p>
-          <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>
+          <p className="text-muted-foreground truncate text-xs">
+            {usuario.email}
+          </p>
         </div>
         <Badge className={`shrink-0 ${badge.className}`}>{badge.label}</Badge>
       </div>
 
-      <RolUsuario usuario={usuario} esSelf={esSelf} a={a} className="h-9 w-full text-sm" />
+      <RolUsuario
+        usuario={usuario}
+        esSelf={esSelf}
+        a={a}
+        className="h-9 w-full text-sm"
+      />
 
       <AccionesUsuario usuario={usuario} esSelf={esSelf} a={a} />
 
@@ -403,11 +433,11 @@ export function UsuariosTable({
   return (
     <>
       {/* Desktop: tabla */}
-      <div className="hidden md:block overflow-x-auto">
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b">
-              <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium w-full">
+              <th className="text-muted-foreground w-full px-4 py-3 text-left text-xs font-medium">
                 Usuario
               </th>
               <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium whitespace-nowrap">

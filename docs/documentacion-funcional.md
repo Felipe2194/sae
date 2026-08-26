@@ -34,13 +34,12 @@ de un área). Nada de sub-proyectos ni sprints.
 
 ## 2. Roles
 
-Tres roles, controlan qué se ve en el sidebar y qué acciones están habilitadas:
+Dos roles, controlan qué se ve en el sidebar y qué acciones están habilitadas:
 
 | Rol | Qué puede hacer además de lo básico |
 |---|---|
-| **Miembro** | Ver su panel (`/hoy`), el tablero, cambiar el estado de sus propias tareas, comentar, cargar su bitácora diaria. Es el rol por defecto. |
-| **Coordinador** | Todo lo del miembro + crear/asignar tareas a cualquiera, gestionar áreas y accesos rápidos, definir el cronograma de turnos, ver `/coordinacion` (reportes). |
-| **Administrador** | Todo lo del coordinador + `/admin`: aprobar registros, cambiar roles, activar/desactivar usuarios, asignar tareas sin dueño. |
+| **Miembro** | Ver su panel (`/hoy`), el tablero, cargar/editar su propio turno y ausencias, cambiar el estado de las tareas donde es responsable o colaborador (o que estén libres, sin nadie asignado), comentar, cargar su bitácora diaria. Es el rol por defecto. |
+| **Administrador** | Todo lo del miembro + crear/asignar tareas a cualquiera, gestionar áreas, accesos rápidos y turnos de cualquiera, ver `/informes` (cómo viene la organización), y `/admin`: aprobar registros, cambiar roles, activar/desactivar usuarios, asignar tareas sin dueño. |
 
 El rol determina qué ítems aparecen en el sidebar (`components/features/app-sidebar.tsx`)
 y qué páginas redirigen si el usuario no tiene permiso (cada página valida el rol contra
@@ -102,8 +101,15 @@ Hecha** (a propósito no configurables — evita la complejidad tipo Jira).
   manual de posición dentro de una columna, solo mover entre columnas). Las de prioridad
   alta (y no completadas) tienen un borde sutil para destacarlas de un vistazo **y además
   aparecen primero dentro de su columna**, arriba del resto.
-- Filtros por área, responsable y estado.
-- Cada tarjeta abre un panel lateral con: descripción, tipo (tarea/evento/entrega/
+- **Mover de columna está restringido**: solo el responsable, un co-asignado o un
+  administrador pueden arrastrar una tarjeta (o cualquiera si la tarea está "libre", sin
+  responsable ni co-asignados). Se resuelve a mano en el server porque RLS no puede
+  distinguir "cambiar el estado" de "editar cualquier otro campo" dentro de un mismo
+  UPDATE — ver `puedeMoverEstado()` en `tablero/actions.ts`. Sin permiso, la tarjeta ni
+  siquiera registra los listeners de drag (`tablero/permisos.ts`).
+- Filtros por proyecto (incluye "Sin proyecto", para tareas sueltas), categoría,
+  responsable y estado.
+- Cada tarjeta abre una ventana emergente con: descripción, tipo (tarea/evento/entrega/
   reunión), prioridad, fecha de vencimiento, **repetición** (diaria/semanal/mensual),
   responsable, **co-asignados** (varias personas a la vez — incluye una opción "Todos",
   para tareas urgentes o sin dueño claro que cualquiera en la oficina pueda tomar; cada
@@ -117,47 +123,78 @@ Hecha** (a propósito no configurables — evita la complejidad tipo Jira).
   `por_hacer` con la fecha corrida (día, semana o mes). Cálculo al vuelo, no se generan
   instancias futuras por adelantado. Se identifican en el tablero con un ícono de
   repetición junto al título.
-- Crear tarea en un paso: título + área. El resto es opcional.
+- Crear tarea en un paso: título. El proyecto (`area_id`) es opcional — nullable desde la
+  migración 026, así que una tarea puede quedar "Sin proyecto" para lo cotidiano que no
+  encaja en ninguna línea de trabajo. El resto también es opcional.
 - **Archivar**: en vez de borrar, las tareas se archivan (`archivada = true`). Preserva
-  historial y métricas de `/coordinacion`. Hay una vista separada de tareas archivadas
+  historial y métricas de `/informes`. Hay una vista separada de tareas archivadas
   con opción de restaurar.
 - **Auto-archivado de tareas hechas**: una tarea que lleva 1 día o más en "Hecha" se
   archiva sola la próxima vez que alguien abre `/tablero` — sin esto, cada tarea
   completada y nunca archivada a mano se quedaría para siempre en la columna "Hecha",
   creciendo sin límite. La ventana es corta a propósito: "Hecha" muestra lo del momento,
-  no un acumulado de días. No se pierde nada: sigue en `/coordinacion`, `/informes` y el
-  historial por año de su área, solo deja de listarse en el tablero del día a día.
+  no un acumulado de días. No se pierde nada: sigue en `/informes` y el historial por
+  año de su área, solo deja de listarse en el tablero del día a día.
 
-### 3.3 `/areas` y `/areas/[areaId]` — Áreas
+### 3.3 `/proyectos` y `/proyectos/[areaId]` — Proyectos
 
-Listado de las líneas de trabajo temáticas de la secretaría (color, responsable,
-descripción, % de tareas completadas). Coordinadores/admins pueden crear, editar y
-archivar áreas.
+Unifica el trabajo continuo de la secretaría con los eventos puntuales, sobre la misma
+tabla `area` (el nombre de tabla/columna no cambió — ver nota de la migración 026 al
+final de esta sección). Cada fila tiene `tipo` (`continua` | `evento`) y `categoria`
+(`deportes` | `becas` | `institucional` | `cultura` | `academico` | `general`), y si
+`tipo = 'evento'`, opcionalmente `fecha_inicio`/`fecha_fin`.
 
-**Cierre de temporada**: archivar un área archiva con ella (no borra) sus tareas que
+La pantalla principal tiene tres pestañas (estado de cliente, sin rutas nuevas — los
+datos de `area` ya vienen todos juntos del server):
+- **Líneas y Áreas** (`tipo = 'continua'`): las cards de siempre — color, responsable,
+  % de avance, próximos vencimientos, vencidas por antigüedad.
+- **Eventos e Iniciativas** (`tipo = 'evento'`): mismas cards + cuenta regresiva
+  ("Faltan N días" / "Finaliza hoy" / "Finalizado hace N días", calculada desde
+  `fecha_fin`).
+- **Archivados**: lo que antes era una sección colapsable, ahora es la tercera pestaña
+  (misma query `fetchAreasArchivadas`).
+
+El administrador puede crear, editar y archivar proyectos.
+
+**Cierre de temporada**: archivar un proyecto archiva con él (no borra) sus tareas que
 todavía no estén en "Hecha" — así no quedan huérfanas viviendo en el tablero activo con
-el área ya cerrada. Al reactivar un área que se cerró así, el sistema ofrece un diálogo
-con las tareas de ese cierre para elegir cuáles recrear como tareas nuevas de la
-temporada que arranca, o empezar en blanco sin ninguna. Si el área nunca se archivó con
-este mecanismo, reactivar no ofrece nada para elegir y arranca directo en blanco.
+el proyecto ya cerrado. Al reactivarlo, el sistema ofrece un diálogo con las tareas de
+ese cierre para elegir cuáles recrear como tareas nuevas de la temporada que arranca, o
+empezar en blanco sin ninguna. Si nunca se archivó con este mecanismo, reactivar no
+ofrece nada para elegir y arranca directo en blanco.
 
-Al entrar a un área específica: sus tareas agrupadas por estado, sus **plantillas de
-tareas** (un nombre + una lista de títulos reutilizable — para procesos que se repiten
-como inscripciones o torneos; "Aplicar" clona esos títulos como tareas reales en
-`por_hacer`), y una **bitácora de notas del área** (`nota_area`) — un registro de
-novedades/observaciones libres, separado de las tareas puntuales, para dejar contexto que
-no encaja en una tarea concreta.
+Al entrar a un proyecto específico:
+- Sus tareas agrupadas por estado.
+- **Equipo**: flujo de tareas por integrante (avatar, cuántas tiene en cada estado, %
+  de avance, qué está haciendo ahora) — calculado en el server a partir de las tareas
+  ya cargadas, sin query aparte.
+- **Documentos compartidos**: reusa `acceso_rapido` (ya tenía `area_id`, sin usar hasta
+  la sesión que agregó esta sección — los de `/admin` siempre quedan con `area_id null`).
+- **Plantillas de tareas**: un nombre + una lista de títulos reutilizable — para procesos
+  que se repiten como inscripciones o torneos; "Aplicar" clona esos títulos como tareas
+  reales en `por_hacer`.
+- **Actividad del proyecto**: funde la bitácora manual (`nota_area`) con el log
+  automático de cambios de sus tareas (`tarea_log`), ordenados juntos por fecha.
+- **Fechas importantes**: próximos vencimientos del proyecto, derivado de sus tareas.
+
+**Nota sobre el rename** (migración `026_proyectos.sql`): "Áreas" pasó a llamarse
+"Proyectos" de cara al usuario — ruta (`/areas` → `/proyectos`, con redirect), sidebar,
+textos. La tabla/columna de base se queda llamada `area`/`area_id` a propósito (mismo
+criterio que se usó para sacar el rol "coordinador" en la migración 025): renombrarla
+arrastraría cada política RLS y FK que la usa en toda la app. La misma migración también
+saca el `not null` de `tarea.area_id`, para que una tarea pueda quedar "Sin proyecto".
 
 ### 3.4 `/cronograma` — Turnos del equipo
 
 Grilla semanal (lunes a viernes) mostrando quién cubre cada franja horaria. Los turnos
 tienen `vigente_desde`/`vigente_hasta`: cuando alguien deja el equipo, el turno se
-**cierra**, no se borra — así el histórico de coordinación de meses anteriores sigue
-siendo correcto. Coordinadores/admins editan; miembros ven en solo lectura. Este cronograma
-alimenta el bloque "En la oficina ahora" de `/hoy`.
+**cierra**, no se borra — así el histórico de meses anteriores sigue siendo correcto.
+Cada uno carga, edita o borra su propio turno; el administrador puede hacerlo por
+cualquiera (RLS lo refuerza del lado de la base). Este cronograma alimenta el bloque
+"En la oficina ahora" de `/hoy`.
 
-**Ausencias**: cualquiera puede marcar su propia ausencia (o un cambio de turno);
-coordinador/admin pueden marcar la de cualquiera. El bloque afectado se ve atenuado con
+**Ausencias**: cualquiera puede marcar su propia ausencia (o un cambio de turno); el
+administrador puede marcar la de cualquiera. El bloque afectado se ve atenuado con
 borde punteado ese día, y tanto "En la oficina ahora" (cronograma) como "En la oficina
 ahora" de `/hoy` dejan de contar a quien está ausente.
 
@@ -168,37 +205,34 @@ Vista mensual que combina dos fuentes en un mismo grid:
 - Eventos de un calendario público de Google Calendar, traídos por API Key (solo
   lectura — ver sección de pendientes).
 
-### 3.6 `/coordinacion` — Reportes (coordinador/admin)
+### 3.6 `/informes` — Cómo viene la organización (solo administrador)
 
-Vista de métricas para quien coordina el equipo, no para uso diario:
-- Totales globales (abiertas, completadas, en progreso, vencidas).
-- Las 5 tareas abiertas más antiguas sin resolver.
+Una sola pestaña para que el administrador vea el estado del trabajo de un pantallazo,
+sin tener que entrar área por área:
+
+- Totales globales (abiertas, completadas, en progreso, vencidas) y % de avance general.
+- Medidores circulares de avance por área (una serie por área — % completado — en vez de
+  un gráfico de torta multi-categoría, más fácil de comparar entre muchas áreas a la vez)
+  más una tabla con el mismo detalle (total, vencidas, hechas, promedio de días).
 - Carga de trabajo por persona (abiertas, vencidas, hechas, promedio de días para
   completar).
-- Avance por área con la misma métrica.
+- Las 5 tareas abiertas más antiguas sin resolver.
 - **Precisión de estimación**: promedio de horas estimadas vs. horas reales, sobre las
   tareas que tienen ambos datos cargados — solo aparece cuando hay al menos una.
-
-### 3.7 `/informes` — Analíticas (coordinador/admin)
-
-Complementa a `/coordinacion` (que mira el estado *actual* del trabajo) con una vista de
-*actividad y adopción a lo largo del tiempo*:
-
 - **Tareas por semana**: creadas vs. completadas, últimas 8 semanas (gráfico de barras).
-- **Ritmo de cierre por área**: tareas cerradas en los últimos 30 días vs. total histórico.
 - **Actividad de bitácora**: % de días con bitácora cargada por persona, últimos 30 días.
 - **Antigüedad de tareas vencidas**: distribución en baldes (0–7 / 8–14 / 15–30 / 30+
   días) — un balde de antigüedad, no una tendencia histórica real, porque el sistema no
   guarda una foto periódica del estado pasado.
 - **Uso de plantillas**: cuántas veces se aplicó cada plantilla de área y cuándo fue la
   última vez (`plantilla_area.veces_aplicada`/`ultima_aplicacion`, incrementado cada vez
-  que se usa "Aplicar" en `/areas/[areaId]`).
+  que se usa "Aplicar" en `/proyectos/[areaId]`).
 - **Colaboración**: comentarios dejados por persona en los últimos 30 días.
 - **Ausencias por persona**: últimos 90 días, a partir de `excepcion_turno`.
 - **Última conexión por usuario**: `usuario.ultimo_login`, actualizado en cada login
   exitoso (tanto Credentials como Google).
 
-### 3.8 `/admin` — Administración (solo administrador)
+### 3.7 `/admin` — Administración (solo administrador)
 
 - **Organización**: nombre, logo, color principal y zona horaria de la organización.
   El color tiñe `--primary` en toda la app (sidebar, botones); la zona horaria se aplica
@@ -211,7 +245,7 @@ Complementa a `/coordinacion` (que mira el estado *actual* del trabajo) con una 
 - **Google Calendar**: panel de estado (conectado / sin configurar) con instrucciones de
   cómo generar la API Key.
 
-### 3.9 `/perfil`
+### 3.8 `/perfil`
 
 Datos básicos del usuario logueado (nombre, email, rol — sin edición de datos sensibles),
 color de avatar (se guarda al toque, sin re-login para verlo reflejado en el sidebar), un
@@ -223,7 +257,7 @@ organización: cada persona ve el suyo, nadie más lo ve. Antes vivía en `/admi
 configuración única para toda la organización; se movió acá para que cada quien elija el
 propio.
 
-### 3.10 Elementos transversales (en el header, en todas las páginas)
+### 3.9 Elementos transversales (en el header, en todas las páginas)
 
 - **Notificaciones**: campana con no-leídas. Se generan al asignar una tarea a alguien o
   al comentar en una tarea de la que alguien es responsable. Polling cada 3 min (más
@@ -400,7 +434,7 @@ A continuación, presento un análisis crítico dividido en **vulnerabilidades y
 ### 3. Oportunidades y funciones a agregar
 
 1. **Campos de tiempo estimado vs. tiempo real (*Time Tracking* liviano):**
-Sin caer en métricas invasivas, agregar dos campos a las tareas: `duracion_estimada_hs` y `duracion_real_hs`. Esto mejorará exponencialmente los reportes de `/coordinacion` para saber si se está subestimando la carga de trabajo.
+Sin caer en métricas invasivas, agregar dos campos a las tareas: `duracion_estimada_hs` y `duracion_real_hs`. Esto mejorará exponencialmente los reportes de `/informes` para saber si se está subestimando la carga de trabajo.
 
 
 2. **Carga rápida con Comandos (Kbar / Command Palette):**

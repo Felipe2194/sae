@@ -9,6 +9,10 @@ type AreaRow = {
   nombre: string;
   color: string;
   descripcion: string | null;
+  tipo: "continua" | "evento";
+  categoria: string;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
   responsable_id: string | null;
   responsable_nombre: string | null;
   responsable_avatar_color: string | null;
@@ -30,7 +34,7 @@ export default async function AreasPage() {
   if (!session?.user) redirect("/login");
 
   const rol = (session.user as { rol: string }).rol;
-  const canManage = rol === "coordinador" || rol === "administrador";
+  const canManage = rol === "administrador";
 
   const { areas, usuarios } = await withUser(session.user.id, async (tx) => {
     const areas = await tx<AreaRow[]>`
@@ -39,6 +43,10 @@ export default async function AreasPage() {
         a.nombre,
         a.color,
         a.descripcion,
+        a.tipo::text as tipo,
+        a.categoria::text as categoria,
+        a.fecha_inicio::text,
+        a.fecha_fin::text,
         a.responsable_id,
         u.nombre  as responsable_nombre,
         u.avatar_color as responsable_avatar_color,
@@ -94,7 +102,8 @@ export default async function AreasPage() {
       left join tarea   t on t.area_id = a.id and t.archivada = false
       where a.organizacion_id = mi_organizacion_id()
         and a.activa = true
-      group by a.id, a.nombre, a.color, a.descripcion, a.responsable_id, u.nombre, u.avatar_color
+      group by a.id, a.nombre, a.color, a.descripcion, a.tipo, a.categoria,
+        a.fecha_inicio, a.fecha_fin, a.responsable_id, u.nombre, u.avatar_color
       order by a.nombre asc
     `;
 
@@ -110,10 +119,6 @@ export default async function AreasPage() {
   });
 
   return (
-    <AreasCliente
-      areas={areas}
-      usuarios={usuarios}
-      canManage={canManage}
-    />
+    <AreasCliente areas={areas} usuarios={usuarios} canManage={canManage} />
   );
 }

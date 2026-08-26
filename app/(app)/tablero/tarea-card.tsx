@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, CalendarDays, MessageSquare, CheckSquare, Repeat } from "lucide-react";
+import {
+  GripVertical,
+  CalendarDays,
+  MessageSquare,
+  CheckSquare,
+  Repeat,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatarStack } from "@/components/features/user-avatar";
@@ -26,16 +32,19 @@ export function TareaCardItem({
   tarea,
   onClick,
   overlay = false,
+  puedeMover = true,
 }: {
   tarea: TareaCard;
   onClick: () => void;
   overlay?: boolean;
+  puedeMover?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: overlay ? `overlay-${tarea.id}` : tarea.id,
-    data: { estado: tarea.estado },
-    disabled: overlay,
-  });
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: overlay ? `overlay-${tarea.id}` : tarea.id,
+      data: { estado: tarea.estado },
+      disabled: overlay || !puedeMover,
+    });
 
   // dnd-kit genera aria-describedby con un id autoincremental que no coincide
   // entre el render de servidor y el de cliente — se activa recién montado en
@@ -43,7 +52,9 @@ export function TareaCardItem({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+  const style = transform
+    ? { transform: CSS.Translate.toString(transform) }
+    : undefined;
 
   const estaVencida =
     tarea.fecha_vencimiento &&
@@ -53,11 +64,24 @@ export function TareaCardItem({
   // Responsable + co-asignados, sin duplicados, en un solo stack de avatares.
   const asignados = useMemo(() => {
     const lista = [...tarea.asignados];
-    if (tarea.responsable_id && tarea.responsable_nombre && !lista.some((a) => a.id === tarea.responsable_id)) {
-      lista.unshift({ id: tarea.responsable_id, nombre: tarea.responsable_nombre, avatar_color: tarea.responsable_avatar_color });
+    if (
+      tarea.responsable_id &&
+      tarea.responsable_nombre &&
+      !lista.some((a) => a.id === tarea.responsable_id)
+    ) {
+      lista.unshift({
+        id: tarea.responsable_id,
+        nombre: tarea.responsable_nombre,
+        avatar_color: tarea.responsable_avatar_color,
+      });
     }
     return lista;
-  }, [tarea.asignados, tarea.responsable_id, tarea.responsable_nombre, tarea.responsable_avatar_color]);
+  }, [
+    tarea.asignados,
+    tarea.responsable_id,
+    tarea.responsable_nombre,
+    tarea.responsable_avatar_color,
+  ]);
 
   return (
     <div
@@ -65,40 +89,45 @@ export function TareaCardItem({
       style={style}
       // El arrastre se activa desde cualquier parte de la card — PointerSensor
       // ya exige 8px de movimiento antes de considerarlo drag, así que un
-      // click normal (sin mover el mouse) sigue abriendo el detalle.
-      {...(mounted && !overlay ? listeners : undefined)}
-      {...(mounted && !overlay ? attributes : undefined)}
+      // click normal (sin mover el mouse) sigue abriendo el detalle. Sin
+      // permiso para cambiar el estado, no se registran los listeners: la
+      // card se sigue pudiendo abrir (ver detalle), pero no arrastrar.
+      {...(mounted && !overlay && puedeMover ? listeners : undefined)}
+      {...(mounted && !overlay && puedeMover ? attributes : undefined)}
       className={isDragging ? "opacity-40" : ""}
     >
       <Card
-        className={`gap-0 py-0 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 select-none cursor-grab active:cursor-grabbing ${
-          tarea.prioridad === "alta" && tarea.estado !== "hecha"
-            ? "ring-1 ring-red-500/25"
-            : ""
-        }`}
+        className={`gap-0 rounded-xl py-0 shadow-sm transition-all duration-150 select-none hover:-translate-y-0.5 hover:shadow-lg ${
+          puedeMover ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+        } ${tarea.prioridad === "alta" && tarea.estado !== "hecha" ? "ring-1 ring-red-500/25" : ""}`}
         onClick={onClick}
+        title={
+          puedeMover
+            ? undefined
+            : "Solo quien está asignado (o administrador) puede cambiar el estado de esta tarea"
+        }
       >
         <CardContent className="flex flex-col gap-2 p-3.5">
           {/* Área + tipo + grip decorativo */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex min-w-0 items-center gap-1.5">
               <span
                 className="size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: tarea.area_color ?? "#94a3b8" }}
               />
-              <span className="text-muted-foreground text-xs truncate">
+              <span className="text-muted-foreground truncate text-xs">
                 {tarea.area_nombre}
               </span>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex shrink-0 items-center gap-1">
               {tarea.tipo !== "tarea" && (
-                <Badge variant="secondary" className="text-[11px] px-1.5 py-0">
+                <Badge variant="secondary" className="px-1.5 py-0 text-[11px]">
                   {TIPO_LABEL[tarea.tipo] ?? tarea.tipo}
                 </Badge>
               )}
-              {!overlay && (
+              {!overlay && puedeMover && (
                 <GripVertical
-                  className="size-3.5 pointer-events-none text-muted-foreground/30"
+                  className="text-muted-foreground/30 pointer-events-none size-3.5"
                   aria-hidden
                 />
               )}
@@ -110,10 +139,12 @@ export function TareaCardItem({
             <span
               className={`mt-[5px] size-2 shrink-0 rounded-full ${PRIORIDAD_COLOR[tarea.prioridad] ?? "bg-slate-300"}`}
             />
-            <p className="text-sm leading-snug font-medium flex-1">{tarea.titulo}</p>
+            <p className="flex-1 text-sm leading-snug font-medium">
+              {tarea.titulo}
+            </p>
             {tarea.recurrencia && (
               <Repeat
-                className="mt-0.5 size-3 shrink-0 text-muted-foreground"
+                className="text-muted-foreground mt-0.5 size-3 shrink-0"
                 aria-label="Tarea recurrente"
               />
             )}
@@ -125,24 +156,28 @@ export function TareaCardItem({
               {tarea.fecha_vencimiento && (
                 <span
                   className={`flex items-center gap-1 text-[12px] ${
-                    estaVencida ? "text-destructive font-medium" : "text-muted-foreground"
+                    estaVencida
+                      ? "text-destructive font-medium"
+                      : "text-muted-foreground"
                   }`}
                 >
                   <CalendarDays className="size-3" />
-                  {new Date(tarea.fecha_vencimiento + "T00:00:00").toLocaleDateString("es-AR", {
+                  {new Date(
+                    tarea.fecha_vencimiento + "T00:00:00",
+                  ).toLocaleDateString("es-AR", {
                     day: "2-digit",
                     month: "2-digit",
                   })}
                 </span>
               )}
               {tarea.subtarea_total > 0 && (
-                <span className="flex items-center gap-1 text-[12px] text-muted-foreground">
+                <span className="text-muted-foreground flex items-center gap-1 text-[12px]">
                   <CheckSquare className="size-3" />
                   {tarea.subtarea_hecha}/{tarea.subtarea_total}
                 </span>
               )}
               {tarea.comentario_count > 0 && (
-                <span className="flex items-center gap-1 text-[12px] text-muted-foreground">
+                <span className="text-muted-foreground flex items-center gap-1 text-[12px]">
                   <MessageSquare className="size-3" />
                   {tarea.comentario_count}
                 </span>

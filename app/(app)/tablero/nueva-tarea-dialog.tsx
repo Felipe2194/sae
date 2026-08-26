@@ -37,7 +37,9 @@ const PRIORIDAD_OPTS = [
 ];
 
 const TIPO_ITEMS = Object.fromEntries(TIPO_OPTS.map((o) => [o.value, o.label]));
-const PRIORIDAD_ITEMS = Object.fromEntries(PRIORIDAD_OPTS.map((o) => [o.value, o.label]));
+const PRIORIDAD_ITEMS = Object.fromEntries(
+  PRIORIDAD_OPTS.map((o) => [o.value, o.label]),
+);
 
 type Props = {
   open: boolean;
@@ -59,12 +61,15 @@ export function NuevaTareaDialog({
   const [descripcion, setDescripcion] = useState("");
   const [tipo, setTipo] = useState("tarea");
   const [prioridad, setPrioridad] = useState("media");
-  const [areaId, setAreaId] = useState(areas[0]?.id ?? "");
+  const [areaId, setAreaId] = useState("");
   const [responsableId, setResponsableId] = useState("");
   const [asignadosIds, setAsignadosIds] = useState<string[]>([]);
   const [fechaVencimiento, setFechaVencimiento] = useState("");
 
-  const AREA_ITEMS = Object.fromEntries(areas.map((a) => [a.id, a.nombre]));
+  const AREA_ITEMS = {
+    _none: "Sin proyecto",
+    ...Object.fromEntries(areas.map((a) => [a.id, a.nombre])),
+  };
   const RESPONSABLE_ITEMS = {
     _none: "Sin asignar",
     ...Object.fromEntries(usuarios.map((u) => [u.id, u.nombre])),
@@ -75,7 +80,7 @@ export function NuevaTareaDialog({
     setDescripcion("");
     setTipo("tarea");
     setPrioridad("media");
-    setAreaId(areas[0]?.id ?? "");
+    setAreaId("");
     setResponsableId("");
     setAsignadosIds([]);
     setFechaVencimiento("");
@@ -83,14 +88,14 @@ export function NuevaTareaDialog({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!titulo.trim() || !areaId) return;
+    if (!titulo.trim()) return;
     startTransition(async () => {
       await crearTarea({
         titulo: titulo.trim(),
         descripcion: descripcion.trim(),
         tipo,
         prioridad,
-        area_id: areaId,
+        area_id: areaId || null,
         responsable_id: responsableId || null,
         asignados_ids: asignadosIds,
         fecha_vencimiento: fechaVencimiento || null,
@@ -107,7 +112,7 @@ export function NuevaTareaDialog({
         <DialogHeader>
           <DialogTitle>Nueva tarea</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
+        <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="nt-titulo" className="text-xs">
               Título *
@@ -139,8 +144,12 @@ export function NuevaTareaDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Tipo</Label>
-              <Select value={tipo} onValueChange={(v) => setTipo(v ?? "")} items={TIPO_ITEMS}>
-                <SelectTrigger className="w-full h-9">
+              <Select
+                value={tipo}
+                onValueChange={(v) => setTipo(v ?? "")}
+                items={TIPO_ITEMS}
+              >
+                <SelectTrigger className="h-9 w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -154,8 +163,12 @@ export function NuevaTareaDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Prioridad</Label>
-              <Select value={prioridad} onValueChange={(v) => setPrioridad(v ?? "")} items={PRIORIDAD_ITEMS}>
-                <SelectTrigger className="w-full h-9">
+              <Select
+                value={prioridad}
+                onValueChange={(v) => setPrioridad(v ?? "")}
+                items={PRIORIDAD_ITEMS}
+              >
+                <SelectTrigger className="h-9 w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -171,17 +184,22 @@ export function NuevaTareaDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Área *</Label>
-              <Select value={areaId} onValueChange={(v) => setAreaId(v ?? "")} items={AREA_ITEMS}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="Elegir área" />
+              <Label className="text-xs">Proyecto</Label>
+              <Select
+                value={areaId || "_none"}
+                onValueChange={(v) => setAreaId(!v || v === "_none" ? "" : v)}
+                items={AREA_ITEMS}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Sin proyecto" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="_none">Sin proyecto</SelectItem>
                   {areas.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       <span className="flex items-center gap-1.5">
                         <span
-                          className="size-2 rounded-full shrink-0"
+                          className="size-2 shrink-0 rounded-full"
                           style={{ backgroundColor: a.color }}
                         />
                         {a.nombre}
@@ -195,10 +213,12 @@ export function NuevaTareaDialog({
               <Label className="text-xs">Responsable</Label>
               <Select
                 value={responsableId || "_none"}
-                onValueChange={(v) => setResponsableId(!v || v === "_none" ? "" : v)}
+                onValueChange={(v) =>
+                  setResponsableId(!v || v === "_none" ? "" : v)
+                }
                 items={RESPONSABLE_ITEMS}
               >
-                <SelectTrigger className="w-full h-9">
+                <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Sin asignar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -238,10 +258,7 @@ export function NuevaTareaDialog({
           </div>
 
           <DialogFooter>
-            <Button
-              type="submit"
-              disabled={isPending || !titulo.trim() || !areaId}
-            >
+            <Button type="submit" disabled={isPending || !titulo.trim()}>
               {isPending ? "Creando..." : "Crear tarea"}
             </Button>
           </DialogFooter>

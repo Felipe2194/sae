@@ -12,7 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { fetchTareasCierre, reactivarArea, type TareaCierreRow } from "./actions";
+import {
+  fetchTareasCierre,
+  reactivarArea,
+  type TareaCierreRow,
+} from "./actions";
 
 type Props = {
   areaId: string;
@@ -25,7 +29,7 @@ type Props = {
 };
 
 // Botón de "Reactivar área" compartido entre la lista de áreas archivadas
-// (/areas) y el detalle de un área (/areas/[areaId]). Antes de reactivar,
+// (/proyectos) y el detalle de un proyecto (/proyectos/[areaId]). Antes de reactivar,
 // busca si el área tiene tareas del último cierre de temporada
 // (fetchTareasCierre) para ofrecer repetirlas o arrancar en blanco — si no
 // hay nada que ofrecer, reactiva directo sin mostrar el diálogo.
@@ -105,8 +109,10 @@ export function ReactivarAreaBoton({
             <DialogTitle>Reactivar área</DialogTitle>
             <DialogDescription>
               La última vez que se cerró esta área quedaron {sugeridas.length}{" "}
-              {sugeridas.length === 1 ? "tarea sin terminar" : "tareas sin terminar"}. Elegí
-              cuáles recrear para esta temporada, o arrancá en blanco.
+              {sugeridas.length === 1
+                ? "tarea sin terminar"
+                : "tareas sin terminar"}
+              . Elegí cuáles recrear para esta temporada, o arrancá en blanco.
             </DialogDescription>
           </DialogHeader>
 
@@ -114,7 +120,7 @@ export function ReactivarAreaBoton({
             {sugeridas.map((t) => (
               <label
                 key={t.id}
-                className="flex items-center gap-2.5 rounded-md px-1.5 py-1 text-sm hover:bg-muted/50"
+                className="hover:bg-muted/50 flex items-center gap-2.5 rounded-md px-1.5 py-1 text-sm"
               >
                 <Checkbox
                   checked={seleccionadas.has(t.id)}
@@ -126,7 +132,12 @@ export function ReactivarAreaBoton({
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => confirmar(false)} disabled={isPending}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => confirmar(false)}
+              disabled={isPending}
+            >
               Empezar en blanco
             </Button>
             <Button

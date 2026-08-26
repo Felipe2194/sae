@@ -30,8 +30,7 @@ npm run dev
 
 - `AUTH_SECRET`: generar con `openssl rand -base64 32`.
 - App en [http://localhost:3000](http://localhost:3000). Login de prueba
-  tras el seed: `admin@sae.test` / `password123` (y `coordinador@sae.test`,
-  `miembro@sae.test`).
+  tras el seed: `admin@sae.test` / `password123` (y `miembro@sae.test`).
 - Reset completo: `docker compose down -v && docker compose up -d && npm run db:migrate && npm run db:seed`.
 
 ## 3. Bootstrapear una organización real (en vez del seed de prueba)

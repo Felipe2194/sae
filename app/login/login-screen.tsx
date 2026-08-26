@@ -60,10 +60,14 @@ export function LoginScreen({ logo, brandColor }: Props) {
             <div className="flex flex-col items-center gap-4 text-center md:items-start md:text-left">
               <div className="rounded-xl bg-white p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element -- logo variable de la organización, no un asset fijo */}
-                <img src={logo} alt="UTN Villa María" className="h-7 w-auto object-contain" />
+                <img
+                  src={logo}
+                  alt="UTN Villa María"
+                  className="h-7 w-auto object-contain"
+                />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-white text-balance">
+                <h1 className="text-2xl font-semibold text-balance text-white">
                   Bienvenido de nuevo
                 </h1>
                 <p className="mt-1 text-sm text-white/50">
@@ -77,7 +81,11 @@ export function LoginScreen({ logo, brandColor }: Props) {
                 type="submit"
                 className="flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-white/10 bg-white/5 text-sm font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
               >
-                <svg viewBox="0 0 24 24" className="size-4.5 shrink-0" aria-hidden>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-4.5 shrink-0"
+                  aria-hidden
+                >
                   <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                     fill="#4285F4"
@@ -132,26 +140,31 @@ export function LoginScreen({ logo, brandColor }: Props) {
                 />
               </div>
 
-              {state?.error && <p className="text-sm text-red-400">{state.error}</p>}
+              {state?.error && (
+                <p className="text-sm text-red-400">{state.error}</p>
+              )}
 
               <button
                 type="submit"
                 disabled={isPending}
                 style={{ backgroundColor: brandColor }}
-                className="mt-1 flex h-11 items-center justify-center rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
+                className="mt-1 flex h-11 items-center justify-center rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 disabled:opacity-60"
               >
                 {isPending ? "Ingresando…" : "Iniciar sesión"}
               </button>
 
               <p className="text-center text-xs text-white/40">
-                ¿Olvidaste tu contraseña? Pedile a un coordinador o administrador que te la
+                ¿Olvidaste tu contraseña? Pedile a un administrador que te la
                 restablezca.
               </p>
             </form>
 
             <p className="text-center text-sm text-white/50">
               ¿No tenés cuenta?{" "}
-              <Link href="/registro" className="text-white underline underline-offset-2">
+              <Link
+                href="/registro"
+                className="text-white underline underline-offset-2"
+              >
                 Registrate
               </Link>
             </p>
@@ -160,7 +173,9 @@ export function LoginScreen({ logo, brandColor }: Props) {
           {/* ── Panel de ilustración ──────────────────────────────────── */}
           <div
             className="relative hidden items-center justify-center overflow-hidden md:flex"
-            style={{ background: `linear-gradient(160deg, ${brandColor}40, #16141a 75%)` }}
+            style={{
+              background: `linear-gradient(160deg, ${brandColor}40, #16141a 75%)`,
+            }}
           >
             <motion.div
               animate={{ y: [0, -10, 0], rotate: [0, -2, 2, 0] }}

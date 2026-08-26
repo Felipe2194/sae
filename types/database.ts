@@ -3,11 +3,11 @@
 
 // === Enums ===================================================================
 
-export type RolUsuario = 'miembro' | 'coordinador' | 'administrador';
-export type EstadoUsuario = 'pendiente' | 'activo' | 'inactivo';
-export type EstadoTarea = 'por_hacer' | 'en_progreso' | 'hecha';
-export type PrioridadTarea = 'baja' | 'media' | 'alta';
-export type TipoAdjunto = 'archivo' | 'enlace';
+export type RolUsuario = "miembro" | "administrador";
+export type EstadoUsuario = "pendiente" | "activo" | "inactivo";
+export type EstadoTarea = "por_hacer" | "en_progreso" | "hecha";
+export type PrioridadTarea = "baja" | "media" | "alta";
+export type TipoAdjunto = "archivo" | "enlace";
 
 // === organizacion ============================================================
 
@@ -48,7 +48,7 @@ export interface UsuarioRow {
   avatar_color: string | null;
   ultimo_login: string | null;
   es_cuenta_generica: boolean;
-  fondo_tipo: 'gradiente' | 'imagen' | null;
+  fondo_tipo: "gradiente" | "imagen" | null;
   fondo_valor: string | null;
   es_superadmin: boolean;
 }
@@ -65,12 +65,12 @@ export interface UsuarioInsert {
   playlist_url?: string | null;
   avatar_color?: string | null;
   es_cuenta_generica?: boolean;
-  fondo_tipo?: 'gradiente' | 'imagen' | null;
+  fondo_tipo?: "gradiente" | "imagen" | null;
   fondo_valor?: string | null;
   es_superadmin?: boolean;
 }
 
-export type UsuarioUpdate = Partial<Omit<UsuarioInsert, 'organizacion_id'>>;
+export type UsuarioUpdate = Partial<Omit<UsuarioInsert, "organizacion_id">>;
 
 // === area ====================================================================
 
@@ -96,7 +96,7 @@ export interface AreaInsert {
   activa?: boolean;
 }
 
-export type AreaUpdate = Partial<Omit<AreaInsert, 'organizacion_id'>>;
+export type AreaUpdate = Partial<Omit<AreaInsert, "organizacion_id">>;
 
 // === tarea ===================================================================
 
@@ -142,7 +142,9 @@ export interface TareaInsert {
   duracion_real_hs?: number | null;
 }
 
-export type TareaUpdate = Partial<Omit<TareaInsert, 'organizacion_id' | 'creada_por'>>;
+export type TareaUpdate = Partial<
+  Omit<TareaInsert, "organizacion_id" | "creada_por">
+>;
 
 // === comentario ==============================================================
 
@@ -161,7 +163,7 @@ export interface ComentarioInsert {
   contenido: string;
 }
 
-export type ComentarioUpdate = Pick<ComentarioInsert, 'contenido'>;
+export type ComentarioUpdate = Pick<ComentarioInsert, "contenido">;
 
 // === adjunto =================================================================
 
@@ -184,7 +186,7 @@ export interface AdjuntoInsert {
   subido_por: string;
 }
 
-export type AdjuntoUpdate = Pick<AdjuntoInsert, 'nombre' | 'url'>;
+export type AdjuntoUpdate = Pick<AdjuntoInsert, "nombre" | "url">;
 
 // === acceso_rapido ===========================================================
 
@@ -208,7 +210,9 @@ export interface AccesoRapidoInsert {
   orden?: number;
 }
 
-export type AccesoRapidoUpdate = Partial<Omit<AccesoRapidoInsert, 'organizacion_id'>>;
+export type AccesoRapidoUpdate = Partial<
+  Omit<AccesoRapidoInsert, "organizacion_id">
+>;
 
 // === turno ===================================================================
 
@@ -235,7 +239,10 @@ export interface TurnoInsert {
 }
 
 export type TurnoUpdate = Partial<
-  Pick<TurnoInsert, 'hora_inicio' | 'hora_fin' | 'vigente_desde' | 'vigente_hasta'>
+  Pick<
+    TurnoInsert,
+    "hora_inicio" | "hora_fin" | "vigente_desde" | "vigente_hasta"
+  >
 >;
 
 // === bitacora_diaria =========================================================
@@ -262,5 +269,5 @@ export interface BitacoraDiariaInsert {
 }
 
 export type BitacoraDiariaUpdate = Partial<
-  Pick<BitacoraDiariaInsert, 'hecho' | 'pendiente' | 'observaciones'>
+  Pick<BitacoraDiariaInsert, "hecho" | "pendiente" | "observaciones">
 >;
