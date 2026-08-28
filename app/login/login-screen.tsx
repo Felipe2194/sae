@@ -8,7 +8,7 @@ import { GRADIENTES_FONDO } from "@/lib/fondos";
 import { login, loginWithGoogle } from "./actions";
 
 type Props = {
-  logo: string;
+  logoUrl: string | null;
   brandColor: string;
 };
 
@@ -23,7 +23,8 @@ type Props = {
 // de marca de dos columnas — esta pantalla ya arma las suyas, envolverla
 // otra vez hubiera duplicado esa estructura. registro/ y
 // pendiente-de-aprobacion/ se quedan con el layout viejo, no se tocaron.
-export function LoginScreen({ logo, brandColor }: Props) {
+export function LoginScreen({ logoUrl, brandColor }: Props) {
+  const logo = logoUrl || "/LogoUTN.png";
   const [state, action, isPending] = useActionState(login, null);
 
   return (
@@ -58,14 +59,30 @@ export function LoginScreen({ logo, brandColor }: Props) {
           {/* ── Panel del formulario ──────────────────────────────────── */}
           <div className="flex flex-col justify-center gap-6 px-8 py-10 sm:px-12 sm:py-14">
             <div className="flex flex-col items-center gap-4 text-center md:items-start md:text-left">
-              <div className="rounded-xl bg-white p-2">
-                {/* eslint-disable-next-line @next/next/no-img-element -- logo variable de la organización, no un asset fijo */}
+              {/* Organización sin logo propio: el logo por defecto tiene
+                  texto negro, ilegible sin fondo — pero como esta pantalla es
+                  siempre oscura (no sigue el tema claro/oscuro del resto de
+                  la app, ver comentario arriba), alcanza con la variante de
+                  texto blanco (public/LogoUTN-dark.png) sin caja, en vez de
+                  depender de `dark:` que no aplicaría acá. Un logo subido por
+                  la organización mantiene la caja blanca. */}
+              {logoUrl ? (
+                <div className="rounded-xl bg-white p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- logo variable de la organización, no un asset fijo */}
+                  <img
+                    src={logo}
+                    alt="UTN Villa María"
+                    className="h-7 w-auto object-contain"
+                  />
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={logo}
+                  src="/LogoUTN-dark.png"
                   alt="UTN Villa María"
                   className="h-7 w-auto object-contain"
                 />
-              </div>
+              )}
               <div>
                 <h1 className="text-2xl font-semibold text-balance text-white">
                   Bienvenido de nuevo

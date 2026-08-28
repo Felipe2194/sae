@@ -4,7 +4,7 @@ import { sql } from "@/lib/db";
 // (no es fetch ni usa cookies()/headers()) y por defecto prerenderiza este
 // layout como estático en el build — lo que dejaría el logo/color de
 // /login y /registro pegados al valor que tenía la organización al momento
-// del build, sin reflejar cambios hechos después en /admin.
+// del build, sin reflejar cambios hechos después en /configuracion.
 export const dynamic = "force-dynamic";
 
 export default async function AuthLayout({
@@ -31,15 +31,41 @@ export default async function AuthLayout({
         style={{ backgroundColor: bgColor }}
       >
         <div className="flex flex-col items-center gap-8 text-center">
-          <div className="rounded-2xl bg-white px-8 py-5 shadow-lg">
+          {/* Organización sin logo propio: el logo por defecto tiene texto
+              negro, ilegible sobre este panel de color en modo oscuro — se
+              muestra sin la caja blanca y con la variante de texto blanco
+              (public/LogoUTN-dark.png), igual que en el sidebar. Un logo
+              subido por la organización mantiene siempre la caja blanca. */}
+          <div
+            className={
+              org?.logo_url
+                ? "rounded-2xl bg-white px-8 py-5 shadow-lg"
+                : "rounded-2xl bg-white px-8 py-5 shadow-lg dark:bg-transparent dark:shadow-none"
+            }
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={logo}
               alt="UTN Villa María"
               width={220}
               height={56}
-              style={{ objectFit: "contain", display: "block" }}
+              className={org?.logo_url ? "block" : "block dark:hidden"}
+              style={{ objectFit: "contain" }}
             />
+            {/* display no puede ir en `style` inline: le gana en especificidad
+                a dark:hidden/dark:block y las dos imágenes quedaban visibles
+                a la vez sin importar el tema. */}
+            {!org?.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src="/LogoUTN-dark.png"
+                alt="UTN Villa María"
+                width={220}
+                height={56}
+                className="hidden dark:block"
+                style={{ objectFit: "contain" }}
+              />
+            )}
           </div>
           <div className="w-full border-t border-white/30 pt-6">
             <p className="text-lg font-semibold">SAE</p>
@@ -59,9 +85,12 @@ export default async function AuthLayout({
             src={logo}
             alt="UTN Villa María"
             width={180}
-            className={org?.logo_url ? undefined : "dark:hidden"}
-            style={{ objectFit: "contain", display: "block" }}
+            className={org?.logo_url ? "block" : "block dark:hidden"}
+            style={{ objectFit: "contain" }}
           />
+          {/* display no puede ir en `style` inline: le gana en especificidad
+              a dark:hidden/dark:block y las dos imágenes quedaban visibles a
+              la vez sin importar el tema. */}
           {!org?.logo_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -69,7 +98,7 @@ export default async function AuthLayout({
               alt="UTN Villa María"
               width={180}
               className="hidden dark:block"
-              style={{ objectFit: "contain", display: "block" }}
+              style={{ objectFit: "contain" }}
             />
           )}
           <p className="text-muted-foreground mt-1 text-sm">

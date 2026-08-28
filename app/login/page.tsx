@@ -15,7 +15,7 @@ export default async function LoginPage() {
 
   return (
     <LoginScreen
-      logo={org?.logo_url || "/LogoUTN.png"}
+      logoUrl={org?.logo_url}
       brandColor={org?.color_principal || "#e05b22"}
     />
   );
