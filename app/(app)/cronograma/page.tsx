@@ -34,9 +34,13 @@ export default async function CronogramaPage() {
   const rol = (session.user as { rol: string }).rol;
   const canManage = rol === "administrador";
 
-  const { turnos, usuarios, excepciones } = await withUser(
+  const { turnos, usuarios, excepciones, habilitado } = await withUser(
     session.user.id,
     async (tx) => {
+      const [org] = await tx<[{ cronograma_habilitado: boolean }]>`
+        select cronograma_habilitado from organizacion where id = mi_organizacion_id()
+      `;
+
       const turnos = await tx<TurnoData[]>`
       select
         t.id,
@@ -85,9 +89,12 @@ export default async function CronogramaPage() {
         turnos: [...turnos],
         usuarios: [...usuarios],
         excepciones: [...excepciones],
+        habilitado: org.cronograma_habilitado,
       };
     },
   );
+
+  if (!habilitado) redirect("/hoy");
 
   return (
     <CronogramaCliente

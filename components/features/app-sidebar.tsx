@@ -9,13 +9,14 @@ import {
   Calendar,
   CalendarRange,
   Layers3,
-  ShieldCheck,
   CircleUser,
   LogOut,
   BarChart3,
   UserRoundCog,
   Globe,
+  School,
 } from "lucide-react";
+import type { SeccionesHabilitadas } from "@/lib/secciones";
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +27,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -42,28 +44,50 @@ const ITEMS_BASE: {
   label: string;
   icon: React.ElementType;
   roles: string[] | null;
+  seccion: keyof SeccionesHabilitadas | null;
 }[] = [
-  { href: "/hoy", label: "Hoy", icon: Sparkles, roles: null },
-  { href: "/tablero", label: "Tablero", icon: LayoutDashboard, roles: null },
-  { href: "/calendario", label: "Calendario", icon: Calendar, roles: null },
+  { href: "/hoy", label: "Hoy", icon: Sparkles, roles: null, seccion: null },
+  {
+    href: "/tablero",
+    label: "Tablero",
+    icon: LayoutDashboard,
+    roles: null,
+    seccion: "tablero",
+  },
+  {
+    href: "/calendario",
+    label: "Calendario",
+    icon: Calendar,
+    roles: null,
+    seccion: "calendario",
+  },
   {
     href: "/cronograma",
     label: "Cronograma",
     icon: CalendarRange,
     roles: null,
+    seccion: "cronograma",
   },
-  { href: "/proyectos", label: "Proyectos", icon: Layers3, roles: null },
+  {
+    href: "/proyectos",
+    label: "Proyectos",
+    icon: Layers3,
+    roles: null,
+    seccion: "proyectos",
+  },
+  {
+    href: "/visitas",
+    label: "Visitas",
+    icon: School,
+    roles: null,
+    seccion: "visitas",
+  },
   {
     href: "/informes",
     label: "Informes",
     icon: BarChart3,
     roles: ["administrador"],
-  },
-  {
-    href: "/admin",
-    label: "Admin",
-    icon: ShieldCheck,
-    roles: ["administrador"],
+    seccion: null,
   },
 ];
 
@@ -74,6 +98,7 @@ const ITEM_PLATAFORMA = {
   label: "Plataforma",
   icon: Globe,
   roles: null,
+  seccion: null,
 };
 
 function iniciales(nombre: string): string {
@@ -96,6 +121,7 @@ export function AppSidebar({
   logoUrl,
   puedeCambiarPerfil,
   esSuperadmin,
+  secciones,
 }: {
   user: SidebarUser;
   rol: string;
@@ -103,11 +129,21 @@ export function AppSidebar({
   logoUrl?: string | null;
   puedeCambiarPerfil?: boolean;
   esSuperadmin?: boolean;
+  secciones: SeccionesHabilitadas;
 }) {
   const pathname = usePathname();
+  // En mobile la sidebar es un Sheet (cajón) que se abre encima de la
+  // página — al navegar a otra sección se quedaba abierto tapando el
+  // contenido hasta tocar afuera para cerrarlo a mano.
+  const { isMobile, setOpenMobile } = useSidebar();
+  const cerrarSiMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
   const inits = iniciales(user.name);
   const items = ITEMS_BASE.filter(
-    (item) => item.roles === null || item.roles.includes(rol),
+    (item) =>
+      (item.roles === null || item.roles.includes(rol)) &&
+      (item.seccion === null || secciones[item.seccion]),
   );
   if (esSuperadmin) items.push(ITEM_PLATAFORMA);
   const colorFondo = avatarColor ?? AVATAR_COLOR_DEFAULT;
@@ -123,17 +159,20 @@ export function AppSidebar({
             src={logo}
             alt="UTN Villa María"
             width={170}
-            className={logoUrl ? undefined : "dark:hidden"}
+            className={logoUrl ? "block" : "block dark:hidden"}
             style={{
               objectFit: "contain",
               objectPosition: "left",
-              display: "block",
             }}
           />
           {/* Organización sin logo propio: el texto del logo por defecto es
               negro y desaparece sobre el sidebar oscuro — variante con el
               texto en blanco (public/LogoUTN-dark.png) solo para ese caso;
-              un logo subido por la organización se muestra tal cual siempre. */}
+              un logo subido por la organización se muestra tal cual siempre.
+              El display no puede ir en `style` (inline) porque le gana en
+              especificidad a las clases dark:hidden/dark:block de Tailwind y
+              las dos imágenes quedaban visibles a la vez sin importar el
+              tema. */}
           {!logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -144,7 +183,6 @@ export function AppSidebar({
               style={{
                 objectFit: "contain",
                 objectPosition: "left",
-                display: "block",
               }}
             />
           )}
@@ -177,6 +215,7 @@ export function AppSidebar({
                     tooltip={item.label}
                     size="lg"
                     className="gap-3 px-3 text-base"
+                    onClick={cerrarSiMobile}
                   >
                     <item.icon className="size-5 shrink-0" />
                     <span className="group-data-[collapsible=icon]:hidden">
@@ -235,6 +274,7 @@ export function AppSidebar({
             <DropdownMenuItem
               nativeButton={false}
               render={<Link href="/perfil" />}
+              onClick={cerrarSiMobile}
             >
               <CircleUser className="size-4" />
               Mi perfil
@@ -243,6 +283,7 @@ export function AppSidebar({
               <DropdownMenuItem
                 nativeButton={false}
                 render={<Link href="/cambiar-perfil" />}
+                onClick={cerrarSiMobile}
               >
                 <UserRoundCog className="size-4" />
                 Cambiar de perfil

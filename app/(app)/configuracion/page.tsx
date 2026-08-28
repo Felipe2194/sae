@@ -7,6 +7,8 @@ import {
   ExternalLink,
   Users,
   Building2,
+  LayoutPanelTop,
+  History,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
@@ -25,8 +27,13 @@ import { DriveIcon, esUrlDrive } from "@/components/features/drive-icon";
 import { AsignarSelect } from "./asignar-select";
 import { crearAcceso, eliminarAcceso } from "./actions";
 import { UsuariosTable, type UsuarioFila } from "./usuarios-table";
+import { AuditoriaTable, type AuditoriaFila } from "./auditoria-table";
 import { OrganizacionForm } from "./organizacion-form";
+import { SeccionesForm } from "./secciones-form";
+import { CrearUsuarioDialog } from "./crear-usuario-dialog";
 import { NuevaReunionDialog } from "./nueva-reunion-dialog";
+import { GoogleCalendarForm } from "./google-calendar-form";
+import { tieneServicioCalendar } from "@/lib/google/calendar";
 
 type UsuarioRow = UsuarioFila;
 
@@ -62,7 +69,7 @@ export default async function AdminPage() {
   const rol = (session.user as { rol: string }).rol;
   if (rol !== "administrador") redirect("/hoy");
 
-  const { tareas, usuarios, todosUsuarios, accesos, organizacion } =
+  const { tareas, usuarios, todosUsuarios, auditoria, accesos, organizacion } =
     await withUser(session.user.id, async (tx) => {
       const tareas = await tx<TareaRow[]>`
       select
@@ -93,6 +100,16 @@ export default async function AdminPage() {
         nombre asc
     `;
 
+      const auditoria = await tx<AuditoriaFila[]>`
+      select
+        a.id, a.creado_en::text, u.nombre as autor_nombre,
+        a.entidad, a.entidad_nombre, a.campo, a.valor_antes, a.valor_despues
+      from auditoria a
+      left join usuario u on u.id = a.usuario_id
+      order by a.creado_en desc
+      limit 100
+    `;
+
       const accesos = await tx<AccesoRow[]>`
       select id, etiqueta, url
       from acceso_rapido
@@ -106,28 +123,41 @@ export default async function AdminPage() {
           logo_url: string | null;
           color_principal: string | null;
           zona_horaria: string;
+          calendario_habilitado: boolean;
+          cronograma_habilitado: boolean;
+          proyectos_habilitado: boolean;
+          visitas_habilitado: boolean;
+          tablero_habilitado: boolean;
+          google_calendar_id: string | null;
         }[]
       >`
-      select nombre, logo_url, color_principal, zona_horaria
+      select
+        nombre, logo_url, color_principal, zona_horaria,
+        calendario_habilitado, cronograma_habilitado,
+        proyectos_habilitado, visitas_habilitado, tablero_habilitado,
+        google_calendar_id
       from organizacion
       where id = mi_organizacion_id()
     `;
 
-      return { tareas, usuarios, todosUsuarios, accesos, organizacion };
+      return { tareas, usuarios, todosUsuarios, auditoria, accesos, organizacion };
     });
 
-  const tieneCalendar =
-    !!process.env.GOOGLE_CALENDAR_API_KEY && !!process.env.GOOGLE_CALENDAR_ID;
-  const tieneEscrituraCalendar =
-    tieneCalendar &&
-    !!process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL &&
-    !!process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_KEY;
+  // El calendarId ahora vive por organización (ver 034_google_calendar_
+  // organizacion.sql); GOOGLE_CALENDAR_ID sigue como fallback legacy para la
+  // organización que ya dependía de esa variable antes de este cambio.
+  const calendarId = organizacion.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null;
+  const emailServicio = process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL ?? null;
+  const tieneServicio = tieneServicioCalendar();
+  const tienePlataforma = tieneServicio || !!process.env.GOOGLE_CALENDAR_API_KEY;
+  const tieneCalendar = tienePlataforma && !!calendarId;
+  const tieneEscrituraCalendar = tieneServicio && !!calendarId;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Administración
+          Configuración
         </h1>
         <p className="text-muted-foreground text-sm">
           Configuración del sistema y gestión de recursos.
@@ -147,6 +177,31 @@ export default async function AdminPage() {
         </Card>
       </section>
 
+      {/* ── Secciones ────────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <LayoutPanelTop className="text-muted-foreground size-4" />
+          <h2 className="font-semibold">Secciones</h2>
+        </div>
+        <p className="text-muted-foreground -mt-1 text-sm">
+          Elegí qué secciones ve el equipo en el menú lateral. Hoy siempre
+          está disponible.
+        </p>
+        <Card>
+          <CardContent className="pt-4">
+            <SeccionesForm
+              secciones={{
+                tablero: organizacion.tablero_habilitado,
+                calendario: organizacion.calendario_habilitado,
+                cronograma: organizacion.cronograma_habilitado,
+                proyectos: organizacion.proyectos_habilitado,
+                visitas: organizacion.visitas_habilitado,
+              }}
+            />
+          </CardContent>
+        </Card>
+      </section>
+
       {/* ── Gestión de usuarios ──────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
@@ -161,6 +216,9 @@ export default async function AdminPage() {
                 : ""}
             </Badge>
           )}
+          <div className="ml-auto">
+            <CrearUsuarioDialog />
+          </div>
         </div>
         <Card>
           <CardContent className="p-0">
@@ -185,10 +243,11 @@ export default async function AdminPage() {
               </p>
             ) : (
               <>
-                {/* Desktop: tabla */}
-                <div className="hidden overflow-x-auto md:block">
+                {/* Desktop: tabla — alto acotado con scroll interno, para que
+                    muchas tareas abiertas no estiren toda la página. */}
+                <div className="hidden max-h-96 overflow-auto md:block">
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="bg-card sticky top-0 z-10">
                       <tr className="border-b">
                         <th className="text-muted-foreground w-full px-4 py-3 text-left text-xs font-medium">
                           Tarea
@@ -245,7 +304,7 @@ export default async function AdminPage() {
                 </div>
 
                 {/* Mobile: tarjetas — Responsable no entra sin cortar en una tabla de 3 columnas */}
-                <div className="divide-y md:hidden">
+                <div className="max-h-96 divide-y overflow-y-auto md:hidden">
                   {tareas.map((t) => (
                     <div key={t.id} className="flex flex-col gap-2 p-4">
                       <div className="flex items-start gap-2">
@@ -282,6 +341,23 @@ export default async function AdminPage() {
                 </div>
               </>
             )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Auditoría ────────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <History className="text-muted-foreground size-4" />
+          <h2 className="font-semibold">Auditoría</h2>
+        </div>
+        <p className="text-muted-foreground -mt-1 text-sm">
+          Quién cambió qué: reasignaciones de tareas, cambios de rol o estado
+          de usuarios, proyectos archivados y visitas canceladas.
+        </p>
+        <Card>
+          <CardContent className="p-0">
+            <AuditoriaTable entradas={auditoria} />
           </CardContent>
         </Card>
       </section>
@@ -403,8 +479,10 @@ export default async function AdminPage() {
             <p className="text-muted-foreground">
               Crea una tarea de tipo &ldquo;Reunión&rdquo; con hora y duración
               {tieneEscrituraCalendar
-                ? ", y la agenda como evento en el Google Calendar de la organización."
-                : ". Para que además quede agendada en Google Calendar, configurá GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL y GOOGLE_CALENDAR_SERVICE_ACCOUNT_KEY."}
+                ? ", y la agenda como evento en tu Google Calendar."
+                : tieneServicio
+                  ? ". Para que además quede agendada en Google Calendar, vinculá tu calendario más abajo."
+                  : ". La sincronización con Google Calendar todavía no está configurada en esta plataforma."}
             </p>
             <NuevaReunionDialog usuarios={usuarios} />
           </CardContent>
@@ -424,75 +502,51 @@ export default async function AdminPage() {
             <Badge variant="outline">Sin configurar</Badge>
           )}
         </div>
+        <p className="text-muted-foreground -mt-1 text-sm">
+          Vinculá tu propio Google Calendar: sus eventos aparecen en{" "}
+          <strong>/calendario</strong> para todo el equipo, y las reuniones y
+          visitas que agendás desde acá se sincronizan con él.
+        </p>
 
         <Card>
           <CardContent className="flex flex-col gap-3 pt-4 text-sm">
-            {tieneCalendar ? (
-              <p className="text-muted-foreground">
-                El calendario está conectado. Los eventos de la organización
-                aparecen en <strong>/calendario</strong> para todos los
-                miembros.
-              </p>
+            {tienePlataforma ? (
+              <GoogleCalendarForm
+                calendarIdInicial={organizacion.google_calendar_id}
+                emailServicio={tieneServicio ? emailServicio : null}
+              />
             ) : (
               <>
                 <p className="text-muted-foreground">
-                  Para mostrar el calendario de la organización, agregá estas
-                  variables en{" "}
+                  Todavía no hay ninguna integración de Google Calendar
+                  configurada en esta plataforma. Quien administra el
+                  despliegue tiene que agregar estas variables en{" "}
                   <code className="bg-muted rounded px-1 text-xs">
                     .env.local
                   </code>{" "}
-                  y reiniciá el servidor:
+                  y reiniciar el servidor:
                 </p>
                 <div className="bg-muted space-y-1 rounded-lg p-3 font-mono text-xs">
                   <p>
                     <span className="text-blue-600 dark:text-blue-400">
-                      GOOGLE_CALENDAR_API_KEY
+                      GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL
                     </span>
-                    =tu_api_key
+                    =...@...iam.gserviceaccount.com
                   </p>
                   <p>
                     <span className="text-blue-600 dark:text-blue-400">
-                      GOOGLE_CALENDAR_ID
+                      GOOGLE_CALENDAR_SERVICE_ACCOUNT_KEY
                     </span>
-                    =id@group.calendar.google.com
+                    =&ldquo;-----BEGIN PRIVATE KEY-----...&rdquo;
                   </p>
                 </div>
-                <ol className="text-muted-foreground list-inside list-decimal space-y-1.5 text-xs">
-                  <li>
-                    Entrá a{" "}
-                    <a
-                      href="https://console.cloud.google.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                    >
-                      console.cloud.google.com
-                    </a>
-                    , creá un proyecto y activá la{" "}
-                    <strong>Google Calendar API</strong>.
-                  </li>
-                  <li>
-                    Creá una <strong>API Key</strong> (con restricción a
-                    Calendar API) y pegala en{" "}
-                    <code className="bg-muted rounded px-1">
-                      GOOGLE_CALENDAR_API_KEY
-                    </code>
-                    .
-                  </li>
-                  <li>
-                    El calendario compartido de la SAE debe estar en modo{" "}
-                    <strong>público</strong>. En Configuración → &ldquo;Integrar
-                    calendario&rdquo; → copiá el{" "}
-                    <strong>ID del calendario</strong> (termina en{" "}
-                    <code className="bg-muted rounded px-1">
-                      @group.calendar.google.com
-                    </code>
-                    ).
-                  </li>
-                  <li>
-                    Reiniciá el servidor después de agregar las variables.
-                  </li>
-                </ol>
+                <p className="text-muted-foreground text-xs">
+                  Es una única cuenta de servicio para toda la plataforma
+                  (Google Cloud Console → crear proyecto → activar Google
+                  Calendar API → crear cuenta de servicio). Una vez
+                  configurada, cada organización vincula su propio calendario
+                  desde acá, compartiéndolo con esa cuenta.
+                </p>
               </>
             )}
           </CardContent>

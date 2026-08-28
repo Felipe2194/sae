@@ -87,17 +87,35 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [cargando, setCargando] = useState(true);
   const [modoDemo, setModoDemo] = useState(false);
+  const [errorSync, setErrorSync] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>(hoyISO);
 
   const fetchEvents = useCallback(async (y: number, m: number) => {
     setCargando(true);
     try {
       const res = await fetch(`/api/calendar/events?year=${y}&month=${m}`);
-      const data: CalendarEvent[] = await res.json();
+      const data = await res.json();
+      // La ruta devuelve un array de eventos, o { error } si Google rechazó
+      // el pedido (calendarId inválido, no compartido con la cuenta de
+      // servicio, etc.) — sin este chequeo, `data` no es un array y
+      // eventosDelDia() explota al llamar .filter() más abajo.
+      if (!res.ok || !Array.isArray(data)) {
+        setEvents([]);
+        setModoDemo(false);
+        setErrorSync(
+          typeof data?.error === "string"
+            ? data.error
+            : "No se pudo consultar Google Calendar.",
+        );
+        return;
+      }
       setEvents(data);
       setModoDemo(data.length > 0 && data[0].id.startsWith("mock-"));
+      setErrorSync(null);
     } catch {
       setEvents([]);
+      setModoDemo(false);
+      setErrorSync("No se pudo consultar Google Calendar.");
     } finally {
       setCargando(false);
     }
@@ -158,6 +176,17 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
           </Button>
         </div>
       </div>
+
+      {/* Aviso de error de sincronización — calendarId inválido, no
+          compartido con la cuenta de servicio, etc. */}
+      {errorSync && (
+        <div className="bg-destructive/10 text-destructive rounded-lg border border-dashed border-destructive/30 px-4 py-3 text-sm">
+          <span className="font-medium">No se pudo conectar con tu Google Calendar.</span>{" "}
+          {errorSync} Revisá en Configuración que el ID sea el correcto (no la
+          URL de embebido) y que el calendario esté compartido con la cuenta
+          de servicio.
+        </div>
+      )}
 
       {/* Aviso modo demo */}
       {modoDemo && (

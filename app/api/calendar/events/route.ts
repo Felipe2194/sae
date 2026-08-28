@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { withUser } from "@/lib/db";
+import { listarEventosCalendar } from "@/lib/google/calendar";
 
 export type CalendarEvent = {
   id: string;
@@ -10,6 +13,11 @@ export type CalendarEvent = {
 };
 
 export async function GET(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const year = parseInt(
     searchParams.get("year") ?? String(new Date().getFullYear()),
@@ -18,17 +26,57 @@ export async function GET(req: NextRequest) {
     searchParams.get("month") ?? String(new Date().getMonth() + 1),
   );
 
-  const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
-  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+  // Fallback a GOOGLE_CALENDAR_ID: organizaciones que ya lo tenían
+  // configurado por variable de entorno antes de que cada una pudiera
+  // vincular el suyo desde Configuración (ver 034_google_calendar_
+  // organizacion.sql) siguen funcionando sin tener que repegar el ID.
+  const calendarId = await withUser(session.user.id, async (tx) => {
+    const [org] = await tx<[{ google_calendar_id: string | null }]>`
+      select google_calendar_id from organizacion where id = mi_organizacion_id()
+    `;
+    return org.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null;
+  });
 
-  if (!apiKey || !calendarId) {
-    // Sin credenciales: devolver eventos de ejemplo
+  if (!calendarId) {
+    // Sin calendario vinculado: devolver eventos de ejemplo
     return NextResponse.json(mockEvents(year, month));
   }
 
   // Rango: primer día del mes → primer día del mes siguiente
   const timeMin = new Date(year, month - 1, 1).toISOString();
   const timeMax = new Date(year, month, 1).toISOString();
+
+  // Vía cuenta de servicio (no exige calendario público) si está
+  // configurada; si no, API key (calendario en modo público) como fallback
+  // legacy; si no hay ninguna, eventos de ejemplo.
+  try {
+    const eventos = await listarEventosCalendar(calendarId, timeMin, timeMax);
+    if (eventos) {
+      return NextResponse.json(
+        eventos.map((e) => ({
+          id: e.id,
+          titulo: e.titulo,
+          inicio: e.inicio,
+          fin: e.fin,
+          allDay: e.allDay,
+          color: colorIdToHex(e.colorId),
+        })),
+      );
+    }
+  } catch (e) {
+    return NextResponse.json(
+      {
+        error:
+          e instanceof Error ? e.message : "Error al consultar Google Calendar",
+      },
+      { status: 502 },
+    );
+  }
+
+  const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(mockEvents(year, month));
+  }
 
   const url = new URL(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
@@ -41,8 +89,8 @@ export async function GET(req: NextRequest) {
   url.searchParams.set("maxResults", "100");
 
   // tags: al crear una reunión sincronizada (ver crearReunion en
-  // admin/actions.ts) se invalida esta caché con revalidateTag, así no hace
-  // falta esperar los 5 minutos para verla reflejada acá.
+  // configuracion/actions.ts) se invalida esta caché con updateTag, así no
+  // hace falta esperar los 5 minutos para verla reflejada acá.
   const res = await fetch(url.toString(), {
     next: { revalidate: 300, tags: ["calendar-events"] },
   });

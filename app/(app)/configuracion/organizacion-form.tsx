@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Select,
   SelectContent,
@@ -44,6 +44,37 @@ export function OrganizacionForm({ organizacion }: Props) {
   const [colorPrincipal, setColorPrincipal] = useState(organizacion.color_principal);
   const [zonaHoraria, setZonaHoraria] = useState(organizacion.zona_horaria);
   const [guardado, setGuardado] = useState(false);
+
+  // Vista previa en vivo — mismo criterio que /perfil (ver perfil-form.tsx):
+  // --primary vive en el mismo nodo donde el layout aplica el fondo
+  // (app/(app)/layout.tsx), así que tocar un swatch se ve reflejado al
+  // toque en todos los botones de la página, no recién al guardar y
+  // navegar a otra sección. Si alguien tiene su propio color elegido en
+  // /perfil, esta preview lo pisa mientras se edita acá — es lo esperable,
+  // se está probando el color de la organización.
+  const wrapperRef = useRef<HTMLElement | null>(null);
+  const originalRef = useRef<string>("");
+
+  useEffect(() => {
+    const el = document.querySelector<HTMLElement>(
+      '[data-slot="sidebar-wrapper"]',
+    );
+    wrapperRef.current = el;
+    originalRef.current = el?.style.cssText ?? "";
+    return () => {
+      if (wrapperRef.current) wrapperRef.current.style.cssText = originalRef.current;
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    if (colorPrincipal) {
+      el.style.setProperty("--primary", colorPrincipal);
+    } else {
+      el.style.removeProperty("--primary");
+    }
+  }, [colorPrincipal]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { KeyRound, Monitor } from "lucide-react";
+import { toast } from "sonner";
+import { KeyRound, Monitor, Trash2, Eye, EyeOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -21,6 +25,7 @@ import {
 import {
   cambiarEstadoUsuario,
   cambiarRolUsuario,
+  eliminarUsuario,
   marcarCuentaGenerica,
   resetearPassword,
 } from "./actions";
@@ -62,10 +67,14 @@ const ROL_LABEL: Record<UsuarioFila["rol"], string> = {
 // (mobile) — para no duplicar los handlers en dos componentes distintos.
 function useUsuarioRowActions(usuario: UsuarioFila) {
   const [pending, startTransition] = useTransition();
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
   const [isPendingReset, startReset] = useTransition();
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isPendingDelete, startDelete] = useTransition();
 
   function aprobar() {
     startTransition(() => cambiarEstadoUsuario(usuario.id, "activo"));
@@ -79,6 +88,24 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
     startTransition(() => cambiarEstadoUsuario(usuario.id, "activo"));
   }
 
+  function eliminar() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    startDelete(async () => {
+      try {
+        await eliminarUsuario(usuario.id);
+        toast.success(`${usuario.nombre} eliminado.`);
+      } catch (e) {
+        toast.error(
+          e instanceof Error ? e.message : "No se pudo eliminar el usuario.",
+        );
+      }
+      setConfirmDelete(false);
+    });
+  }
+
   function onRolChange(rol: string) {
     startTransition(() => cambiarRolUsuario(usuario.id, rol));
   }
@@ -89,15 +116,36 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
     );
   }
 
-  function resetPassword() {
-    if (!confirmReset) {
-      setConfirmReset(true);
+  function abrirReset() {
+    setResetPasswordValue("");
+    setResetError(null);
+    setResetOpen(true);
+  }
+
+  function confirmarReset() {
+    const elegida = resetPasswordValue.trim();
+    if (elegida && elegida.length < 8) {
+      setResetError("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
+    setResetError(null);
     startReset(async () => {
-      const { passwordTemporal } = await resetearPassword(usuario.id);
-      setTempPassword(passwordTemporal);
-      setConfirmReset(false);
+      try {
+        const { passwordTemporal } = await resetearPassword(
+          usuario.id,
+          elegida || undefined,
+        );
+        setResetOpen(false);
+        if (passwordTemporal) {
+          setTempPassword(passwordTemporal);
+        } else {
+          toast.success("Contraseña actualizada.");
+        }
+      } catch (e) {
+        setResetError(
+          e instanceof Error ? e.message : "No se pudo resetear la contraseña.",
+        );
+      }
     });
   }
 
@@ -110,20 +158,91 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
 
   return {
     pending,
-    confirmReset,
-    setConfirmReset,
+    resetOpen,
+    setResetOpen,
+    resetPasswordValue,
+    setResetPasswordValue,
+    resetError,
     isPendingReset,
     tempPassword,
     setTempPassword,
     copiado,
+    confirmDelete,
+    setConfirmDelete,
+    isPendingDelete,
     aprobar,
     desactivar,
     reactivar,
+    eliminar,
     onRolChange,
     toggleCuentaGenerica,
-    resetPassword,
+    abrirReset,
+    confirmarReset,
     copiarPassword,
   };
+}
+
+// Elegir una contraseña acá mismo (en vez de solo poder generar una al azar
+// que se muestra una única vez) — perder esa temporal sin copiarla a tiempo
+// dejaba a la persona sin poder entrar hasta que otro admin la reseteara de
+// nuevo, mismo criterio que crear-usuario-dialog.tsx.
+function ResetPasswordDialog({
+  usuario,
+  a,
+}: {
+  usuario: UsuarioFila;
+  a: ReturnType<typeof useUsuarioRowActions>;
+}) {
+  const [ver, setVer] = useState(false);
+  return (
+    <Dialog open={a.resetOpen} onOpenChange={a.setResetOpen}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Resetear contraseña</DialogTitle>
+          <DialogDescription>
+            Para {usuario.nombre}. Elegí una nueva o dejala en blanco para
+            generar una temporal.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`reset-pw-${usuario.id}`} className="text-xs">
+            Contraseña nueva
+          </Label>
+          <div className="relative">
+            <Input
+              id={`reset-pw-${usuario.id}`}
+              type={ver ? "text" : "password"}
+              value={a.resetPasswordValue}
+              onChange={(e) => a.setResetPasswordValue(e.target.value)}
+              placeholder="Vacío = se genera una temporal"
+              minLength={8}
+              autoFocus
+              className="h-9 pr-9"
+            />
+            <button
+              type="button"
+              onClick={() => setVer((v) => !v)}
+              className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-9 items-center justify-center"
+              aria-label={ver ? "Ocultar contraseña" : "Mostrar contraseña"}
+              tabIndex={-1}
+            >
+              {ver ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+            </button>
+          </div>
+        </div>
+        {a.resetError && <p className="text-destructive text-xs">{a.resetError}</p>}
+        <DialogFooter>
+          <Button
+            size="sm"
+            onClick={a.confirmarReset}
+            disabled={a.isPendingReset}
+          >
+            {a.isPendingReset ? "Guardando..." : "Resetear"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function PasswordDialog({
@@ -230,37 +349,52 @@ function AccionesUsuario({
         </Button>
       )}
 
-      {usuario.estado !== "pendiente" &&
-        (a.confirmReset ? (
+      {usuario.estado !== "pendiente" && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-muted-foreground h-8 text-xs"
+          onClick={a.abrirReset}
+          title="Resetear contraseña"
+        >
+          <KeyRound className="size-3.5" />
+        </Button>
+      )}
+
+      {/* Borrado definitivo — solo sobre cuentas ya inactivas, para no dar
+          dos formas de "sacar a alguien del equipo" que se pisen. */}
+      {usuario.estado === "inactivo" &&
+        (a.confirmDelete ? (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-muted-foreground text-xs">¿Confirmar?</span>
+            <span className="text-destructive text-xs">¿Eliminar para siempre?</span>
             <Button
               size="sm"
               variant="ghost"
               className="h-8 text-xs"
-              onClick={() => a.setConfirmReset(false)}
+              onClick={() => a.setConfirmDelete(false)}
+              disabled={a.isPendingDelete}
             >
               Cancelar
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="destructive"
               className="h-8 text-xs"
-              onClick={a.resetPassword}
-              disabled={a.isPendingReset}
+              onClick={a.eliminar}
+              disabled={a.isPendingDelete}
             >
-              {a.isPendingReset ? "Reseteando..." : "Confirmar"}
+              {a.isPendingDelete ? "Eliminando..." : "Eliminar"}
             </Button>
           </div>
         ) : (
           <Button
             size="sm"
             variant="ghost"
-            className="text-muted-foreground h-8 text-xs"
-            onClick={a.resetPassword}
-            title="Resetear contraseña"
+            className="text-destructive hover:text-destructive h-8 text-xs"
+            onClick={a.eliminar}
+            title="Eliminar usuario definitivamente"
           >
-            <KeyRound className="size-3.5" />
+            <Trash2 className="size-3.5" />
           </Button>
         ))}
     </div>
@@ -341,6 +475,7 @@ function UsuarioRow({
         <AccionesUsuario usuario={usuario} esSelf={esSelf} a={a} />
       </td>
 
+      <ResetPasswordDialog usuario={usuario} a={a} />
       <PasswordDialog
         usuario={usuario}
         tempPassword={a.tempPassword}
@@ -400,6 +535,7 @@ function UsuarioCard({
 
       <AccionesUsuario usuario={usuario} esSelf={esSelf} a={a} />
 
+      <ResetPasswordDialog usuario={usuario} a={a} />
       <PasswordDialog
         usuario={usuario}
         tempPassword={a.tempPassword}
@@ -432,10 +568,11 @@ export function UsuariosTable({
 
   return (
     <>
-      {/* Desktop: tabla */}
-      <div className="hidden overflow-x-auto md:block">
+      {/* Desktop: tabla — alto acotado con scroll interno, para que una
+          organización con muchos usuarios no estire toda la página. */}
+      <div className="hidden max-h-96 overflow-auto md:block">
         <table className="w-full text-sm">
-          <thead>
+          <thead className="bg-card sticky top-0 z-10">
             <tr className="border-b">
               <th className="text-muted-foreground w-full px-4 py-3 text-left text-xs font-medium">
                 Usuario
@@ -460,7 +597,7 @@ export function UsuariosTable({
       </div>
 
       {/* Mobile: tarjetas — la tabla con 4 columnas no entra sin cortar Rol */}
-      <div className="md:hidden">
+      <div className="max-h-96 overflow-y-auto md:hidden">
         {ordenados.map((u) => (
           <UsuarioCard key={u.id} usuario={u} esSelf={u.id === selfId} />
         ))}
