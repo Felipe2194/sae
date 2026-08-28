@@ -159,7 +159,13 @@ export default async function AreaDetallePage({
     documentos,
     historial,
     hitos,
+    habilitado,
+    tableroHabilitado,
   } = await withUser(session.user.id, async (tx) => {
+    const [org] = await tx<[{ proyectos_habilitado: boolean; tablero_habilitado: boolean }]>`
+      select proyectos_habilitado, tablero_habilitado from organizacion where id = mi_organizacion_id()
+    `;
+
     const [area] = await tx<AreaRow[]>`
       select
         a.id, a.nombre, a.color, a.descripcion, a.responsable_id, a.activa,
@@ -197,6 +203,8 @@ export default async function AreaDetallePage({
         documentos: [],
         historial: [],
         hitos: [],
+        habilitado: org.proyectos_habilitado,
+        tableroHabilitado: org.tablero_habilitado,
       };
     }
 
@@ -317,9 +325,12 @@ export default async function AreaDetallePage({
       documentos: [...documentos],
       historial: [...historial],
       hitos: [...hitos],
+      habilitado: org.proyectos_habilitado,
+      tableroHabilitado: org.tablero_habilitado,
     };
   });
 
+  if (!habilitado) redirect("/hoy");
   if (!area) notFound();
 
   const plantillas = await fetchPlantillas(areaId);
@@ -625,15 +636,17 @@ export default async function AreaDetallePage({
                   <p className="text-muted-foreground text-sm">
                     Este proyecto todavía no tiene tareas.
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    nativeButton={false}
-                    render={<Link href="/tablero" />}
-                  >
-                    Crear tarea en el tablero
-                  </Button>
+                  {tableroHabilitado && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      nativeButton={false}
+                      render={<Link href="/tablero" />}
+                    >
+                      Crear tarea en el tablero
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

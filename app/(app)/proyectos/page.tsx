@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { Plus } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { AreasCliente } from "./areas-cliente";
@@ -36,7 +35,11 @@ export default async function AreasPage() {
   const rol = (session.user as { rol: string }).rol;
   const canManage = rol === "administrador";
 
-  const { areas, usuarios } = await withUser(session.user.id, async (tx) => {
+  const { areas, usuarios, habilitado } = await withUser(session.user.id, async (tx) => {
+    const [org] = await tx<[{ proyectos_habilitado: boolean }]>`
+      select proyectos_habilitado from organizacion where id = mi_organizacion_id()
+    `;
+
     const areas = await tx<AreaRow[]>`
       select
         a.id,
@@ -115,10 +118,17 @@ export default async function AreasPage() {
         `
       : [];
 
-    return { areas: [...areas], usuarios: [...usuarios] };
+    return { areas: [...areas], usuarios: [...usuarios], habilitado: org.proyectos_habilitado };
   });
 
+  if (!habilitado) redirect("/hoy");
+
   return (
-    <AreasCliente areas={areas} usuarios={usuarios} canManage={canManage} />
+    <AreasCliente
+      areas={areas}
+      usuarios={usuarios}
+      canManage={canManage}
+      currentUserId={session.user.id}
+    />
   );
 }

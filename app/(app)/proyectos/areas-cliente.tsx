@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Plus, User, AlertTriangle, CalendarClock } from "lucide-react";
+import { Plus, User, Users, AlertTriangle, CalendarClock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,9 @@ type Area = {
   categoria: string;
   fecha_inicio: string | null;
   fecha_fin: string | null;
+  responsable_id: string | null;
   responsable_nombre: string | null;
+  asignados: { id: string; nombre: string; avatar_color: string | null }[];
   tareas_total: number;
   tareas_hechas: number;
   tareas_abiertas: number;
@@ -203,6 +205,7 @@ type Props = {
   areas: Area[];
   usuarios: UsuarioOption[];
   canManage: boolean;
+  currentUserId: string;
 };
 
 const TABS = [
@@ -213,15 +216,33 @@ const TABS = [
 
 type Tab = (typeof TABS)[number]["value"];
 
-export function AreasCliente({ areas, usuarios, canManage }: Props) {
+// Responsable o parte del equipo (co-asignado) — mismo criterio que
+// "Mis tareas" en el Tablero, pero a nivel proyecto.
+function esMiProyecto(area: Area, usuarioId: string): boolean {
+  return (
+    area.responsable_id === usuarioId ||
+    area.asignados.some((u) => u.id === usuarioId)
+  );
+}
+
+export function AreasCliente({ areas, usuarios, canManage, currentUserId }: Props) {
   const hoyISO = new Date().toISOString().slice(0, 10);
   const [tab, setTab] = useState<Tab>("continua");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [archivadas, setArchivadas] = useState<AreaArchivadaRow[] | null>(null);
   const [, startTransition] = useTransition();
+  const [misProyectos, setMisProyectos] = useState(false);
 
-  const continuas = areas.filter((a) => a.tipo === "continua");
-  const eventos = areas.filter((a) => a.tipo === "evento");
+  const areasVisibles = useMemo(
+    () =>
+      misProyectos
+        ? areas.filter((a) => esMiProyecto(a, currentUserId))
+        : areas,
+    [areas, misProyectos, currentUserId],
+  );
+
+  const continuas = areasVisibles.filter((a) => a.tipo === "continua");
+  const eventos = areasVisibles.filter((a) => a.tipo === "evento");
 
   useEffect(() => {
     if (tab === "archivadas" && archivadas === null) {
@@ -242,20 +263,32 @@ export function AreasCliente({ areas, usuarios, canManage }: Props) {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Proyectos</h1>
           <p className="text-muted-foreground mt-0.5 text-sm">
-            {areas.length}{" "}
-            {areas.length === 1 ? "proyecto activo" : "proyectos activos"}
+            {areasVisibles.length}{" "}
+            {areasVisibles.length === 1 ? "proyecto activo" : "proyectos activos"}
           </p>
         </div>
-        {canManage && (
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Plus className="size-4" />
-            Nuevo proyecto
+        <div className="flex items-center gap-2">
+          <Button
+            variant={misProyectos ? "default" : "outline"}
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => setMisProyectos((v) => !v)}
+            title="Proyectos donde sos responsable o parte del equipo"
+          >
+            <Users className="size-3.5" />
+            Mis proyectos
           </Button>
-        )}
+          {canManage && (
+            <Button size="sm" onClick={() => setDialogOpen(true)}>
+              <Plus className="size-4" />
+              Nuevo proyecto
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ── Pestañas ──────────────────────────────────────────────────────── */}
@@ -281,11 +314,13 @@ export function AreasCliente({ areas, usuarios, canManage }: Props) {
         listaActual.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-muted-foreground text-sm">
-              {tab === "continua"
-                ? "No hay áreas continuas creadas todavía."
-                : "No hay eventos o iniciativas creados todavía."}
+              {misProyectos
+                ? "No sos responsable ni parte del equipo de ningún proyecto acá."
+                : tab === "continua"
+                  ? "No hay áreas continuas creadas todavía."
+                  : "No hay eventos o iniciativas creados todavía."}
             </p>
-            {canManage && (
+            {!misProyectos && canManage && (
               <Button
                 variant="outline"
                 size="sm"
