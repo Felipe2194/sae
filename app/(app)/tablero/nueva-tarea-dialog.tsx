@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AsignadosPicker } from "@/components/features/asignados-picker";
 import { crearTarea } from "./actions";
 import type { AreaOption, UsuarioOption } from "./page";
@@ -63,6 +64,8 @@ export function NuevaTareaDialog({
   const [responsableId, setResponsableId] = useState("");
   const [asignadosIds, setAsignadosIds] = useState<string[]>([]);
   const [fechaVencimiento, setFechaVencimiento] = useState("");
+  const [paraTodos, setParaTodos] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const AREA_ITEMS = {
     _none: "Sin proyecto",
@@ -82,25 +85,43 @@ export function NuevaTareaDialog({
     setResponsableId("");
     setAsignadosIds([]);
     setFechaVencimiento("");
+    setParaTodos(false);
+    setError(null);
+  }
+
+  function handleParaTodosChange(checked: boolean) {
+    setParaTodos(checked);
+    if (checked) {
+      setResponsableId("");
+      setAsignadosIds([]);
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!titulo.trim()) return;
+    setError(null);
     startTransition(async () => {
-      await crearTarea({
-        titulo: titulo.trim(),
-        descripcion: descripcion.trim(),
-        tipo,
-        prioridad,
-        area_id: areaId || null,
-        responsable_id: responsableId || null,
-        asignados_ids: asignadosIds,
-        fecha_vencimiento: fechaVencimiento || null,
-        estado: "por_hacer",
-      });
-      resetForm();
-      onOpenChange(false);
+      try {
+        await crearTarea({
+          titulo: titulo.trim(),
+          descripcion: descripcion.trim(),
+          tipo,
+          prioridad,
+          area_id: areaId || null,
+          responsable_id: responsableId || null,
+          asignados_ids: asignadosIds,
+          fecha_vencimiento: fechaVencimiento || null,
+          estado: "por_hacer",
+          para_todos: paraTodos,
+        });
+        resetForm();
+        onOpenChange(false);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "No se pudo crear la tarea.",
+        );
+      }
     });
   }
 
@@ -215,6 +236,7 @@ export function NuevaTareaDialog({
                   setResponsableId(!v || v === "_none" ? "" : v)
                 }
                 items={RESPONSABLE_ITEMS}
+                disabled={paraTodos}
               >
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Sin asignar" />
@@ -231,16 +253,33 @@ export function NuevaTareaDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">Colaboradores</Label>
-            <AsignadosPicker
-              usuarios={usuarios}
-              selectedIds={asignadosIds}
-              onChange={setAsignadosIds}
-              placeholder="Sin colaboradores adicionales"
-              permitirTodos
+          <label className="hover:bg-muted/50 -mx-2 flex cursor-pointer items-start gap-2.5 rounded-md p-2">
+            <Checkbox
+              checked={paraTodos}
+              onCheckedChange={(checked) => handleParaTodosChange(checked === true)}
+              className="mt-0.5"
             />
-          </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">Tarea para todo el equipo</span>
+              <span className="text-muted-foreground text-xs">
+                Sin responsable fijo — aparece en el /hoy de cualquiera y la
+                puede tomar el primero que llegue.
+              </span>
+            </div>
+          </label>
+
+          {!paraTodos && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Colaboradores</Label>
+              <AsignadosPicker
+                usuarios={usuarios}
+                selectedIds={asignadosIds}
+                onChange={setAsignadosIds}
+                placeholder="Sin colaboradores adicionales"
+                permitirTodos
+              />
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="nt-fecha" className="text-xs">
@@ -254,6 +293,8 @@ export function NuevaTareaDialog({
               className="h-9"
             />
           </div>
+
+          {error && <p className="text-destructive text-sm">{error}</p>}
 
           <DialogFooter>
             <Button type="submit" disabled={isPending || !titulo.trim()}>

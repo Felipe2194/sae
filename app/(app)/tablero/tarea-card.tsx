@@ -9,11 +9,18 @@ import {
   MessageSquare,
   CheckSquare,
   Repeat,
+  CircleCheck,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { UserAvatarStack } from "@/components/features/user-avatar";
 import type { TareaCard } from "./page";
+
+const SIGUIENTE_ESTADO_LABEL: Record<string, string> = {
+  por_hacer: "Marcar en progreso",
+  en_progreso: "Marcar hecha",
+};
 
 const TIPO_LABEL: Record<string, string> = {
   tarea: "Tarea",
@@ -31,14 +38,17 @@ const PRIORIDAD_COLOR: Record<string, string> = {
 export function TareaCardItem({
   tarea,
   onClick,
+  onAvanzar,
   overlay = false,
   puedeMover = true,
 }: {
   tarea: TareaCard;
   onClick: () => void;
+  onAvanzar?: () => void;
   overlay?: boolean;
   puedeMover?: boolean;
 }) {
+  const siguienteLabel = SIGUIENTE_ESTADO_LABEL[tarea.estado];
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: overlay ? `overlay-${tarea.id}` : tarea.id,
@@ -185,6 +195,27 @@ export function TareaCardItem({
             </div>
             <UserAvatarStack usuarios={asignados} size="sm" max={3} />
           </div>
+
+          {/* Avanzar de estado sin arrastrar — en mobile arrastrar una card
+              es incómodo (el dedo tapa la columna de al lado), así que hay
+              un botón directo Por hacer → En progreso → Hecha. Se oculta
+              desde md: porque ahí el drag-and-drop ya es cómodo con mouse. */}
+          {!overlay && puedeMover && siguienteLabel && onAvanzar && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 w-full gap-1.5 text-xs md:hidden"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAvanzar();
+              }}
+            >
+              <CircleCheck className="size-3.5" />
+              {siguienteLabel}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

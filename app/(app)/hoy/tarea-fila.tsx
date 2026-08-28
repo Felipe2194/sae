@@ -1,7 +1,8 @@
 "use client";
 
 import { useTransition } from "react";
-import { CalendarDays } from "lucide-react";
+import { toast } from "sonner";
+import { CalendarDays, Users } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toggleTarea } from "./actions";
@@ -29,6 +30,7 @@ type TareaFilaProps = {
   fecha: string | null;
   fechaRelativa: string | null;
   vencida: boolean;
+  paraTodos?: boolean;
 };
 
 export function TareaFila({
@@ -41,11 +43,20 @@ export function TareaFila({
   areaNombre,
   fechaRelativa,
   vencida,
+  paraTodos,
 }: TareaFilaProps) {
   const [isPending, startTransition] = useTransition();
 
   function handleToggle() {
-    startTransition(() => toggleTarea(id, estado));
+    startTransition(async () => {
+      try {
+        await toggleTarea(id, estado);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "No se pudo actualizar la tarea.",
+        );
+      }
+    });
   }
 
   const hecha = estado === "hecha";
@@ -80,6 +91,16 @@ export function TareaFila({
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        {paraTodos && (
+          <Badge
+            variant="outline"
+            className="text-[11px] px-1.5 py-0 font-normal gap-1"
+            title="Tarea para todo el equipo — la puede tomar cualquiera"
+          >
+            <Users className="size-3" />
+            Compartida
+          </Badge>
+        )}
         {TIPO_LABEL[tipo] && (
           <Badge variant="outline" className="text-[11px] px-1.5 py-0 font-normal">
             {TIPO_LABEL[tipo]}

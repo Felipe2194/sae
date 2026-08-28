@@ -52,6 +52,14 @@ const COLUMNAS = [
   { estado: "hecha", titulo: "Hecha" },
 ] as const;
 
+// Botón "avanzar estado" en la card (alternativa al drag-and-drop, para
+// mobile donde arrastrar es incómodo): Por hacer → En progreso → Hecha,
+// un paso a la vez. No hay "siguiente" desde Hecha.
+const SIGUIENTE_ESTADO: Record<string, string | undefined> = {
+  por_hacer: "en_progreso",
+  en_progreso: "hecha",
+};
+
 const PRIORIDAD_OPTS = [
   { value: "alta", label: "Alta" },
   { value: "media", label: "Media" },
@@ -103,6 +111,7 @@ function Columna({
   colapsada,
   onToggleColapsar,
   onAbrirModal,
+  onAvanzar,
   currentUserId,
   rol,
 }: {
@@ -113,6 +122,7 @@ function Columna({
   colapsada: boolean;
   onToggleColapsar: () => void;
   onAbrirModal: (t: TareaCard) => void;
+  onAvanzar: (t: TareaCard) => void;
   currentUserId: string;
   rol: string;
 }) {
@@ -173,6 +183,7 @@ function Columna({
             key={t.id}
             tarea={t}
             onClick={() => onAbrirModal(t)}
+            onAvanzar={() => onAvanzar(t)}
             puedeMover={puedeMoverEstadoTarea(t, currentUserId, rol)}
           />
         ))}
@@ -332,16 +343,7 @@ export function TableroCliente({
     });
   }
 
-  function handleDragEnd(event: DragEndEvent) {
-    setActiveDragId(null);
-    const { active, over } = event;
-    if (!over) return;
-    const tareaId = active.id as string;
-    const nuevoEstado = over.id as string;
-    const tarea = tareas.find((t) => t.id === tareaId);
-    if (!tarea || tarea.estado === nuevoEstado) return;
-    if (!puedeMoverEstadoTarea(tarea, currentUserId, rol)) return;
-
+  function moverTarea(tareaId: string, nuevoEstado: string) {
     startTransition(async () => {
       moverOptimista({ tareaId, nuevoEstado });
       try {
@@ -357,6 +359,25 @@ export function TableroCliente({
     });
   }
 
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over) return;
+    const tareaId = active.id as string;
+    const nuevoEstado = over.id as string;
+    const tarea = tareas.find((t) => t.id === tareaId);
+    if (!tarea || tarea.estado === nuevoEstado) return;
+    if (!puedeMoverEstadoTarea(tarea, currentUserId, rol)) return;
+    moverTarea(tareaId, nuevoEstado);
+  }
+
+  function avanzarEstado(tarea: TareaCard) {
+    const siguiente = SIGUIENTE_ESTADO[tarea.estado];
+    if (!siguiente) return;
+    if (!puedeMoverEstadoTarea(tarea, currentUserId, rol)) return;
+    moverTarea(tarea.id, siguiente);
+  }
+
   return (
     <>
       {dragError && (
@@ -366,138 +387,145 @@ export function TableroCliente({
       )}
 
       {/* ── Barra de filtros ──────────────────────────────────────────────── */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-col gap-2.5">
         <div className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
           <SlidersHorizontal className="size-3.5" />
           Filtrar
         </div>
 
-        <Button
-          variant={filtros.misTareas ? "default" : "outline"}
-          size="sm"
-          className="h-8 text-xs"
-          onClick={() => set("misTareas", !filtros.misTareas)}
-        >
-          Mis tareas
-        </Button>
-
-        <Select
-          value={filtros.areaId || "_all"}
-          onValueChange={(v) => set("areaId", !v || v === "_all" ? "" : v)}
-          items={{
-            _all: "Todos los proyectos",
-            [SIN_PROYECTO]: "Sin proyecto",
-            ...Object.fromEntries(areas.map((a) => [a.id, a.nombre])),
-          }}
-        >
-          <SelectTrigger className="h-8 w-36 text-xs">
-            <SelectValue placeholder="Proyecto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">Todos los proyectos</SelectItem>
-            <SelectItem value={SIN_PROYECTO}>Sin proyecto</SelectItem>
-            {areas.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                <span className="flex items-center gap-2">
-                  <span
-                    className="inline-block size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: a.color }}
-                  />
-                  {a.nombre}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filtros.categoria || "_all"}
-          onValueChange={(v) => set("categoria", !v || v === "_all" ? "" : v)}
-          items={{
-            _all: "Todas las categorías",
-            ...Object.fromEntries(
-              CATEGORIA_OPTS.map((c) => [c.value, c.label]),
-            ),
-          }}
-        >
-          <SelectTrigger className="h-8 w-36 text-xs">
-            <SelectValue placeholder="Categoría" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">Todas las categorías</SelectItem>
-            {CATEGORIA_OPTS.map((c) => (
-              <SelectItem key={c.value} value={c.value}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filtros.prioridad || "_all"}
-          onValueChange={(v) => set("prioridad", !v || v === "_all" ? "" : v)}
-          items={{
-            _all: "Toda prioridad",
-            ...Object.fromEntries(
-              PRIORIDAD_OPTS.map((p) => [p.value, p.label]),
-            ),
-          }}
-        >
-          <SelectTrigger className="h-8 w-32 text-xs">
-            <SelectValue placeholder="Prioridad" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">Toda prioridad</SelectItem>
-            {PRIORIDAD_OPTS.map((p) => (
-              <SelectItem key={p.value} value={p.value}>
-                {p.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filtros.responsableId || "_all"}
-          onValueChange={(v) =>
-            set("responsableId", !v || v === "_all" ? "" : v)
-          }
-          items={{
-            _all: "Todos",
-            ...Object.fromEntries(usuarios.map((u) => [u.id, u.nombre])),
-          }}
-        >
-          <SelectTrigger className="h-8 w-36 text-xs">
-            <SelectValue placeholder="Responsable" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">Todos</SelectItem>
-            {usuarios.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                {u.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {hayFiltros && (
+        {/* Fila de controles: scroll horizontal en mobile en vez de wrap —
+            con flex-wrap los selects angostos se apilaban en filas
+            desparejas y el texto elegido quedaba cortado sin espacio. Cada
+            control mantiene su ancho (shrink-0) y se puede scrollear con el
+            dedo; desde sm: hay lugar de sobra y vuelve a wrap normal. */}
+        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
           <Button
-            variant="ghost"
+            variant={filtros.misTareas ? "default" : "outline"}
             size="sm"
-            className="text-muted-foreground h-8 gap-1 text-xs"
-            onClick={limpiar}
+            className="h-8 shrink-0 text-xs"
+            onClick={() => set("misTareas", !filtros.misTareas)}
           >
-            <X className="size-3" />
-            Limpiar
+            Mis tareas
           </Button>
-        )}
 
-        <div className="ml-auto flex items-center gap-3">
+          <Select
+            value={filtros.areaId || "_all"}
+            onValueChange={(v) => set("areaId", !v || v === "_all" ? "" : v)}
+            items={{
+              _all: "Todos los proyectos",
+              [SIN_PROYECTO]: "Sin proyecto",
+              ...Object.fromEntries(areas.map((a) => [a.id, a.nombre])),
+            }}
+          >
+            <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
+              <SelectValue placeholder="Proyecto" className="truncate" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todos los proyectos</SelectItem>
+              <SelectItem value={SIN_PROYECTO}>Sin proyecto</SelectItem>
+              {areas.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="inline-block size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: a.color }}
+                    />
+                    {a.nombre}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filtros.categoria || "_all"}
+            onValueChange={(v) => set("categoria", !v || v === "_all" ? "" : v)}
+            items={{
+              _all: "Todas las categorías",
+              ...Object.fromEntries(
+                CATEGORIA_OPTS.map((c) => [c.value, c.label]),
+              ),
+            }}
+          >
+            <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
+              <SelectValue placeholder="Categoría" className="truncate" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todas las categorías</SelectItem>
+              {CATEGORIA_OPTS.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filtros.prioridad || "_all"}
+            onValueChange={(v) => set("prioridad", !v || v === "_all" ? "" : v)}
+            items={{
+              _all: "Toda prioridad",
+              ...Object.fromEntries(
+                PRIORIDAD_OPTS.map((p) => [p.value, p.label]),
+              ),
+            }}
+          >
+            <SelectTrigger className="h-8 w-32 shrink-0 text-xs">
+              <SelectValue placeholder="Prioridad" className="truncate" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Toda prioridad</SelectItem>
+              {PRIORIDAD_OPTS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filtros.responsableId || "_all"}
+            onValueChange={(v) =>
+              set("responsableId", !v || v === "_all" ? "" : v)
+            }
+            items={{
+              _all: "Todos",
+              ...Object.fromEntries(usuarios.map((u) => [u.id, u.nombre])),
+            }}
+          >
+            <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
+              <SelectValue placeholder="Responsable" className="truncate" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todos</SelectItem>
+              {usuarios.map((u) => (
+                <SelectItem key={u.id} value={u.id}>
+                  {u.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {hayFiltros && (
-            <span className="text-muted-foreground text-xs">
-              {tareasFiltradas.length} tarea
-              {tareasFiltradas.length !== 1 ? "s" : ""}
-            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground h-8 shrink-0 gap-1 text-xs"
+              onClick={limpiar}
+            >
+              <X className="size-3" />
+              Limpiar
+            </Button>
           )}
+        </div>
+
+        {/* Contador + Nueva tarea en su propia fila: compitiendo por lugar
+            con los filtros era lo primero que se rompía en mobile. */}
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-muted-foreground text-xs">
+            {hayFiltros &&
+              `${tareasFiltradas.length} tarea${tareasFiltradas.length !== 1 ? "s" : ""}`}
+          </span>
           <Button
             size="sm"
             className="h-8 gap-1.5 text-xs"
@@ -531,6 +559,7 @@ export function TableroCliente({
                 colapsada={colapsadas.has(col.estado)}
                 onToggleColapsar={() => toggleColapsada(col.estado)}
                 onAbrirModal={abrirModal}
+                onAvanzar={avanzarEstado}
                 currentUserId={currentUserId}
                 rol={rol}
               />

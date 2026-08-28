@@ -116,6 +116,7 @@ type TareaRow = {
   fecha_vencimiento: string | null;
   area_color: string | null;
   area_nombre: string | null;
+  para_todos: boolean;
 };
 
 type StatRow = {
@@ -170,7 +171,12 @@ export default async function HoyPage() {
     bitacoraEquipo,
     prefillHecho,
     novedad,
+    tableroHabilitado,
   } = await withUser(session.user.id, async (tx) => {
+    const [org] = await tx<[{ tablero_habilitado: boolean }]>`
+      select tablero_habilitado from organizacion where id = mi_organizacion_id()
+    `;
+
     const tareas = await tx<TareaRow[]>`
         select
           t.id,
@@ -180,12 +186,14 @@ export default async function HoyPage() {
           t.tipo::text,
           t.fecha_vencimiento::text,
           a.color as area_color,
-          a.nombre as area_nombre
+          a.nombre as area_nombre,
+          t.para_todos
         from tarea t
         left join area a on a.id = t.area_id
         where (
             t.responsable_id = mi_usuario_id()
             or exists (select 1 from tarea_asignado ta where ta.tarea_id = t.id and ta.usuario_id = mi_usuario_id())
+            or t.para_todos = true
           )
           and t.estado != 'hecha'
           and t.archivada = false
@@ -351,6 +359,7 @@ export default async function HoyPage() {
       bitacoraEquipo: [...bitacoraEquipo],
       prefillHecho: lineasHecho.join("\n"),
       novedad: novedad ?? null,
+      tableroHabilitado: org.tablero_habilitado,
     };
   });
 
@@ -448,6 +457,7 @@ export default async function HoyPage() {
                         ? fechaRelativa(t.fecha_vencimiento, hoyISO)
                         : null
                     }
+                    paraTodos={t.para_todos}
                     vencida
                   />
                 ))}
@@ -472,14 +482,16 @@ export default async function HoyPage() {
                   <p className="text-muted-foreground text-sm">
                     No tenés nada pendiente para hoy.
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    nativeButton={false}
-                    render={<Link href="/tablero" />}
-                  >
-                    Ver tablero completo
-                  </Button>
+                  {tableroHabilitado && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      nativeButton={false}
+                      render={<Link href="/tablero" />}
+                    >
+                      Ver tablero completo
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <MisTareasHoy
@@ -495,6 +507,7 @@ export default async function HoyPage() {
                     fechaRelativa: t.fecha_vencimiento
                       ? fechaRelativa(t.fecha_vencimiento, hoyISO)
                       : null,
+                    paraTodos: t.para_todos,
                   }))}
                 />
               )}
@@ -617,6 +630,7 @@ export default async function HoyPage() {
                             ? fechaRelativa(t.fecha_vencimiento, hoyISO)
                             : null
                         }
+                        paraTodos={t.para_todos}
                         vencida={false}
                       />
                     ))}

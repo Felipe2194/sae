@@ -56,43 +56,50 @@ export function BitacoraEquipoCard({ entradas }: Props) {
           </CardTitle>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <CardContent className="flex flex-col gap-3 px-4 pb-4 pt-1">
-            {entradas.map((e, i) => (
-              <div key={i} className="flex gap-2.5 border-t pt-3 first:border-t-0 first:pt-0">
-                <Avatar className="size-7 shrink-0">
-                  <AvatarFallback
-                    className="text-[10px] font-semibold text-white"
-                    style={{ backgroundColor: e.avatar_color ?? "#94a3b8" }}
-                  >
-                    {iniciales(e.nombre)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1 flex flex-col gap-1">
-                  <p className="text-xs font-medium">
-                    {e.nombre.split(" ")[0]}
-                    <span className="text-muted-foreground font-normal"> · {e.hora}</span>
-                  </p>
-                  {e.hecho && (
-                    <p className="text-xs text-muted-foreground whitespace-pre-line">
-                      <span className="font-medium text-foreground">Hizo: </span>
-                      {e.hecho}
+          <CardContent className="px-4 pb-4 pt-1">
+            {/* Altura acotada a la misma zona que ocupa "Accesos rápidos" en
+                la misma columna — con varias entradas cargadas esta card se
+                estiraba mucho más que el resto de la columna. Scroll interno
+                en vez de cortar contenido: la navegación es simplemente
+                scrollear adentro de la card. */}
+            <div className="flex max-h-[131px] flex-col gap-3 overflow-y-auto pr-1">
+              {entradas.map((e, i) => (
+                <div key={i} className="flex gap-2.5 border-t pt-3 first:border-t-0 first:pt-0">
+                  <Avatar className="size-7 shrink-0">
+                    <AvatarFallback
+                      className="text-[10px] font-semibold text-white"
+                      style={{ backgroundColor: e.avatar_color ?? "#94a3b8" }}
+                    >
+                      {iniciales(e.nombre)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1 flex flex-col gap-1">
+                    <p className="text-xs font-medium">
+                      {e.nombre.split(" ")[0]}
+                      <span className="text-muted-foreground font-normal"> · {e.hora}</span>
                     </p>
-                  )}
-                  {e.pendiente && (
-                    <p className="text-xs text-muted-foreground whitespace-pre-line">
-                      <span className="font-medium text-foreground">Quedó pendiente: </span>
-                      {e.pendiente}
-                    </p>
-                  )}
-                  {e.observaciones && (
-                    <p className="text-xs text-muted-foreground whitespace-pre-line">
-                      <span className="font-medium text-foreground">Observaciones: </span>
-                      {e.observaciones}
-                    </p>
-                  )}
+                    {e.hecho && (
+                      <p className="text-xs text-muted-foreground whitespace-pre-line">
+                        <span className="font-medium text-foreground">Hizo: </span>
+                        {e.hecho}
+                      </p>
+                    )}
+                    {e.pendiente && (
+                      <p className="text-xs text-muted-foreground whitespace-pre-line">
+                        <span className="font-medium text-foreground">Quedó pendiente: </span>
+                        {e.pendiente}
+                      </p>
+                    )}
+                    {e.observaciones && (
+                      <p className="text-xs text-muted-foreground whitespace-pre-line">
+                        <span className="font-medium text-foreground">Observaciones: </span>
+                        {e.observaciones}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </CardContent>
         </CollapsibleContent>
       </Card>

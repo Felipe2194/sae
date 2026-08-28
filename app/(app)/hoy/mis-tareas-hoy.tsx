@@ -15,6 +15,7 @@ type TareaRow = {
   areaNombre: string | null;
   fecha: string | null;
   fechaRelativa: string | null;
+  paraTodos?: boolean;
 };
 
 // Lista de "Mis tareas de hoy": dispara un confetti cuando la lista pasa de

@@ -176,6 +176,7 @@ export function TareaModal({
   const [repetir, setRepetir] = useState(
     tarea.recurrencia?.frecuencia ?? "_nunca",
   );
+  const [paraTodos, setParaTodos] = useState(tarea.para_todos);
 
   // ── Detalle (subtareas + comentarios + adjuntos + log) ──────────────────────
   const [subtareas, setSubtareas] = useState<SubtareaRow[]>([]);
@@ -196,6 +197,7 @@ export function TareaModal({
   const [isPendingDelete, startDelete] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+  const [errorArchivar, setErrorArchivar] = useState<string | null>(null);
 
   // ── Subtarea nueva ──────────────────────────────────────────────────────────
   const [nuevaSubtarea, setNuevaSubtarea] = useState("");
@@ -268,6 +270,7 @@ export function TareaModal({
         fecha_vencimiento: tarea.fecha_vencimiento ?? null,
         estado: tarea.estado,
         asignados_ids: tarea.asignados.map((a) => a.id),
+        para_todos: tarea.para_todos,
       };
       try {
         await actualizarTarea(
@@ -290,6 +293,7 @@ export function TareaModal({
               repetir === "_nunca"
                 ? null
                 : { frecuencia: repetir as "diaria" | "semanal" | "mensual" },
+            para_todos: paraTodos,
           },
           prev,
         );
@@ -308,15 +312,28 @@ export function TareaModal({
       return;
     }
     startDelete(async () => {
-      await archivarTarea(tarea.id);
-      onOpenChange(false);
+      try {
+        await archivarTarea(tarea.id);
+        onOpenChange(false);
+      } catch (err) {
+        setErrorArchivar(
+          err instanceof Error ? err.message : "No se pudo archivar la tarea.",
+        );
+        setConfirmDelete(false);
+      }
     });
   }
 
   function handleRestaurar() {
     startDelete(async () => {
-      await restaurarTarea(tarea.id);
-      onOpenChange(false);
+      try {
+        await restaurarTarea(tarea.id);
+        onOpenChange(false);
+      } catch (err) {
+        setErrorArchivar(
+          err instanceof Error ? err.message : "No se pudo restaurar la tarea.",
+        );
+      }
     });
   }
 
@@ -543,6 +560,7 @@ export function TareaModal({
                     setResponsableId(!v || v === "_none" ? "" : v)
                   }
                   items={RESPONSABLE_ITEMS}
+                  disabled={paraTodos}
                 >
                   <SelectTrigger className="h-8 w-full">
                     <SelectValue placeholder="Sin asignar" />
@@ -559,16 +577,40 @@ export function TareaModal({
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Colaboradores</Label>
-              <AsignadosPicker
-                usuarios={usuarios}
-                selectedIds={asignadosIds}
-                onChange={setAsignadosIds}
-                placeholder="Sin colaboradores adicionales"
-                permitirTodos
+            <label className="hover:bg-muted/50 -mx-2 flex cursor-pointer items-start gap-2.5 rounded-md p-2">
+              <Checkbox
+                checked={paraTodos}
+                onCheckedChange={(checked) => {
+                  const v = checked === true;
+                  setParaTodos(v);
+                  if (v) {
+                    setResponsableId("");
+                    setAsignadosIds([]);
+                  }
+                }}
+                className="mt-0.5"
               />
-            </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium">Tarea para todo el equipo</span>
+                <span className="text-muted-foreground text-xs">
+                  Sin responsable fijo — aparece en el /hoy de cualquiera y la
+                  puede tomar el primero que llegue.
+                </span>
+              </div>
+            </label>
+
+            {!paraTodos && (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Colaboradores</Label>
+                <AsignadosPicker
+                  usuarios={usuarios}
+                  selectedIds={asignadosIds}
+                  onChange={setAsignadosIds}
+                  placeholder="Sin colaboradores adicionales"
+                  permitirTodos
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
@@ -1012,7 +1054,10 @@ export function TareaModal({
         </div>
 
         {/* Footer with archive */}
-        <div className="flex shrink-0 items-center justify-end border-t px-5 py-3">
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t px-5 py-3">
+          {errorArchivar && (
+            <p className="text-destructive mr-auto text-xs">{errorArchivar}</p>
+          )}
           {tarea.archivada ? (
             <Button
               variant="outline"

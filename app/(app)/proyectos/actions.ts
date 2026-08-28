@@ -126,8 +126,8 @@ export async function eliminarNota(notaId: string, areaId: string) {
 
 // ── Documentos compartidos del área ─────────────────────────────────────────
 // Reusa acceso_rapido (ya tenía area_id, sin usar hasta ahora — los de
-// /admin siempre quedan con area_id null). Mismas políticas RLS, mismo
-// criterio de permisos que /admin: administrador arma la lista.
+// /configuracion siempre quedan con area_id null). Mismas políticas RLS, mismo
+// criterio de permisos que /configuracion: administrador arma la lista.
 
 export async function crearAccesoArea(
   areaId: string,
@@ -183,6 +183,9 @@ export type AreaArchivadaRow = {
 export async function archivarArea(areaId: string) {
   const session = await requireAdmin();
   await withUser(session.user.id, async (tx) => {
+    const [area] = await tx<[{ nombre: string } | undefined]>`
+      select nombre from area where id = ${areaId} and organizacion_id = mi_organizacion_id()
+    `;
     await tx`
       update area set activa = false, archivada_en = now()
       where id = ${areaId} and organizacion_id = mi_organizacion_id()
@@ -194,6 +197,12 @@ export async function archivarArea(areaId: string) {
         and archivada = false
         and estado != 'hecha'
     `;
+    if (area) {
+      await tx`
+        insert into auditoria (organizacion_id, usuario_id, entidad, entidad_id, entidad_nombre, campo, valor_antes, valor_despues)
+        values (mi_organizacion_id(), mi_usuario_id(), 'area', ${areaId}, ${area.nombre}, 'estado', 'activa', 'archivada')
+      `;
+    }
   });
   revalidatePath("/proyectos");
   revalidatePath(`/proyectos/${areaId}`);
@@ -238,6 +247,9 @@ export async function reactivarArea(
 ) {
   const session = await requireAdmin();
   await withUser(session.user.id, async (tx) => {
+    const [area] = await tx<[{ nombre: string } | undefined]>`
+      select nombre from area where id = ${areaId} and organizacion_id = mi_organizacion_id()
+    `;
     await tx`
       update area set activa = true
       where id = ${areaId} and organizacion_id = mi_organizacion_id()
@@ -247,6 +259,12 @@ export async function reactivarArea(
       await tx`
         insert into tarea (organizacion_id, area_id, titulo, creada_por, orden)
         values (mi_organizacion_id(), ${areaId}, ${titulo.trim()}, mi_usuario_id(), 0)
+      `;
+    }
+    if (area) {
+      await tx`
+        insert into auditoria (organizacion_id, usuario_id, entidad, entidad_id, entidad_nombre, campo, valor_antes, valor_despues)
+        values (mi_organizacion_id(), mi_usuario_id(), 'area', ${areaId}, ${area.nombre}, 'estado', 'archivada', 'activa')
       `;
     }
   });
@@ -377,6 +395,10 @@ export async function actualizarArea(
 ) {
   const session = await requireAdmin();
   await withUser(session.user.id, async (tx) => {
+    const [antes] = await tx<[{ nombre: string; responsable_id: string | null } | undefined]>`
+      select nombre, responsable_id from area
+      where id = ${areaId} and organizacion_id = mi_organizacion_id()
+    `;
     await tx`
       update area set
         nombre         = ${data.nombre},
@@ -393,6 +415,21 @@ export async function actualizarArea(
     if (data.asignados_ids !== undefined) {
       await sincronizarColaboradores(tx, areaId, data.asignados_ids);
     }
+    if (antes && antes.responsable_id !== data.responsable_id) {
+      const nombres = await tx<{ id: string; nombre: string }[]>`
+        select id, nombre from usuario
+        where id = any(${[antes.responsable_id, data.responsable_id].filter((x): x is string => x !== null)}::uuid[])
+      `;
+      const nombreDe = (id: string | null) =>
+        id ? (nombres.find((n) => n.id === id)?.nombre ?? null) : null;
+      await tx`
+        insert into auditoria (organizacion_id, usuario_id, entidad, entidad_id, entidad_nombre, campo, valor_antes, valor_despues)
+        values (
+          mi_organizacion_id(), mi_usuario_id(), 'area', ${areaId}, ${data.nombre},
+          'responsable', ${nombreDe(antes.responsable_id)}, ${nombreDe(data.responsable_id)}
+        )
+      `;
+    }
   });
   revalidatePath("/proyectos");
   revalidatePath(`/proyectos/${areaId}`);
@@ -401,7 +438,7 @@ export async function actualizarArea(
 
 // ── Tareas planificadas ──────────────────────────────────────────────────────
 // Se cargan con activa=false: invisibles en el Tablero y en toda métrica
-// (/hoy, /informes, /admin) hasta que se activan. Reusan subtarea (tabla y
+// (/hoy, /informes, /configuracion) hasta que se activan. Reusan subtarea (tabla y
 // acciones de tablero/actions.ts) tal cual — son genéricas por tarea_id.
 
 export type TareaPlanificadaInput = {

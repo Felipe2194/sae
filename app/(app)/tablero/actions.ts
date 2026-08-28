@@ -52,6 +52,32 @@ async function puedeMoverEstado(
   return esResponsable || fila.soy_asignado || libre;
 }
 
+// Crear una tarea en un proyecto, o editar cualquier campo suyo que no sea
+// el estado, requiere ser administrador o responsable de ese proyecto — un
+// colaborador del área solo trabaja las tareas que ya tiene asignadas (eso
+// lo resuelve puedeMoverEstado). Mismo criterio que requirePlanificador en
+// proyectos/actions.ts (ahí acotado a tareas planificadas); se duplica en
+// vez de importarse cruzado porque cada actions.ts de esta app ya repite sus
+// propios helpers de autorización en vez de compartirlos desde lib/.
+async function puedeGestionarArea(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+  tx: any,
+  areaId: string,
+  session: Awaited<ReturnType<typeof requireAuth>>,
+) {
+  const rol = (session.user as { rol: string }).rol;
+  if (rol === "administrador") return;
+  const [area] = await tx<[{ responsable_id: string | null }]>`
+    select responsable_id from area
+    where id = ${areaId} and organizacion_id = mi_organizacion_id()
+  `;
+  if (!area || area.responsable_id !== session.user.id) {
+    throw new Error(
+      "Solo el administrador o el responsable del proyecto pueden crear o editar tareas de este proyecto.",
+    );
+  }
+}
+
 // ── Tareas recurrentes ───────────────────────────────────────────────────────
 // Cálculo al vuelo, no generación anticipada: al completar una tarea con
 // recurrencia, se clona la siguiente ocurrencia en ese momento (no se crean
@@ -102,11 +128,12 @@ async function generarSiguienteOcurrencia(tx: any, tareaId: string) {
       responsable_id: string | null;
       fecha_vencimiento: string | null;
       recurrencia: Recurrencia;
+      para_todos: boolean;
     }[]
   >`
     select
       area_id, titulo, descripcion, tipo::text, prioridad::text,
-      responsable_id, fecha_vencimiento::text, recurrencia
+      responsable_id, fecha_vencimiento::text, recurrencia, para_todos
     from tarea where id = ${tareaId}
   `;
 
@@ -120,13 +147,13 @@ async function generarSiguienteOcurrencia(tx: any, tareaId: string) {
   await tx`
     insert into tarea (
       organizacion_id, area_id, titulo, descripcion, tipo, prioridad,
-      responsable_id, fecha_vencimiento, recurrencia, estado, creada_por, orden
+      responsable_id, fecha_vencimiento, recurrencia, para_todos, estado, creada_por, orden
     )
     values (
       mi_organizacion_id(), ${tarea.area_id}, ${tarea.titulo}, ${tarea.descripcion},
       ${tarea.tipo}::tipo_tarea, ${tarea.prioridad}::prioridad_tarea,
       ${tarea.responsable_id}, ${siguiente}, ${JSON.stringify(tarea.recurrencia)}::jsonb,
-      'por_hacer', mi_usuario_id(), 0
+      ${tarea.para_todos}, 'por_hacer', mi_usuario_id(), 0
     )
   `;
 }
@@ -160,13 +187,20 @@ export async function crearTarea(input: {
   asignados_ids?: string[];
   fecha_vencimiento: string | null;
   estado: string;
+  para_todos?: boolean;
 }) {
   const session = await requireAuth();
   await withUser(session.user.id, async (tx) => {
+    if (input.area_id) {
+      await puedeGestionarArea(tx, input.area_id, session);
+    }
+    // Defensivo: una tarea para_todos nunca lleva responsable, aunque el
+    // cliente mande algo raro (coincide con el check constraint de la base).
+    const responsableId = input.para_todos ? null : input.responsable_id || null;
     const [{ id }] = await tx<[{ id: string }]>`
       insert into tarea (
         organizacion_id, area_id, titulo, descripcion, tipo, prioridad,
-        responsable_id, fecha_vencimiento, estado, creada_por, orden
+        responsable_id, fecha_vencimiento, estado, para_todos, creada_por, orden
       )
       values (
         mi_organizacion_id(),
@@ -175,19 +209,21 @@ export async function crearTarea(input: {
         ${input.descripcion || null},
         ${input.tipo}::tipo_tarea,
         ${input.prioridad}::prioridad_tarea,
-        ${input.responsable_id || null},
+        ${responsableId},
         ${input.fecha_vencimiento || null},
         ${input.estado}::estado_tarea,
+        ${input.para_todos ?? false},
         mi_usuario_id(),
         0
       )
       returning id
     `;
-    await sincronizarAsignados(tx, id, input.asignados_ids ?? []);
+    const asignadosIds = input.para_todos ? [] : (input.asignados_ids ?? []);
+    await sincronizarAsignados(tx, id, asignadosIds);
 
     const aNotificar = [
-      ...(input.responsable_id ? [input.responsable_id] : []),
-      ...(input.asignados_ids ?? []),
+      ...(responsableId ? [responsableId] : []),
+      ...asignadosIds,
     ];
     if (aNotificar.length > 0) {
       await notificarAsignacion(tx, aNotificar, input.titulo);
@@ -213,6 +249,7 @@ export async function actualizarTarea(
     duracion_estimada_hs?: number | null;
     duracion_real_hs?: number | null;
     recurrencia?: Recurrencia;
+    para_todos?: boolean;
   },
   prev?: {
     titulo: string;
@@ -224,10 +261,12 @@ export async function actualizarTarea(
     fecha_vencimiento: string | null;
     estado: string;
     asignados_ids?: string[];
+    para_todos?: boolean;
   },
 ) {
   const session = await requireAuth();
   const completada_en = data.estado === "hecha" ? new Date() : null;
+  const responsableId = data.para_todos ? null : data.responsable_id;
   await withUser(session.user.id, async (tx) => {
     if (
       prev &&
@@ -239,6 +278,27 @@ export async function actualizarTarea(
       );
     }
 
+    // Editar cualquier campo que no sea el estado (incluido reasignar,
+    // cambiar de proyecto, etc.) de una tarea de un proyecto requiere ser
+    // responsable de ese proyecto o administrador — un colaborador solo
+    // cambia el estado de lo que ya tiene asignado (chequeo de arriba).
+    if (prev && prev.area_id) {
+      const soloCambioDeEstado =
+        data.titulo === prev.titulo &&
+        data.descripcion === prev.descripcion &&
+        data.tipo === prev.tipo &&
+        data.prioridad === prev.prioridad &&
+        data.area_id === prev.area_id &&
+        responsableId === prev.responsable_id &&
+        data.fecha_vencimiento === prev.fecha_vencimiento &&
+        (data.para_todos ?? false) === (prev.para_todos ?? false) &&
+        JSON.stringify([...(data.asignados_ids ?? [])].sort()) ===
+          JSON.stringify([...(prev.asignados_ids ?? [])].sort());
+      if (!soloCambioDeEstado) {
+        await puedeGestionarArea(tx, prev.area_id, session);
+      }
+    }
+
     const actualizadas = await tx`
       update tarea set
         titulo               = ${data.titulo},
@@ -246,13 +306,14 @@ export async function actualizarTarea(
         tipo                 = ${data.tipo}::tipo_tarea,
         prioridad            = ${data.prioridad}::prioridad_tarea,
         area_id              = ${data.area_id},
-        responsable_id       = ${data.responsable_id},
+        responsable_id       = ${responsableId},
         fecha_vencimiento    = ${data.fecha_vencimiento},
         estado               = ${data.estado}::estado_tarea,
         completada_en        = ${completada_en},
         duracion_estimada_hs = ${data.duracion_estimada_hs ?? null},
         duracion_real_hs     = ${data.duracion_real_hs ?? null},
-        recurrencia          = ${data.recurrencia ? JSON.stringify(data.recurrencia) : null}::jsonb
+        recurrencia          = ${data.recurrencia ? JSON.stringify(data.recurrencia) : null}::jsonb,
+        para_todos           = ${data.para_todos ?? false}
       where id = ${tareaId}
         and organizacion_id = mi_organizacion_id()
     `;
@@ -279,8 +340,8 @@ export async function actualizarTarea(
         (id) => !antes.has(id),
       );
       const aNotificar = [
-        ...(data.responsable_id && data.responsable_id !== prev.responsable_id
-          ? [data.responsable_id]
+        ...(responsableId && responsableId !== prev.responsable_id
+          ? [responsableId]
           : []),
         ...nuevosCoasignados,
       ];
@@ -360,9 +421,22 @@ export async function moverEstadoTarea(tareaId: string, estado: string) {
   revalidatePath("/informes");
 }
 
+async function areaDeTarea(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+  tx: any,
+  tareaId: string,
+): Promise<string | null> {
+  const [fila] = await tx<[{ area_id: string | null } | undefined]>`
+    select area_id from tarea where id = ${tareaId} and organizacion_id = mi_organizacion_id()
+  `;
+  return fila?.area_id ?? null;
+}
+
 export async function archivarTarea(tareaId: string) {
   const session = await requireAuth();
   await withUser(session.user.id, async (tx) => {
+    const areaId = await areaDeTarea(tx, tareaId);
+    if (areaId) await puedeGestionarArea(tx, areaId, session);
     await tx`
       update tarea set archivada = true
       where id = ${tareaId}
@@ -377,6 +451,8 @@ export async function archivarTarea(tareaId: string) {
 export async function restaurarTarea(tareaId: string) {
   const session = await requireAuth();
   await withUser(session.user.id, async (tx) => {
+    const areaId = await areaDeTarea(tx, tareaId);
+    if (areaId) await puedeGestionarArea(tx, areaId, session);
     await tx`
       update tarea set archivada = false
       where id = ${tareaId}
@@ -408,6 +484,7 @@ export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
         t.duracion_estimada_hs,
         t.duracion_real_hs,
         t.recurrencia,
+        t.para_todos,
         a.nombre  as area_nombre,
         a.color   as area_color,
         u.nombre  as responsable_nombre,

@@ -28,6 +28,7 @@ export type TareaCard = {
   duracion_estimada_hs: number | null;
   duracion_real_hs: number | null;
   recurrencia: { frecuencia: "diaria" | "semanal" | "mensual" } | null;
+  para_todos: boolean;
 };
 
 export type AreaOption = { id: string; nombre: string; color: string };
@@ -41,9 +42,13 @@ export default async function TableroPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { tareas, areas, usuarios } = await withUser(
+  const { tareas, areas, usuarios, habilitado } = await withUser(
     session.user.id,
     async (tx) => {
+      const [org] = await tx<[{ tablero_habilitado: boolean }]>`
+        select tablero_habilitado from organizacion where id = mi_organizacion_id()
+      `;
+
       // Auto-archivado de tareas viejas: sin esto, cada tarea que se completa
       // y nunca se archiva a mano se queda para siempre en la columna "Hecha",
       // creciendo sin límite en cada carga del tablero (ver auditoría de
@@ -78,6 +83,7 @@ export default async function TableroPage() {
         t.duracion_estimada_hs,
         t.duracion_real_hs,
         t.recurrencia,
+        t.para_todos,
         a.nombre  as area_nombre,
         a.color   as area_color,
         a.categoria::text as area_categoria,
@@ -125,9 +131,12 @@ export default async function TableroPage() {
         tareas: [...tareas],
         areas: [...areas],
         usuarios: [...usuarios],
+        habilitado: org.tablero_habilitado,
       };
     },
   );
+
+  if (!habilitado) redirect("/hoy");
 
   return (
     <TableroCliente
