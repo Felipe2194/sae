@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Check, Camera } from "lucide-react";
+import { Check, Camera, RotateCcw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -43,6 +43,8 @@ type Props = {
   avatarColor: string | null;
   fondoTipo: "gradiente" | "imagen" | null;
   fondoValor: string | null;
+  colorPrincipal: string | null;
+  colorPrincipalOrg: string | null;
 };
 
 export function PerfilForm({
@@ -53,10 +55,15 @@ export function PerfilForm({
   avatarColor,
   fondoTipo: fondoTipoInicial,
   fondoValor: fondoValorInicial,
+  colorPrincipal: colorPrincipalInicial,
+  colorPrincipalOrg,
 }: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [playlistUrlValue, setPlaylistUrlValue] = useState(playlistUrl ?? "");
   const [color, setColor] = useState(avatarColor ?? COLORES[0].hex);
+  const [colorPrincipal, setColorPrincipal] = useState<string | null>(
+    colorPrincipalInicial,
+  );
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -110,6 +117,24 @@ export function PerfilForm({
       el.style.removeProperty("--fondo-dark");
     }
   }, [fondoTipo, fondoGradiente]);
+
+  // Vista previa en vivo del color del sistema — mismo criterio que el
+  // fondo: se pinta directo sobre el mismo wrapper (--primary vive ahí
+  // también, ver app/(app)/layout.tsx). null = "Restablecer": se previsualiza
+  // el color de la organización, no el que tenía guardado antes de tocar
+  // nada (eso lo maneja el cleanup del primer efecto si se navega sin
+  // guardar).
+  useEffect(() => {
+    const el = fondoWrapperRef.current;
+    if (!el) return;
+    if (colorPrincipal) {
+      el.style.setProperty("--primary", colorPrincipal);
+    } else if (colorPrincipalOrg) {
+      el.style.setProperty("--primary", colorPrincipalOrg);
+    } else {
+      el.style.removeProperty("--primary");
+    }
+  }, [colorPrincipal, colorPrincipalOrg]);
 
   // Imagen aparte y con debounce: sin esto, cada tecla tipeada dispara una
   // carga de imagen con la URL a medio escribir — además de inútil, algunos
@@ -222,6 +247,61 @@ export function PerfilForm({
         </CardContent>
       </Card>
 
+      {/* Color del sistema (acento de botones y links en toda la app) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Color del sistema</CardTitle>
+          <CardDescription>
+            El color de los botones y acentos en toda la app. Por defecto es
+            el de la organización — acá podés usar el tuyo propio, solo lo ve
+            tu sesión.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2.5">
+            <button
+              type="button"
+              onClick={() => setColorPrincipal(null)}
+              title="Color de la organización (por defecto)"
+              className="border-border bg-muted hover:bg-muted/70 flex size-8 items-center justify-center rounded-full border transition-all hover:scale-110"
+              style={
+                colorPrincipalOrg
+                  ? { backgroundColor: colorPrincipalOrg }
+                  : undefined
+              }
+              aria-label="Restablecer al color de la organización"
+            >
+              {colorPrincipal === null ? (
+                <Check
+                  className="size-4 text-white drop-shadow"
+                  strokeWidth={3}
+                />
+              ) : (
+                <RotateCcw className="text-muted-foreground size-3.5" />
+              )}
+            </button>
+            {COLORES.map((c) => (
+              <button
+                key={c.hex}
+                type="button"
+                onClick={() => setColorPrincipal(c.hex)}
+                title={c.label}
+                className="flex size-8 items-center justify-center rounded-full transition-all hover:scale-110"
+                style={{ backgroundColor: c.hex }}
+                aria-label={c.label}
+              >
+                {colorPrincipal === c.hex && (
+                  <Check
+                    className="size-4 text-white drop-shadow"
+                    strokeWidth={3}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Fondo (efecto glass) */}
       <Card>
         <CardHeader>
@@ -313,6 +393,11 @@ export function PerfilForm({
         <CardContent>
           <form onSubmit={handleGuardar} className="flex flex-col gap-4">
             <input type="hidden" name="avatar_color" value={color} />
+            <input
+              type="hidden"
+              name="color_principal"
+              value={colorPrincipal ?? ""}
+            />
             <input
               type="hidden"
               name="fondo_tipo"

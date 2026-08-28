@@ -31,6 +31,18 @@ export async function actualizarNombre(formData: FormData) {
     avatarColor = avatarColorRaw;
   }
 
+  // Color del sistema (botones, acentos) — personal, opcional. Vacío =
+  // "Restablecer": se sigue usando el color por defecto de la organización
+  // (ver app/(app)/layout.tsx).
+  const colorPrincipalRaw = ((formData.get('color_principal') as string | null) ?? '').trim();
+  let colorPrincipal: string | null = null;
+  if (colorPrincipalRaw) {
+    if (!/^#[0-9a-fA-F]{6}$/.test(colorPrincipalRaw)) {
+      throw new Error('Color del sistema inválido');
+    }
+    colorPrincipal = colorPrincipalRaw;
+  }
+
   const fondoTipoRaw = (formData.get('fondo_tipo') as string | null) ?? '';
   let fondoTipo: 'gradiente' | 'imagen' | null = null;
   if (fondoTipoRaw === 'gradiente' || fondoTipoRaw === 'imagen') {
@@ -60,7 +72,8 @@ export async function actualizarNombre(formData: FormData) {
         playlist_url = ${playlistUrl},
         avatar_color = ${avatarColor},
         fondo_tipo = ${fondoTipo},
-        fondo_valor = ${fondoValor}
+        fondo_valor = ${fondoValor},
+        color_principal = ${colorPrincipal}
       where id = mi_usuario_id()
     `;
   });

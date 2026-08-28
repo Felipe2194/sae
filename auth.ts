@@ -98,6 +98,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         `;
         if (!origen) return null;
 
+        // es_cuenta_generica = false, salvo que sea la propia cuenta
+        // genérica de origen: "seguir como cuenta de oficina" en vez de
+        // elegir un integrante (ver /cambiar-perfil) — sin esto, un
+        // administrador que entra con esa cuenta y en algún momento cambia
+        // de perfil no tenía forma de volver a actuar como ella (la única
+        // cuenta con rol administrador de una organización nueva).
         const [destino] = await sql<
           {
             id: string;
@@ -113,7 +119,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where id = ${usuarioId}
             and organizacion_id = ${origen.organizacion_id}
             and estado = 'activo'
-            and es_cuenta_generica = false
+            and (es_cuenta_generica = false or id = ${origenGenericoId})
           limit 1
         `;
         if (!destino) return null;

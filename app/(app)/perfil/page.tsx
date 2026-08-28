@@ -11,6 +11,8 @@ type UsuarioRow = {
   avatar_color: string | null;
   fondo_tipo: "gradiente" | "imagen" | null;
   fondo_valor: string | null;
+  color_principal: string | null;
+  color_principal_org: string | null;
 };
 
 export default async function PerfilPage() {
@@ -19,9 +21,13 @@ export default async function PerfilPage() {
 
   const [usuario] = await withUser(session.user.id, async (tx) => {
     return tx<UsuarioRow[]>`
-      select nombre, email, rol::text, playlist_url, avatar_color, fondo_tipo, fondo_valor
-      from usuario
-      where id = mi_usuario_id()
+      select
+        u.nombre, u.email, u.rol::text, u.playlist_url, u.avatar_color,
+        u.fondo_tipo, u.fondo_valor, u.color_principal,
+        o.color_principal as color_principal_org
+      from usuario u
+      join organizacion o on o.id = u.organizacion_id
+      where u.id = mi_usuario_id()
     `;
   });
 
@@ -34,6 +40,8 @@ export default async function PerfilPage() {
       avatarColor={usuario.avatar_color}
       fondoTipo={usuario.fondo_tipo}
       fondoValor={usuario.fondo_valor}
+      colorPrincipal={usuario.color_principal}
+      colorPrincipalOrg={usuario.color_principal_org}
     />
   );
 }

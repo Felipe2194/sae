@@ -48,7 +48,7 @@ export async function crearOrganizacion(data: {
       values (${nombre}, ${slug})
       returning id
     `;
-    // Cuenta genérica de oficina: quien la reciba entra directo a /admin de
+    // Cuenta genérica de oficina: quien la reciba entra directo a /configuracion de
     // su organización y desde ahí da de alta a su equipo (mismo patrón que
     // ya usa cada secretaría hoy — ver comentario en app/(app)/layout.tsx).
     await tx`
@@ -58,5 +58,33 @@ export async function crearOrganizacion(data: {
   });
 
   revalidatePath('/plataforma');
+  return { passwordTemporal };
+}
+
+// Resetea la contraseña de la cuenta genérica (administradora) de una
+// organización — la única forma de recuperar el acceso si esa contraseña se
+// perdió, ya que solo se muestra una vez al crear la organización y hasta
+// ahora no había ninguna otra vía. `password` opcional, mismo criterio que
+// crearUsuario/resetearPassword en Configuración.
+export async function resetearPasswordCuentaGenerica(
+  usuarioId: string,
+  password?: string,
+): Promise<{ passwordTemporal: string | null }> {
+  await requireSuperadmin();
+  if (password && password.length < 8) {
+    throw new Error('La contraseña debe tener al menos 8 caracteres.');
+  }
+
+  const passwordTemporal = password ? null : generarPasswordTemporal();
+  const passwordHash = await bcrypt.hash(password || passwordTemporal!, 10);
+
+  const [usuario] = await sql`
+    update usuario
+    set password_hash = ${passwordHash}
+    where id = ${usuarioId} and es_cuenta_generica = true
+    returning id
+  `;
+  if (!usuario) throw new Error('No se encontró esa cuenta genérica.');
+
   return { passwordTemporal };
 }
