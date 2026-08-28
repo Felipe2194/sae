@@ -43,3 +43,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# datos reales de importación (contactos de colegios: nombres, emails,
+# teléfonos) — solo para uso local del script db/importar-visitas-sae.ts,
+# nunca al repo público
+/db/datos-importacion-sae.json

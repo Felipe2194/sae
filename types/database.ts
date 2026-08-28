@@ -8,6 +8,20 @@ export type EstadoUsuario = "pendiente" | "activo" | "inactivo";
 export type EstadoTarea = "por_hacer" | "en_progreso" | "hecha";
 export type PrioridadTarea = "baja" | "media" | "alta";
 export type TipoAdjunto = "archivo" | "enlace";
+export type TipoVisita =
+  | "visita_colegio"
+  | "nos_visitan"
+  | "feria_expo"
+  | "charla_taller"
+  | "virtual"
+  | "otro";
+export type EstadoVisita =
+  | "pendiente"
+  | "confirmado"
+  | "realizado"
+  | "cancelado"
+  | "reprogramado";
+export type EstadoRelacionColegio = "nuevo" | "activo" | "inactivo";
 
 // === organizacion ============================================================
 
@@ -19,6 +33,12 @@ export interface OrganizacionRow {
   zona_horaria: string;
   color_principal: string | null;
   creada_en: string;
+  calendario_habilitado: boolean;
+  cronograma_habilitado: boolean;
+  proyectos_habilitado: boolean;
+  visitas_habilitado: boolean;
+  tablero_habilitado: boolean;
+  google_calendar_id: string | null;
 }
 
 export interface OrganizacionInsert {
@@ -28,6 +48,12 @@ export interface OrganizacionInsert {
   logo_url?: string | null;
   zona_horaria?: string;
   color_principal?: string | null;
+  calendario_habilitado?: boolean;
+  cronograma_habilitado?: boolean;
+  proyectos_habilitado?: boolean;
+  visitas_habilitado?: boolean;
+  tablero_habilitado?: boolean;
+  google_calendar_id?: string | null;
 }
 
 export type OrganizacionUpdate = Partial<OrganizacionInsert>;
@@ -51,6 +77,7 @@ export interface UsuarioRow {
   fondo_tipo: "gradiente" | "imagen" | null;
   fondo_valor: string | null;
   es_superadmin: boolean;
+  color_principal: string | null;
 }
 
 export interface UsuarioInsert {
@@ -68,6 +95,7 @@ export interface UsuarioInsert {
   fondo_tipo?: "gradiente" | "imagen" | null;
   fondo_valor?: string | null;
   es_superadmin?: boolean;
+  color_principal?: string | null;
 }
 
 export type UsuarioUpdate = Partial<Omit<UsuarioInsert, "organizacion_id">>;
@@ -271,3 +299,88 @@ export interface BitacoraDiariaInsert {
 export type BitacoraDiariaUpdate = Partial<
   Pick<BitacoraDiariaInsert, "hecho" | "pendiente" | "observaciones">
 >;
+
+// === colegio ==================================================================
+
+export interface ColegioRow {
+  id: string;
+  organizacion_id: string;
+  nombre: string;
+  ciudad: string | null;
+  zona: string | null;
+  contacto_nombre: string | null;
+  contacto_cargo: string | null;
+  contacto_email: string | null;
+  contacto_telefono: string | null;
+  estado_relacion: EstadoRelacionColegio;
+  creado_en: string;
+}
+
+export interface ColegioInsert {
+  id?: string;
+  organizacion_id: string;
+  nombre: string;
+  ciudad?: string | null;
+  zona?: string | null;
+  contacto_nombre?: string | null;
+  contacto_cargo?: string | null;
+  contacto_email?: string | null;
+  contacto_telefono?: string | null;
+  estado_relacion?: EstadoRelacionColegio;
+}
+
+export type ColegioUpdate = Partial<Omit<ColegioInsert, "organizacion_id">>;
+
+// === visita_colegio ===========================================================
+
+export interface VisitaColegioRow {
+  id: string;
+  organizacion_id: string;
+  colegio_id: string;
+  fecha: string;
+  hora_inicio: string | null;
+  hora_fin: string | null;
+  tipo: TipoVisita;
+  estado: EstadoVisita;
+  cant_alumnos: number | null;
+  contacto_nombre: string | null;
+  contacto_cargo: string | null;
+  contacto_email: string | null;
+  contacto_telefono: string | null;
+  observaciones: string | null;
+  asignado_por_id: string | null;
+  google_event_id: string | null;
+  creada_por: string;
+  creada_en: string;
+}
+
+export interface VisitaColegioInsert {
+  id?: string;
+  organizacion_id: string;
+  colegio_id: string;
+  fecha: string;
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
+  tipo: TipoVisita;
+  estado?: EstadoVisita;
+  cant_alumnos?: number | null;
+  contacto_nombre?: string | null;
+  contacto_cargo?: string | null;
+  contacto_email?: string | null;
+  contacto_telefono?: string | null;
+  observaciones?: string | null;
+  asignado_por_id?: string | null;
+  google_event_id?: string | null;
+  creada_por: string;
+}
+
+export type VisitaColegioUpdate = Partial<
+  Omit<VisitaColegioInsert, "organizacion_id" | "creada_por">
+>;
+
+// === visita_integrante ========================================================
+
+export interface VisitaIntegranteRow {
+  visita_id: string;
+  usuario_id: string;
+}
