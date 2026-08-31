@@ -1,6 +1,8 @@
 // Tipos TypeScript del modelo de datos. Mantenidos a mano (sin generador Supabase).
 // Cada tabla tiene tres variantes: Row (lectura), Insert (creación), Update (modificación parcial).
 
+import type { CamposFormularioViaje } from "@/lib/viajes/campos-formulario";
+
 // === Enums ===================================================================
 
 export type RolUsuario = "miembro" | "administrador";
@@ -22,6 +24,18 @@ export type EstadoVisita =
   | "cancelado"
   | "reprogramado";
 export type EstadoRelacionColegio = "nuevo" | "activo" | "inactivo";
+export type EstadoViaje =
+  | "borrador"
+  | "inscripciones_abiertas"
+  | "inscripciones_cerradas"
+  | "realizado"
+  | "cancelado";
+export type EstadoIntegranteViaje =
+  | "pendiente"
+  | "confirmado"
+  | "lista_espera"
+  | "rechazado"
+  | "cancelado";
 
 // === organizacion ============================================================
 
@@ -39,6 +53,7 @@ export interface OrganizacionRow {
   visitas_habilitado: boolean;
   tablero_habilitado: boolean;
   google_calendar_id: string | null;
+  viajes_habilitado: boolean;
 }
 
 export interface OrganizacionInsert {
@@ -54,6 +69,7 @@ export interface OrganizacionInsert {
   visitas_habilitado?: boolean;
   tablero_habilitado?: boolean;
   google_calendar_id?: string | null;
+  viajes_habilitado?: boolean;
 }
 
 export type OrganizacionUpdate = Partial<OrganizacionInsert>;
@@ -148,6 +164,7 @@ export interface TareaRow {
   archivada_en: string | null;
   duracion_estimada_hs: number | null;
   duracion_real_hs: number | null;
+  viaje_id: string | null;
 }
 
 export interface TareaInsert {
@@ -168,6 +185,7 @@ export interface TareaInsert {
   archivada?: boolean;
   duracion_estimada_hs?: number | null;
   duracion_real_hs?: number | null;
+  viaje_id?: string | null;
 }
 
 export type TareaUpdate = Partial<
@@ -222,6 +240,7 @@ export interface AccesoRapidoRow {
   id: string;
   organizacion_id: string;
   area_id: string | null;
+  viaje_id: string | null;
   etiqueta: string;
   url: string;
   icono: string | null;
@@ -232,6 +251,7 @@ export interface AccesoRapidoInsert {
   id?: string;
   organizacion_id: string;
   area_id?: string | null;
+  viaje_id?: string | null;
   etiqueta: string;
   url: string;
   icono?: string | null;
@@ -383,4 +403,134 @@ export type VisitaColegioUpdate = Partial<
 export interface VisitaIntegranteRow {
   visita_id: string;
   usuario_id: string;
+}
+
+// === viaje ====================================================================
+
+export interface ViajeRow {
+  id: string;
+  organizacion_id: string;
+  nombre: string;
+  destino: string;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  cupo_maximo: number | null;
+  precio: number | null;
+  estado: EstadoViaje;
+  codigo_publico: string;
+  descripcion_publica: string | null;
+  info_participantes: string | null;
+  campos_formulario: CamposFormularioViaje;
+  creada_por: string;
+  creada_en: string;
+}
+
+export interface ViajeInsert {
+  id?: string;
+  organizacion_id: string;
+  nombre: string;
+  destino: string;
+  fecha_inicio: string;
+  fecha_fin?: string | null;
+  cupo_maximo?: number | null;
+  precio?: number | null;
+  estado?: EstadoViaje;
+  codigo_publico: string;
+  descripcion_publica?: string | null;
+  info_participantes?: string | null;
+  campos_formulario?: CamposFormularioViaje;
+  creada_por: string;
+}
+
+export type ViajeUpdate = Partial<
+  Omit<ViajeInsert, "organizacion_id" | "creada_por" | "codigo_publico">
+>;
+
+// === viaje_integrante =========================================================
+
+export interface ViajeIntegranteRow {
+  id: string;
+  viaje_id: string;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  legajo: string | null;
+  carrera: string | null;
+  anio_cursada: string | null;
+  email: string | null;
+  telefono: string | null;
+  estado: EstadoIntegranteViaje;
+  monto_a_pagar: number | null;
+  notas_internas: string | null;
+  creado_en: string;
+}
+
+export interface ViajeIntegranteInsert {
+  id?: string;
+  viaje_id: string;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  legajo?: string | null;
+  carrera?: string | null;
+  anio_cursada?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  estado?: EstadoIntegranteViaje;
+  monto_a_pagar?: number | null;
+  notas_internas?: string | null;
+}
+
+export type ViajeIntegranteUpdate = Partial<Omit<ViajeIntegranteInsert, "viaje_id">>;
+
+// === viaje_asignado ============================================================
+
+export interface ViajeAsignadoRow {
+  viaje_id: string;
+  usuario_id: string;
+  asignado_en: string;
+}
+
+// === viaje_costo ===============================================================
+
+export interface ViajeCostoRow {
+  id: string;
+  viaje_id: string;
+  concepto: string;
+  monto: number;
+  tarea_id: string | null;
+  fijado_por: string;
+  fijado_en: string;
+}
+
+export interface ViajeCostoInsert {
+  id?: string;
+  viaje_id: string;
+  concepto: string;
+  monto: number;
+  tarea_id?: string | null;
+  fijado_por: string;
+}
+
+// === viaje_pago ================================================================
+
+export interface ViajePagoRow {
+  id: string;
+  viaje_integrante_id: string;
+  monto: number;
+  medio_pago: string | null;
+  fecha_pago: string;
+  comprobante_url: string | null;
+  registrado_por: string;
+  creado_en: string;
+}
+
+export interface ViajePagoInsert {
+  id?: string;
+  viaje_integrante_id: string;
+  monto: number;
+  medio_pago?: string | null;
+  fecha_pago?: string;
+  comprobante_url?: string | null;
+  registrado_por: string;
 }

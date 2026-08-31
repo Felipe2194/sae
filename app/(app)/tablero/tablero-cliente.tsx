@@ -44,7 +44,7 @@ import {
   restaurarTarea,
 } from "./actions";
 import { puedeMoverEstadoTarea } from "./permisos";
-import type { TareaCard, AreaOption, UsuarioOption } from "./page";
+import type { TareaCard, AreaOption, ViajeOption, UsuarioOption } from "./page";
 
 const COLUMNAS = [
   { estado: "por_hacer", titulo: "Por hacer" },
@@ -66,9 +66,21 @@ const PRIORIDAD_OPTS = [
   { value: "baja", label: "Baja" },
 ];
 
+const ORDEN_PRIORIDAD: Record<string, number> = { alta: 0, media: 1, baja: 2 };
+
+// Alta arriba de todo, después media, después baja — se reaplica cada vez
+// que se arma una columna (incluido tras mover una tarea por drag-and-drop)
+// para que la jerarquía nunca dependa de en qué posición del array haya
+// quedado la tarea movida. Sort estable: dentro de una misma prioridad se
+// respeta el orden que ya traía (el de la consulta original).
+function porPrioridad(a: TareaCard, b: TareaCard) {
+  return (ORDEN_PRIORIDAD[a.prioridad] ?? 1) - (ORDEN_PRIORIDAD[b.prioridad] ?? 1);
+}
+
 type Filtros = {
   misTareas: boolean;
   areaId: string;
+  viajeId: string;
   categoria: string;
   prioridad: string;
   responsableId: string;
@@ -77,14 +89,17 @@ type Filtros = {
 const FILTROS_VACIOS: Filtros = {
   misTareas: false,
   areaId: "",
+  viajeId: "",
   categoria: "",
   prioridad: "",
   responsableId: "",
 };
 
 // "Sin proyecto": tareas cotidianas sin area_id — sentinel distinto de ""
-// (que significa "todas") en el filtro de Proyecto.
+// (que significa "todas") en el filtro de Proyecto. Mismo criterio para el
+// filtro de Viaje.
 const SIN_PROYECTO = "_sin_proyecto";
+const SIN_VIAJE = "_sin_viaje";
 
 const CATEGORIA_OPTS = [
   { value: "deportes", label: "Deportes" },
@@ -98,6 +113,7 @@ const CATEGORIA_OPTS = [
 type Props = {
   tareas: TareaCard[];
   areas: AreaOption[];
+  viajes: ViajeOption[];
   usuarios: UsuarioOption[];
   currentUserId: string;
   rol: string;
@@ -202,6 +218,7 @@ const LS_COLUMNAS_COLAPSADAS = "tablero-columnas-colapsadas";
 export function TableroCliente({
   tareas: tareasIniciales,
   areas,
+  viajes,
   usuarios,
   currentUserId,
   rol,
@@ -283,6 +300,7 @@ export function TableroCliente({
   const hayFiltros =
     filtros.misTareas ||
     !!filtros.areaId ||
+    !!filtros.viajeId ||
     !!filtros.categoria ||
     !!filtros.prioridad ||
     !!filtros.responsableId;
@@ -293,6 +311,11 @@ export function TableroCliente({
       if (filtros.areaId === SIN_PROYECTO) {
         if (t.area_id !== null) return false;
       } else if (filtros.areaId && t.area_id !== filtros.areaId) {
+        return false;
+      }
+      if (filtros.viajeId === SIN_VIAJE) {
+        if (t.viaje_id !== null) return false;
+      } else if (filtros.viajeId && t.viaje_id !== filtros.viajeId) {
         return false;
       }
       if (filtros.categoria && t.area_categoria !== filtros.categoria)
@@ -437,6 +460,31 @@ export function TableroCliente({
             </SelectContent>
           </Select>
 
+          {viajes.length > 0 && (
+            <Select
+              value={filtros.viajeId || "_all"}
+              onValueChange={(v) => set("viajeId", !v || v === "_all" ? "" : v)}
+              items={{
+                _all: "Todos los viajes",
+                [SIN_VIAJE]: "Sin viaje",
+                ...Object.fromEntries(viajes.map((v) => [v.id, v.nombre])),
+              }}
+            >
+              <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
+                <SelectValue placeholder="Viaje" className="truncate" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Todos los viajes</SelectItem>
+                <SelectItem value={SIN_VIAJE}>Sin viaje</SelectItem>
+                {viajes.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Select
             value={filtros.categoria || "_all"}
             onValueChange={(v) => set("categoria", !v || v === "_all" ? "" : v)}
@@ -546,9 +594,9 @@ export function TableroCliente({
       >
         <div className="flex flex-col gap-4 md:flex-row">
           {COLUMNAS.map((col) => {
-            const tareasColumna = tareasFiltradas.filter(
-              (t) => t.estado === col.estado,
-            );
+            const tareasColumna = tareasFiltradas
+              .filter((t) => t.estado === col.estado)
+              .sort(porPrioridad);
             return (
               <Columna
                 key={col.estado}

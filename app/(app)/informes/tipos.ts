@@ -84,3 +84,19 @@ export type ReporteVisitas = {
 
 export type LocalidadVisitas = { ciudad: string; visitas: number; alumnos: number };
 export type IntegranteVisitas = { nombre: string; visitas_realizadas: number };
+
+export type ReporteViajes = {
+  viajes_activos: number;
+  inscriptos_confirmados: number;
+  total_recaudado: number;
+  total_costos: number;
+};
+
+export type ViajeResumenInformes = {
+  id: string;
+  nombre: string;
+  estado: string;
+  confirmados: number;
+  recaudado: number;
+  costos: number;
+};

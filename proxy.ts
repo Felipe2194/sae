@@ -1,16 +1,21 @@
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 
-const RUTAS_PUBLICAS = ['/login', '/registro', '/pendiente-de-aprobacion'];
+const RUTAS_PUBLICAS = ['/login', '/registro', '/pendiente-de-aprobacion', '/inscripcion-viaje'];
 
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
 
-  // Ya no hay landing: la raíz manda directo a donde corresponda según la
-  // sesión, en vez de servir una página propia.
+  // '/' sirve la landing pública (app/page.tsx) a quien no tiene sesión;
+  // con sesión sigue mandando directo a /hoy. No se agrega '/' a
+  // RUTAS_PUBLICAS con startsWith porque CUALQUIER path empieza con '/' —
+  // eso volvería pública toda la app.
   if (pathname === '/') {
-    return NextResponse.redirect(new URL(isLoggedIn ? '/hoy' : '/login', req.url));
+    if (isLoggedIn) {
+      return NextResponse.redirect(new URL('/hoy', req.url));
+    }
+    return NextResponse.next();
   }
 
   const isPublica = RUTAS_PUBLICAS.some((r) => pathname.startsWith(r));

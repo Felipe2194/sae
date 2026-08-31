@@ -61,6 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       proyectos_habilitado: boolean;
       visitas_habilitado: boolean;
       tablero_habilitado: boolean;
+      viajes_habilitado: boolean;
     }[]>`
       select
         u.avatar_color, o.logo_url,
@@ -68,7 +69,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         o.color_principal as color_principal_org,
         u.fondo_tipo, u.fondo_valor,
         o.calendario_habilitado, o.cronograma_habilitado,
-        o.proyectos_habilitado, o.visitas_habilitado, o.tablero_habilitado
+        o.proyectos_habilitado, o.visitas_habilitado, o.tablero_habilitado,
+        o.viajes_habilitado
       from usuario u
       join organizacion o on o.id = u.organizacion_id
       where u.id = mi_usuario_id()
@@ -118,6 +120,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           cronograma: fila?.cronograma_habilitado ?? true,
           proyectos: fila?.proyectos_habilitado ?? true,
           visitas: fila?.visitas_habilitado ?? true,
+          viajes: fila?.viajes_habilitado ?? true,
         }}
       />
       <SidebarInset>

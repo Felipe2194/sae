@@ -12,7 +12,8 @@ export type SeccionOpcionalKey =
   | "calendario"
   | "cronograma"
   | "proyectos"
-  | "visitas";
+  | "visitas"
+  | "viajes";
 
 export type SeccionesHabilitadas = Record<SeccionOpcionalKey, boolean>;
 
@@ -51,5 +52,11 @@ export const SECCIONES_OPCIONALES: {
     href: "/visitas",
     label: "Visitas",
     descripcion: "Visitas a colegios, ferias y charlas.",
+  },
+  {
+    key: "viajes",
+    href: "/viajes",
+    label: "Viajes",
+    descripcion: "Viajes a empresas y congresos, con inscripción, pagos y equipo organizador.",
   },
 ];

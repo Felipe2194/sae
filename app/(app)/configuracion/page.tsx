@@ -114,6 +114,7 @@ export default async function AdminPage() {
       select id, etiqueta, url
       from acceso_rapido
       where area_id is null
+        and viaje_id is null
       order by orden asc
     `;
 
@@ -128,6 +129,7 @@ export default async function AdminPage() {
           proyectos_habilitado: boolean;
           visitas_habilitado: boolean;
           tablero_habilitado: boolean;
+          viajes_habilitado: boolean;
           google_calendar_id: string | null;
         }[]
       >`
@@ -135,7 +137,7 @@ export default async function AdminPage() {
         nombre, logo_url, color_principal, zona_horaria,
         calendario_habilitado, cronograma_habilitado,
         proyectos_habilitado, visitas_habilitado, tablero_habilitado,
-        google_calendar_id
+        viajes_habilitado, google_calendar_id
       from organizacion
       where id = mi_organizacion_id()
     `;
@@ -196,6 +198,7 @@ export default async function AdminPage() {
                 cronograma: organizacion.cronograma_habilitado,
                 proyectos: organizacion.proyectos_habilitado,
                 visitas: organizacion.visitas_habilitado,
+                viajes: organizacion.viajes_habilitado,
               }}
             />
           </CardContent>

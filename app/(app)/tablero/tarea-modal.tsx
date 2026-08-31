@@ -11,6 +11,7 @@ import {
   History,
   Paperclip,
   ExternalLink,
+  Flag,
 } from "lucide-react";
 import {
   Dialog,
@@ -99,10 +100,20 @@ const REPETIR_ITEMS = Object.fromEntries(
   REPETIR_OPTS.map((o) => [o.value, o.label]),
 );
 
+// bg-* para el punto de color en el <Select> de prioridad (ahí no compite
+// con ningún otro punto de color, así que el punto es legible tal cual).
 const PRIORIDAD_COLOR: Record<string, string> = {
   baja: "bg-slate-300",
   media: "bg-amber-400",
   alta: "bg-red-500",
+};
+
+// text-* para el ícono de bandera del header: un punto ahí se confundía con
+// el punto de color del proyecto (área) que aparece al lado.
+const PRIORIDAD_TEXT_COLOR: Record<string, string> = {
+  baja: "text-slate-300",
+  media: "text-amber-500",
+  alta: "text-red-500",
 };
 
 function formatRelativo(fechaISO: string): string {
@@ -419,8 +430,10 @@ export function TareaModal({
         <DialogHeader className="shrink-0 gap-2 border-b px-5 pt-5 pb-3">
           <div className="flex items-start justify-between gap-3 pr-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`mt-0.5 size-2.5 shrink-0 rounded-full ${PRIORIDAD_COLOR[prioridad]}`}
+              <Flag
+                className={`mt-0.5 size-3.5 shrink-0 ${PRIORIDAD_TEXT_COLOR[prioridad] ?? "text-slate-300"}`}
+                fill="currentColor"
+                aria-label={`Prioridad ${prioridad}`}
               />
               {area && (
                 <span className="text-muted-foreground flex items-center gap-1.5 text-xs">

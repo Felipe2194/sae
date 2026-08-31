@@ -48,6 +48,8 @@ import type {
   ReporteVisitas,
   LocalidadVisitas,
   IntegranteVisitas,
+  ReporteViajes,
+  ViajeResumenInformes,
 } from "./tipos";
 
 // Paleta validada (dataviz skill): CVD-safe y con contraste suficiente en
@@ -225,17 +227,18 @@ function BarraSimple({ pct }: { pct: number }) {
   );
 }
 
-type Pestaña = "tareas" | "actividad" | "visitas";
+type Pestaña = "tareas" | "actividad" | "visitas" | "viajes";
 
 const PESTAÑAS: { value: Pestaña; label: string; icon: React.ElementType }[] = [
   { value: "tareas", label: "Tareas", icon: Gauge },
   { value: "actividad", label: "Actividad", icon: NotebookPen },
   { value: "visitas", label: "Visitas a colegios", icon: School },
+  { value: "viajes", label: "Viajes", icon: Plane },
 ];
 
 type Props = {
   tabInicial: Pestaña;
-  secciones: { proyectos: boolean; visitas: boolean };
+  secciones: { proyectos: boolean; visitas: boolean; viajes: boolean };
   global: GlobalStats;
   resumenAreas: ResumenArea[];
   porPersona: ResumenPersona[];
@@ -254,6 +257,8 @@ type Props = {
   totalColegios: number;
   anioVisitas: number;
   aniosVisitas: number[];
+  reporteViajes: ReporteViajes;
+  viajesResumen: ViajeResumenInformes[];
 };
 
 export function InformesCliente({
@@ -277,13 +282,17 @@ export function InformesCliente({
   totalColegios,
   anioVisitas,
   aniosVisitas,
+  reporteViajes,
+  viajesResumen,
 }: Props) {
   const router = useRouter();
   const [pestaña, setPestaña] = useState<Pestaña>(tabInicial);
   const [mostrarTodasAreas, setMostrarTodasAreas] = useState(false);
 
   const pestañasVisibles = PESTAÑAS.filter(
-    (p) => p.value !== "visitas" || secciones.visitas,
+    (p) =>
+      (p.value !== "visitas" || secciones.visitas) &&
+      (p.value !== "viajes" || secciones.viajes),
   );
 
   const LIMITE_AREAS = 6;
@@ -977,6 +986,91 @@ export function InformesCliente({
           <p className="text-muted-foreground text-center text-xs">
             <Link href="/visitas" className="hover:text-foreground underline underline-offset-2">
               Ver el detalle de visitas y el directorio de colegios
+            </Link>
+          </p>
+        </div>
+      )}
+
+      {pestaña === "viajes" && (
+        <div className="flex flex-col gap-8">
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatTile label="Viajes activos" value={String(reporteViajes.viajes_activos)} icon={Plane} />
+            <StatTile label="Inscriptos confirmados" value={String(reporteViajes.inscriptos_confirmados)} icon={Users} />
+            <StatTile
+              label="Recaudado"
+              value={`$${reporteViajes.total_recaudado.toLocaleString("es-AR")}`}
+              colorClass={COLOR_COMPLETADAS}
+            />
+            <StatTile
+              label="Costos fijados"
+              value={`$${reporteViajes.total_costos.toLocaleString("es-AR")}`}
+            />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Plane className="text-muted-foreground size-4" />
+              <h2 className="font-semibold">Viajes</h2>
+            </div>
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-xs">
+                        <th className="text-muted-foreground px-4 py-3 font-medium">Viaje</th>
+                        <th className="text-muted-foreground px-3 py-3 text-center font-medium whitespace-nowrap">Confirmados</th>
+                        <th className="text-muted-foreground px-3 py-3 text-right font-medium whitespace-nowrap">Recaudado</th>
+                        <th className="text-muted-foreground px-3 py-3 text-right font-medium whitespace-nowrap">Costos</th>
+                        <th className="px-4 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {viajesResumen.map((v) => (
+                        <tr key={v.id} className="border-b last:border-0">
+                          <td className="px-4 py-2.5">
+                            <Link href={`/viajes/${v.id}`} className="font-medium hover:underline">
+                              {v.nombre}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-2.5 text-center tabular-nums">
+                            <Badge variant="secondary">{v.confirmados}</Badge>
+                          </td>
+                          <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">
+                            ${v.recaudado.toLocaleString("es-AR")}
+                          </td>
+                          <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">
+                            ${v.costos.toLocaleString("es-AR")}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <Link
+                              href={`/reporte-viajes/${v.id}`}
+                              target="_blank"
+                              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline underline-offset-2"
+                            >
+                              <Printer className="size-3" />
+                              Generar reporte
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                      {viajesResumen.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="text-muted-foreground px-4 py-6 text-center text-sm">
+                            No hay viajes cargados todavía.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+
+          <p className="text-muted-foreground text-center text-xs">
+            <Link href="/viajes" className="hover:text-foreground underline underline-offset-2">
+              Ver el módulo de Viajes
             </Link>
           </p>
         </div>

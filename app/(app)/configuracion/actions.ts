@@ -296,7 +296,8 @@ export async function actualizarSecciones(data: SeccionesHabilitadas) {
         calendario_habilitado = ${data.calendario},
         cronograma_habilitado = ${data.cronograma},
         proyectos_habilitado = ${data.proyectos},
-        visitas_habilitado = ${data.visitas}
+        visitas_habilitado = ${data.visitas},
+        viajes_habilitado = ${data.viajes}
       where id = mi_organizacion_id()
     `;
   });
@@ -338,7 +339,7 @@ export async function moverAcceso(
   await withUser(session.user.id, async (tx) => {
     const filas = await tx<{ id: string; orden: number }[]>`
       select id, orden from acceso_rapido
-      where organizacion_id = mi_organizacion_id() and area_id is null
+      where organizacion_id = mi_organizacion_id() and area_id is null and viaje_id is null
       order by orden asc
     `;
     const idx = filas.findIndex((f) => f.id === accesoId);

@@ -18,6 +18,8 @@ import type {
   ReporteVisitas,
   LocalidadVisitas,
   IntegranteVisitas,
+  ReporteViajes,
+  ViajeResumenInformes,
 } from "./tipos";
 
 export default async function InformesPage({
@@ -54,10 +56,14 @@ export default async function InformesPage({
     integrantesVisitas,
     aniosVisitas,
     totalColegios,
+    reporteViajes,
+    viajesResumen,
     secciones,
   } = await withUser(session.user.id, async (tx) => {
-    const [org] = await tx<[{ proyectos_habilitado: boolean; visitas_habilitado: boolean }]>`
-      select proyectos_habilitado, visitas_habilitado from organizacion where id = mi_organizacion_id()
+    const [org] = await tx<
+      [{ proyectos_habilitado: boolean; visitas_habilitado: boolean; viajes_habilitado: boolean }]
+    >`
+      select proyectos_habilitado, visitas_habilitado, viajes_habilitado from organizacion where id = mi_organizacion_id()
     `;
 
     // Estado general de la organización — lo primero que ve el admin al
@@ -333,6 +339,42 @@ export default async function InformesPage({
       select count(*)::int as n from colegio where organizacion_id = mi_organizacion_id()
     `;
 
+    const [reporteViajes] = await tx<[ReporteViajes]>`
+      select
+        count(*) filter (where v.estado in ('inscripciones_abiertas', 'inscripciones_cerradas', 'realizado'))::int as viajes_activos,
+        coalesce((
+          select count(*)::int from viaje_integrante vi
+          join viaje v2 on v2.id = vi.viaje_id
+          where v2.organizacion_id = mi_organizacion_id() and vi.estado = 'confirmado'
+        ), 0) as inscriptos_confirmados,
+        coalesce((
+          select sum(vp.monto)::int from viaje_pago vp
+          join viaje_integrante vi on vi.id = vp.viaje_integrante_id
+          join viaje v3 on v3.id = vi.viaje_id
+          where v3.organizacion_id = mi_organizacion_id()
+        ), 0) as total_recaudado,
+        coalesce((
+          select sum(vc.monto)::int from viaje_costo vc
+          join viaje v4 on v4.id = vc.viaje_id
+          where v4.organizacion_id = mi_organizacion_id()
+        ), 0) as total_costos
+      from viaje v
+      where v.organizacion_id = mi_organizacion_id()
+    `;
+
+    const viajesResumen = await tx<ViajeResumenInformes[]>`
+      select
+        v.id, v.nombre, v.estado::text as estado,
+        count(vi.id) filter (where vi.estado = 'confirmado')::int as confirmados,
+        coalesce((select sum(vp.monto)::int from viaje_pago vp join viaje_integrante vi2 on vi2.id = vp.viaje_integrante_id where vi2.viaje_id = v.id), 0) as recaudado,
+        coalesce((select sum(vc.monto)::int from viaje_costo vc where vc.viaje_id = v.id), 0) as costos
+      from viaje v
+      left join viaje_integrante vi on vi.viaje_id = v.id
+      where v.organizacion_id = mi_organizacion_id()
+      group by v.id
+      order by v.fecha_inicio desc
+    `;
+
     return {
       global,
       resumenAreas,
@@ -351,9 +393,12 @@ export default async function InformesPage({
       integrantesVisitas: [...integrantesVisitas],
       aniosVisitas: aniosVisitasFilas.map((a) => a.anio),
       totalColegios,
+      reporteViajes,
+      viajesResumen: [...viajesResumen],
       secciones: {
         proyectos: org.proyectos_habilitado,
         visitas: org.visitas_habilitado,
+        viajes: org.viajes_habilitado,
       },
     };
   });
@@ -368,9 +413,11 @@ export default async function InformesPage({
   const tabInicial =
     params.tab === "visitas" && secciones.visitas
       ? "visitas"
-      : params.tab === "actividad"
-        ? "actividad"
-        : "tareas";
+      : params.tab === "viajes" && secciones.viajes
+        ? "viajes"
+        : params.tab === "actividad"
+          ? "actividad"
+          : "tareas";
 
   return (
     <InformesCliente
@@ -394,6 +441,8 @@ export default async function InformesPage({
       totalColegios={totalColegios}
       anioVisitas={anioVisitas}
       aniosVisitas={aniosVisitasOpciones}
+      reporteViajes={reporteViajes}
+      viajesResumen={viajesResumen}
     />
   );
 }

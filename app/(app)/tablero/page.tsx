@@ -16,6 +16,8 @@ export type TareaCard = {
   area_nombre: string | null;
   area_color: string | null;
   area_categoria: string | null;
+  viaje_id: string | null;
+  viaje_nombre: string | null;
   responsable_id: string | null;
   responsable_nombre: string | null;
   responsable_avatar_color: string | null;
@@ -32,6 +34,7 @@ export type TareaCard = {
 };
 
 export type AreaOption = { id: string; nombre: string; color: string };
+export type ViajeOption = { id: string; nombre: string };
 export type UsuarioOption = {
   id: string;
   nombre: string;
@@ -42,7 +45,7 @@ export default async function TableroPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { tareas, areas, usuarios, habilitado } = await withUser(
+  const { tareas, areas, viajes, usuarios, habilitado } = await withUser(
     session.user.id,
     async (tx) => {
       const [org] = await tx<[{ tablero_habilitado: boolean }]>`
@@ -77,6 +80,7 @@ export default async function TableroPage() {
         t.fecha_vencimiento::text,
         t.hora_inicio::text,
         t.area_id,
+        t.viaje_id,
         t.responsable_id,
         t.creada_por,
         t.archivada,
@@ -87,6 +91,7 @@ export default async function TableroPage() {
         a.nombre  as area_nombre,
         a.color   as area_color,
         a.categoria::text as area_categoria,
+        v.nombre  as viaje_nombre,
         u.nombre  as responsable_nombre,
         u.avatar_color as responsable_avatar_color,
         coalesce(
@@ -103,14 +108,18 @@ export default async function TableroPage() {
         coalesce((select count(*)::int from comentario c where c.tarea_id = t.id), 0)            as comentario_count
       from tarea t
       left join area    a on a.id = t.area_id
+      left join viaje   v on v.id = t.viaje_id
       left join usuario u on u.id = t.responsable_id
       where t.organizacion_id = mi_organizacion_id() and t.archivada = false and t.activa = true
-      -- Las tareas urgentes (prioridad alta) van primero dentro de cada
-      -- columna, arriba del resto — "(t.prioridad = 'alta') desc" ordena los
-      -- true antes que los false. No hay drag-and-drop de posición dentro de
-      -- una columna (tablero-cliente.tsx solo mueve entre columnas), así que
-      -- este orden no compite con nada que el usuario reacomode a mano.
-      order by (t.prioridad = 'alta') desc, t.orden asc, t.creada_en asc
+      -- Jerarquía de prioridad dentro de cada columna: alta arriba de todo,
+      -- después media, después baja. No hay drag-and-drop de posición dentro
+      -- de una columna (tablero-cliente.tsx solo mueve entre columnas, y
+      -- también reordena por esta misma jerarquía tras cada movimiento), así
+      -- que este orden no compite con nada que el usuario reacomode a mano.
+      order by
+        case t.prioridad when 'alta' then 0 when 'media' then 1 else 2 end,
+        t.orden asc,
+        t.creada_en asc
     `;
 
       const areas = await tx<AreaOption[]>`
@@ -127,9 +136,20 @@ export default async function TableroPage() {
       order by nombre asc
     `;
 
+      // Solo viajes con al menos una tarea de costeo vinculada — evita ofrecer
+      // el filtro para viajes que todavía no fijaron ningún costo como tarea.
+      const viajes = await tx<ViajeOption[]>`
+      select distinct v.id, v.nombre
+      from viaje v
+      join tarea t on t.viaje_id = v.id and t.archivada = false and t.activa = true
+      where v.organizacion_id = mi_organizacion_id()
+      order by v.nombre asc
+    `;
+
       return {
         tareas: [...tareas],
         areas: [...areas],
+        viajes: [...viajes],
         usuarios: [...usuarios],
         habilitado: org.tablero_habilitado,
       };
@@ -142,6 +162,7 @@ export default async function TableroPage() {
     <TableroCliente
       tareas={tareas}
       areas={areas}
+      viajes={viajes}
       usuarios={usuarios}
       currentUserId={session.user.id}
       rol={(session.user as { rol: string }).rol}

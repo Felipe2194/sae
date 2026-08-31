@@ -251,6 +251,7 @@ export default async function HoyPage() {
         from acceso_rapido
         where organizacion_id = mi_organizacion_id()
           and area_id is null
+          and viaje_id is null
         order by orden asc
       `;
 

@@ -10,6 +10,8 @@ import {
   CheckSquare,
   Repeat,
   CircleCheck,
+  Flag,
+  Plane,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,10 +31,14 @@ const TIPO_LABEL: Record<string, string> = {
   reunion: "Reunión",
 };
 
+// Ícono de bandera en vez de punto de color: un punto acá se confundía a
+// simple vista con el punto de color del proyecto (área) que está justo
+// arriba, ambos círculos del mismo tamaño. La bandera es una forma distinta
+// y de lectura inmediata como "prioridad".
 const PRIORIDAD_COLOR: Record<string, string> = {
-  baja: "bg-slate-300",
-  media: "bg-amber-400",
-  alta: "bg-red-500",
+  baja: "text-slate-300",
+  media: "text-amber-500",
+  alta: "text-red-500",
 };
 
 export function TareaCardItem({
@@ -121,13 +127,24 @@ export function TareaCardItem({
           {/* Área + tipo + grip decorativo */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-1.5">
-              <span
-                className="size-2 shrink-0 rounded-full"
-                style={{ backgroundColor: tarea.area_color ?? "#94a3b8" }}
-              />
-              <span className="text-muted-foreground truncate text-xs">
-                {tarea.area_nombre}
-              </span>
+              {tarea.viaje_nombre ? (
+                <>
+                  <Plane className="text-muted-foreground size-3 shrink-0" />
+                  <span className="text-muted-foreground truncate text-xs">
+                    {tarea.viaje_nombre}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: tarea.area_color ?? "#94a3b8" }}
+                  />
+                  <span className="text-muted-foreground truncate text-xs">
+                    {tarea.area_nombre}
+                  </span>
+                </>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-1">
               {tarea.tipo !== "tarea" && (
@@ -144,10 +161,12 @@ export function TareaCardItem({
             </div>
           </div>
 
-          {/* Título + prioridad dot */}
+          {/* Título + prioridad (bandera) */}
           <div className="flex items-start gap-2">
-            <span
-              className={`mt-[5px] size-2 shrink-0 rounded-full ${PRIORIDAD_COLOR[tarea.prioridad] ?? "bg-slate-300"}`}
+            <Flag
+              className={`mt-[3px] size-3 shrink-0 ${PRIORIDAD_COLOR[tarea.prioridad] ?? "text-slate-300"}`}
+              fill="currentColor"
+              aria-label={`Prioridad ${tarea.prioridad}`}
             />
             <p className="flex-1 text-sm leading-snug font-medium">
               {tarea.titulo}

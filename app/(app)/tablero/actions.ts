@@ -478,6 +478,7 @@ export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
         t.fecha_vencimiento::text,
         t.hora_inicio::text,
         t.area_id,
+        t.viaje_id,
         t.responsable_id,
         t.creada_por,
         t.archivada,
@@ -487,6 +488,7 @@ export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
         t.para_todos,
         a.nombre  as area_nombre,
         a.color   as area_color,
+        v.nombre  as viaje_nombre,
         u.nombre  as responsable_nombre,
         u.avatar_color as responsable_avatar_color,
         coalesce(
@@ -503,6 +505,7 @@ export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
         coalesce((select count(*)::int from comentario c where c.tarea_id = t.id), 0)            as comentario_count
       from tarea t
       left join area    a on a.id = t.area_id
+      left join viaje   v on v.id = t.viaje_id
       left join usuario u on u.id = t.responsable_id
       where t.organizacion_id = mi_organizacion_id() and t.archivada = true
       order by t.titulo asc

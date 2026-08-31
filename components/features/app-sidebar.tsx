@@ -15,6 +15,7 @@ import {
   UserRoundCog,
   Globe,
   School,
+  Plane,
 } from "lucide-react";
 import type { SeccionesHabilitadas } from "@/lib/secciones";
 import {
@@ -81,6 +82,13 @@ const ITEMS_BASE: {
     icon: School,
     roles: null,
     seccion: "visitas",
+  },
+  {
+    href: "/viajes",
+    label: "Viajes",
+    icon: Plane,
+    roles: null,
+    seccion: "viajes",
   },
   {
     href: "/informes",
