@@ -152,6 +152,11 @@ export function MusicPlayer({ playlists, usuarioActualId }: Props) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTGlobal>(null);
+  // Evita procesar como "primer cueo" el segundo evento CUED que dispara
+  // el propio cuePlaylist() de más abajo (el que reposiciona el índice
+  // aleatorio) — sin esto, ese segundo CUED intentaría elegir otro índice
+  // random de nuevo, y encima seguiría reentrando indefinidamente.
+  const saltandoIndiceRef = useRef(false);
 
   // Crea el player una sola vez (persiste mientras dure la sesión, no se
   // recrea al cambiar de playlist ni al navegar entre páginas).
@@ -175,14 +180,24 @@ export function MusicPlayer({ playlists, usuarioActualId }: Props) {
           // cueado (que cuePlaylist siempre deja en el índice 0 — se probó
           // recargando varias veces, siempre el mismo primer tema). Para que
           // el arranque también sea al azar hay que saltar nosotros a un
-          // índice random con playVideoAt() una vez que getPlaylist() ya
-          // tiene la lista cargada.
+          // índice random una vez que getPlaylist() ya tiene la lista
+          // cargada — pero con cuePlaylist({ index }) y NO con
+          // playVideoAt(), que sí arranca la reproducción (eso hacía sonar
+          // música apenas se entraba al sistema, sin tocar play). cuePlaylist
+          // deja el video cueado y en pausa, igual que el cueo inicial.
           onStateChange: (e: { data: number; target: YTGlobal }) => {
             if (e.data !== window.YT.PlayerState.CUED) return;
+            if (saltandoIndiceRef.current) {
+              saltandoIndiceRef.current = false;
+              return;
+            }
             e.target.setShuffle(true);
             const lista = e.target.getPlaylist?.();
-            if (Array.isArray(lista) && lista.length > 1) {
-              e.target.playVideoAt(Math.floor(Math.random() * lista.length));
+            const listId = e.target.getPlaylistId?.();
+            if (Array.isArray(lista) && lista.length > 1 && listId) {
+              const indice = Math.floor(Math.random() * lista.length);
+              saltandoIndiceRef.current = true;
+              e.target.cuePlaylist({ listType: "playlist", list: listId, index: indice });
             }
           },
         },
