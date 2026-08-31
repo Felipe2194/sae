@@ -141,6 +141,8 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
                   type="email"
                   placeholder="nombre@frvm.utn.edu.ar"
                   required
+                  maxLength={254}
+                  autoComplete="email"
                   className="h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-white/30 focus-visible:border-white/30"
                 />
               </div>
@@ -153,6 +155,8 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
                   name="password"
                   type="password"
                   required
+                  maxLength={72}
+                  autoComplete="current-password"
                   className="h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus-visible:border-white/30"
                 />
               </div>

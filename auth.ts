@@ -6,7 +6,16 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { sql } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { obtenerIp, registrarIntento, verificarLimiteIntentos } from "@/lib/rate-limit";
 import type { RolUsuario } from "@/types/database";
+
+const VENTANA_RATE_LIMIT_LOGIN_MS = 15 * 60 * 1000;
+
+// Hash bcrypt real (costo 10, igual que bcrypt.hash(password, 10) más abajo)
+// pero de ninguna cuenta existente — se usa solo para que bcrypt.compare
+// tarde lo mismo cuando el email no existe que cuando existe. Ver comentario
+// en authorize().
+const HASH_DUMMY_TIMING = "$2a$10$zo9FMeWrwXf0/UBAbTiUAeQsX6W.ztlhyyNxTQQJ6S8v5zfhGKTvC";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -19,8 +28,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Contraseña", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
+        const email = (credentials.email as string).trim().toLowerCase();
+
+        // El rate-limit de app/login/actions.ts es solo para la UI normal —
+        // Auth.js expone /api/auth/callback/credentials como ruta propia
+        // (ver app/api/auth/[...nextauth]/route.ts), excluida a propósito del
+        // middleware (proxy.ts, necesita quedar pública para el login), así
+        // que alguien puede pegarle directo a esa ruta salteando por completo
+        // esa acción. El límite real tiene que vivir acá adentro, en el único
+        // lugar por el que pasan ambos caminos.
+        const ip = obtenerIp(request.headers);
+        const claveIp = `login:ip:${ip}`;
+        const claveEmail = `login:email:${email}`;
+        const [okIp, okEmail] = await Promise.all([
+          verificarLimiteIntentos(claveIp, 20, VENTANA_RATE_LIMIT_LOGIN_MS),
+          verificarLimiteIntentos(claveEmail, 6, VENTANA_RATE_LIMIT_LOGIN_MS),
+        ]);
+        if (!okIp || !okEmail) return null;
 
         const [usuario] = await sql<
           {
@@ -37,18 +63,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         >`
           select id, nombre, email, password_hash, rol, estado, organizacion_id, es_cuenta_generica, es_superadmin
           from usuario
-          where email = ${credentials.email as string}
+          where email = ${email}
           limit 1
         `;
 
-        if (!usuario) return null;
-        if (usuario.estado !== "activo") return null;
+        // Mismo bcrypt.compare (contra un hash fijo, no uno real) tanto si el
+        // usuario no existe como si existe pero está inactivo: sin esto, la
+        // rama "no existe" responde de inmediato y la rama "existe" tarda lo
+        // que tarda bcrypt, y ese delta de tiempo permite enumerar emails
+        // válidos midiendo la respuesta aunque el mensaje de error sea igual.
+        const hashParaComparar = usuario?.password_hash ?? HASH_DUMMY_TIMING;
+        const valido = await bcrypt.compare(credentials.password as string, hashParaComparar);
 
-        const valido = await bcrypt.compare(
-          credentials.password as string,
-          usuario.password_hash,
-        );
-        if (!valido) return null;
+        if (!usuario || usuario.estado !== "activo" || !valido) {
+          await Promise.all([registrarIntento(claveIp), registrarIntento(claveEmail)]);
+          return null;
+        }
 
         await sql`update usuario set ultimo_login = now() where id = ${usuario.id}`;
 

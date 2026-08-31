@@ -35,6 +35,7 @@ export default function RegistroPage() {
               name="nombre"
               placeholder="Nombre y apellido"
               required
+              maxLength={100}
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -45,6 +46,7 @@ export default function RegistroPage() {
               type="email"
               placeholder="nombre@frvm.utn.edu.ar"
               required
+              maxLength={254}
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -54,6 +56,7 @@ export default function RegistroPage() {
               name="password"
               type="password"
               minLength={8}
+              maxLength={72}
               required
             />
           </div>

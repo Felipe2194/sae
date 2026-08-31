@@ -27,6 +27,18 @@ export async function registrar(
   if (password.length < 8) {
     return { error: 'La contraseña debe tener al menos 8 caracteres.' };
   }
+  // Mismos límites que el maxLength del form — se repiten acá porque ese
+  // atributo se puede saltear. 72 en password porque bcrypt ignora todo lo
+  // que pase ese largo (no tiene sentido aceptar más).
+  if (nombre.length > 100) {
+    return { error: 'El nombre no puede superar los 100 caracteres.' };
+  }
+  if (email.length > 254) {
+    return { error: 'El email no puede superar los 254 caracteres.' };
+  }
+  if (password.length > 72) {
+    return { error: 'La contraseña no puede superar los 72 caracteres.' };
+  }
 
   // Verificar si el email ya está registrado
   const [existente] = await sql`
