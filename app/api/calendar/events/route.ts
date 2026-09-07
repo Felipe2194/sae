@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     const [org] = await tx<[{ google_calendar_id: string | null }]>`
       select google_calendar_id from organizacion where id = mi_organizacion_id()
     `;
-    return org.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null;
+    return org?.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null;
   });
 
   if (!calendarId) {

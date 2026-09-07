@@ -51,6 +51,8 @@ export default async function CalendarioPage() {
     const [org] = await tx<[{ calendario_habilitado: boolean }]>`
       select calendario_habilitado from organizacion where id = mi_organizacion_id()
     `;
+    // Sesión vieja que ya no resuelve a ningún usuario/organización real.
+    if (!org) redirect("/login");
 
     return { tareas: [...tareas], habilitado: org.calendario_habilitado };
   });

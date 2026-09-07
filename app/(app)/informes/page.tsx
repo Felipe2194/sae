@@ -65,6 +65,8 @@ export default async function InformesPage({
     >`
       select proyectos_habilitado, visitas_habilitado, viajes_habilitado from organizacion where id = mi_organizacion_id()
     `;
+    // Sesión vieja que ya no resuelve a ningún usuario/organización real.
+    if (!org) redirect("/login");
 
     // Estado general de la organización — lo primero que ve el admin al
     // entrar, antes de bajar a cualquier detalle por área o por persona.

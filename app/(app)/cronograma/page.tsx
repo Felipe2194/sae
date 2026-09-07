@@ -40,6 +40,8 @@ export default async function CronogramaPage() {
       const [org] = await tx<[{ cronograma_habilitado: boolean }]>`
         select cronograma_habilitado from organizacion where id = mi_organizacion_id()
       `;
+      // Sesión vieja que ya no resuelve a ningún usuario/organización real.
+      if (!org) redirect("/login");
 
       const turnos = await tx<TurnoData[]>`
       select

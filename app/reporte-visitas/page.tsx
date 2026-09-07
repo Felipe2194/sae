@@ -56,6 +56,8 @@ export default async function ReporteVisitasPage({
       >`
         select nombre, logo_url, visitas_habilitado from organizacion where id = mi_organizacion_id()
       `;
+      // Sesión vieja que ya no resuelve a ningún usuario/organización real.
+      if (!organizacion) redirect("/login");
 
       // Mismo criterio que el reporte de Informes (ver app/(app)/informes/page.tsx):
       // "viaje" = visita_colegio o feria_expo, nos_visitan es al revés (vino

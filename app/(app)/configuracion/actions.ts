@@ -419,8 +419,8 @@ export async function crearReunion(
       `;
       return {
         tareaId: id,
-        zonaHoraria: org.zona_horaria,
-        calendarId: org.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
+        zonaHoraria: org?.zona_horaria ?? "UTC",
+        calendarId: org?.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
       };
     },
   );

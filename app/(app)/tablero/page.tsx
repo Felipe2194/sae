@@ -51,6 +51,8 @@ export default async function TableroPage() {
       const [org] = await tx<[{ tablero_habilitado: boolean }]>`
         select tablero_habilitado from organizacion where id = mi_organizacion_id()
       `;
+      // Sesión vieja que ya no resuelve a ningún usuario/organización real.
+      if (!org) redirect("/login");
 
       // Auto-archivado de tareas viejas: sin esto, cada tarea que se completa
       // y nunca se archiva a mano se queda para siempre en la columna "Hecha",

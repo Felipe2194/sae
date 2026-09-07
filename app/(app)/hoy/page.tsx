@@ -176,6 +176,11 @@ export default async function HoyPage() {
     const [org] = await tx<[{ tablero_habilitado: boolean }]>`
       select tablero_habilitado from organizacion where id = mi_organizacion_id()
     `;
+    // session.user.id no resuelve a ningún usuario/organización real (sesión
+    // vieja de una cuenta borrada, o base de datos reseteada sin recargar la
+    // sesión) — es una sesión inválida, no un caso de "organización sin
+    // configurar" como en app/(app)/layout.tsx.
+    if (!org) redirect("/login");
 
     const tareas = await tx<TareaRow[]>`
         select

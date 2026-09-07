@@ -167,8 +167,8 @@ export async function crearVisita(
         visitaId: id,
         colegioNombre: colegio.nombre,
         integrantesNombres: integrantes.map((u) => u.nombre),
-        zonaHoraria: org.zona_horaria,
-        calendarId: org.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
+        zonaHoraria: org?.zona_horaria ?? "UTC",
+        calendarId: org?.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
       };
     });
 
@@ -262,9 +262,9 @@ export async function actualizarVisita(
       return {
         colegioNombre: colegio.nombre,
         integrantesNombres: integrantes.map((u) => u.nombre),
-        zonaHoraria: org.zona_horaria,
+        zonaHoraria: org?.zona_horaria ?? "UTC",
         googleEventIdPrevio: previa.google_event_id,
-        calendarId: org.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
+        calendarId: org?.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
       };
     });
 
@@ -339,7 +339,7 @@ export async function eliminarVisita(visitaId: string): Promise<void> {
     `;
     return {
       googleEventId: visita?.google_event_id ?? null,
-      calendarId: org.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
+      calendarId: org?.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
     };
   });
   if (googleEventId) {

@@ -93,6 +93,8 @@ export default async function ViajeDetallePage({
       const [org] = await tx<[{ viajes_habilitado: boolean }]>`
         select viajes_habilitado from organizacion where id = mi_organizacion_id()
       `;
+      // Sesión vieja que ya no resuelve a ningún usuario/organización real.
+      if (!org) redirect("/login");
 
       const [viajeRow] = await tx<[ViajeDetalle | undefined]>`
         select

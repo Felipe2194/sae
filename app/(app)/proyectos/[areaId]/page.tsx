@@ -165,6 +165,8 @@ export default async function AreaDetallePage({
     const [org] = await tx<[{ proyectos_habilitado: boolean; tablero_habilitado: boolean }]>`
       select proyectos_habilitado, tablero_habilitado from organizacion where id = mi_organizacion_id()
     `;
+    // Sesión vieja que ya no resuelve a ningún usuario/organización real.
+    if (!org) redirect("/login");
 
     const [area] = await tx<AreaRow[]>`
       select

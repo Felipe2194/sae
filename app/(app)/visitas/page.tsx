@@ -72,6 +72,8 @@ export default async function VisitasPage({
       const [org] = await tx<[{ visitas_habilitado: boolean }]>`
         select visitas_habilitado from organizacion where id = mi_organizacion_id()
       `;
+      // Sesión vieja que ya no resuelve a ningún usuario/organización real.
+      if (!org) redirect("/login");
 
       const visitas = await tx<VisitaFila[]>`
         select

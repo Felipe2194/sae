@@ -39,6 +39,8 @@ export default async function AreasPage() {
     const [org] = await tx<[{ proyectos_habilitado: boolean }]>`
       select proyectos_habilitado from organizacion where id = mi_organizacion_id()
     `;
+    // Sesión vieja que ya no resuelve a ningún usuario/organización real.
+    if (!org) redirect("/login");
 
     const areas = await tx<AreaRow[]>`
       select
