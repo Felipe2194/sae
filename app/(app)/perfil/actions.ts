@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { withUser } from '@/lib/db';
+import { urlSegura } from '@/lib/utils';
 
 export async function actualizarNombre(formData: FormData) {
   const session = await auth();
@@ -14,10 +15,10 @@ export async function actualizarNombre(formData: FormData) {
   const playlistRaw = ((formData.get('playlist_url') as string | null) ?? '').trim();
   let playlistUrl: string | null = null;
   if (playlistRaw) {
-    try {
-      new URL(playlistRaw);
-      playlistUrl = playlistRaw;
-    } catch {
+    // Solo http/https: `new URL(...)` sola acepta cualquier esquema,
+    // incluido "javascript:" — ver lib/utils.ts.
+    playlistUrl = urlSegura(playlistRaw);
+    if (!playlistUrl) {
       throw new Error('El link de la playlist no es una URL válida');
     }
   }
@@ -52,9 +53,9 @@ export async function actualizarNombre(formData: FormData) {
   const fondoValorRaw = ((formData.get('fondo_valor') as string | null) ?? '').trim();
   let fondoValor: string | null = fondoValorRaw || null;
   if (fondoTipo === 'imagen' && fondoValor) {
-    try {
-      new URL(fondoValor);
-    } catch {
+    // Solo http/https, mismo criterio que playlistUrl arriba.
+    fondoValor = urlSegura(fondoValor);
+    if (!fondoValor) {
       throw new Error('La URL del fondo no es válida');
     }
   }

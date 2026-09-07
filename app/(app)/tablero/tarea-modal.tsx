@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { toast } from "sonner";
 import {
   Archive,
   ArchiveRestore,
@@ -241,15 +242,21 @@ export function TareaModal({
     e.preventDefault();
     if (!nuevoAdjNombre.trim() || !nuevoAdjUrl.trim()) return;
     startAdj(async () => {
-      await crearAdjunto(tarea.id, {
-        nombre: nuevoAdjNombre.trim(),
-        url: nuevoAdjUrl.trim(),
-      });
-      const updated = await fetchAdjuntos(tarea.id);
-      setAdjuntos(updated);
-      setNuevoAdjNombre("");
-      setNuevoAdjUrl("");
-      setShowAdjForm(false);
+      try {
+        await crearAdjunto(tarea.id, {
+          nombre: nuevoAdjNombre.trim(),
+          url: nuevoAdjUrl.trim(),
+        });
+        const updated = await fetchAdjuntos(tarea.id);
+        setAdjuntos(updated);
+        setNuevoAdjNombre("");
+        setNuevoAdjUrl("");
+        setShowAdjForm(false);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "No se pudo agregar el adjunto.",
+        );
+      }
     });
   }
 

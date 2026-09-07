@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { notificarAsignacion, notificarComentario } from "@/lib/notificaciones";
+import { urlSegura } from "@/lib/utils";
 import type { TareaCard } from "./page";
 
 async function requireAuth() {
@@ -712,10 +713,20 @@ export async function crearAdjunto(
   data: { nombre: string; url: string },
 ) {
   const session = await requireAuth();
+  // Solo http/https: un adjunto de tipo "enlace" se renderiza como <a href>
+  // tal cual (ver tarea-modal.tsx) — un "javascript:..." guardado acá
+  // correría con la sesión de quien lo clickee. El picker de Drive siempre
+  // manda URLs de Google, así que esto nunca lo frena en ese camino.
+  const url = urlSegura(data.url);
+  if (!url) {
+    throw new Error(
+      "El link no es una URL válida (tiene que empezar con http:// o https://).",
+    );
+  }
   await withUser(session.user.id, async (tx) => {
     await tx`
       insert into adjunto (tarea_id, nombre, tipo, url, subido_por)
-      values (${tareaId}, ${data.nombre}, 'enlace'::tipo_adjunto, ${data.url}, mi_usuario_id())
+      values (${tareaId}, ${data.nombre}, 'enlace'::tipo_adjunto, ${url}, mi_usuario_id())
     `;
   });
   revalidatePath("/tablero");
