@@ -251,25 +251,51 @@ export async function actualizarTarea(
     recurrencia?: Recurrencia;
     para_todos?: boolean;
   },
-  prev?: {
-    titulo: string;
-    descripcion: string | null;
-    tipo: string;
-    prioridad: string;
-    area_id: string | null;
-    responsable_id: string | null;
-    fecha_vencimiento: string | null;
-    estado: string;
-    asignados_ids?: string[];
-    para_todos?: boolean;
-  },
 ) {
   const session = await requireAuth();
   const completada_en = data.estado === "hecha" ? new Date() : null;
   const responsableId = data.para_todos ? null : data.responsable_id;
   await withUser(session.user.id, async (tx) => {
+    // Estado previo leído acá adentro, nunca aceptado como parámetro: esto
+    // es una server action invocable directamente (no solo desde
+    // tarea-modal), así que un `prev` que viniera del cliente se podía
+    // omitir u forjar para saltear los dos chequeos de abajo — ambos
+    // dependían enteramente de él. Con esto, los dos leen del mismo estado
+    // que ve el UPDATE de más abajo.
+    const [prevRow] = await tx<
+      [
+        | {
+            titulo: string;
+            descripcion: string | null;
+            tipo: string;
+            prioridad: string;
+            area_id: string | null;
+            responsable_id: string | null;
+            fecha_vencimiento: string | null;
+            estado: string;
+            para_todos: boolean;
+          }
+        | undefined,
+      ]
+    >`
+      select
+        titulo, descripcion, tipo::text as tipo, prioridad::text as prioridad,
+        area_id, responsable_id, fecha_vencimiento::text as fecha_vencimiento,
+        estado::text as estado, para_todos
+      from tarea
+      where id = ${tareaId} and organizacion_id = mi_organizacion_id()
+    `;
+    if (!prevRow) {
+      throw new Error("La tarea no existe.");
+    }
+    const asignadosPrevios = (
+      await tx<{ usuario_id: string }[]>`
+        select usuario_id from tarea_asignado where tarea_id = ${tareaId}
+      `
+    ).map((r) => r.usuario_id);
+    const prev = { ...prevRow, asignados_ids: asignadosPrevios };
+
     if (
-      prev &&
       data.estado !== prev.estado &&
       !(await puedeMoverEstado(tx, tareaId, session))
     ) {
@@ -282,7 +308,7 @@ export async function actualizarTarea(
     // cambiar de proyecto, etc.) de una tarea de un proyecto requiere ser
     // responsable de ese proyecto o administrador — un colaborador solo
     // cambia el estado de lo que ya tiene asignado (chequeo de arriba).
-    if (prev && prev.area_id) {
+    if (prev.area_id) {
       const soloCambioDeEstado =
         data.titulo === prev.titulo &&
         data.descripcion === prev.descripcion &&
@@ -293,7 +319,7 @@ export async function actualizarTarea(
         data.fecha_vencimiento === prev.fecha_vencimiento &&
         (data.para_todos ?? false) === (prev.para_todos ?? false) &&
         JSON.stringify([...(data.asignados_ids ?? [])].sort()) ===
-          JSON.stringify([...(prev.asignados_ids ?? [])].sort());
+          JSON.stringify([...prev.asignados_ids].sort());
       if (!soloCambioDeEstado) {
         await puedeGestionarArea(tx, prev.area_id, session);
       }
@@ -334,47 +360,43 @@ export async function actualizarTarea(
 
     // Notificar a quien se sume como responsable o co-asignado — no a quien
     // ya estaba, para no repetir el aviso en cada guardado sin cambios reales.
-    if (prev) {
-      const antes = new Set(prev.asignados_ids ?? []);
-      const nuevosCoasignados = (data.asignados_ids ?? []).filter(
-        (id) => !antes.has(id),
-      );
-      const aNotificar = [
-        ...(responsableId && responsableId !== prev.responsable_id
-          ? [responsableId]
-          : []),
-        ...nuevosCoasignados,
-      ];
-      if (aNotificar.length > 0) {
-        await notificarAsignacion(tx, aNotificar, data.titulo);
-      }
+    const antes = new Set(prev.asignados_ids);
+    const nuevosCoasignados = (data.asignados_ids ?? []).filter(
+      (id) => !antes.has(id),
+    );
+    const aNotificar = [
+      ...(responsableId && responsableId !== prev.responsable_id
+        ? [responsableId]
+        : []),
+      ...nuevosCoasignados,
+    ];
+    if (aNotificar.length > 0) {
+      await notificarAsignacion(tx, aNotificar, data.titulo);
     }
 
     // Tarea recurrente que se acaba de completar -> clonar la siguiente ocurrencia
-    if (data.estado === "hecha" && prev?.estado !== "hecha") {
+    if (data.estado === "hecha" && prev.estado !== "hecha") {
       await generarSiguienteOcurrencia(tx, tareaId);
     }
 
     // Registrar cambios en el log
-    if (prev) {
-      const CAMPOS: { key: keyof NonNullable<typeof prev>; label: string }[] = [
-        { key: "titulo", label: "Título" },
-        { key: "estado", label: "Estado" },
-        { key: "prioridad", label: "Prioridad" },
-        { key: "tipo", label: "Tipo" },
-        { key: "responsable_id", label: "Responsable" },
-        { key: "fecha_vencimiento", label: "Vencimiento" },
-        { key: "descripcion", label: "Descripción" },
-      ];
-      for (const { key, label } of CAMPOS) {
-        const antes = prev[key] ?? null;
-        const despues = data[key] ?? null;
-        if (antes !== despues) {
-          await tx`
-            insert into tarea_log (tarea_id, usuario_id, campo, valor_antes, valor_despues)
-            values (${tareaId}, mi_usuario_id(), ${label}, ${antes}, ${despues})
-          `;
-        }
+    const CAMPOS: { key: keyof typeof prev; label: string }[] = [
+      { key: "titulo", label: "Título" },
+      { key: "estado", label: "Estado" },
+      { key: "prioridad", label: "Prioridad" },
+      { key: "tipo", label: "Tipo" },
+      { key: "responsable_id", label: "Responsable" },
+      { key: "fecha_vencimiento", label: "Vencimiento" },
+      { key: "descripcion", label: "Descripción" },
+    ];
+    for (const { key, label } of CAMPOS) {
+      const antesValor = prev[key] ?? null;
+      const despuesValor = data[key] ?? null;
+      if (antesValor !== despuesValor) {
+        await tx`
+          insert into tarea_log (tarea_id, usuario_id, campo, valor_antes, valor_despues)
+          values (${tareaId}, mi_usuario_id(), ${label}, ${antesValor}, ${despuesValor})
+        `;
       }
     }
   });

@@ -271,43 +271,30 @@ export function TareaModal({
   function handleSave() {
     setErrorGuardado(null);
     startSave(async () => {
-      const prev = {
-        titulo: tarea.titulo,
-        descripcion: tarea.descripcion ?? null,
-        tipo: tarea.tipo,
-        prioridad: tarea.prioridad,
-        area_id: tarea.area_id,
-        responsable_id: tarea.responsable_id ?? null,
-        fecha_vencimiento: tarea.fecha_vencimiento ?? null,
-        estado: tarea.estado,
-        asignados_ids: tarea.asignados.map((a) => a.id),
-        para_todos: tarea.para_todos,
-      };
       try {
-        await actualizarTarea(
-          tarea.id,
-          {
-            titulo: titulo.trim() || tarea.titulo,
-            descripcion: descripcion.trim() || null,
-            tipo,
-            prioridad,
-            area_id: areaId,
-            responsable_id: responsableId || null,
-            asignados_ids: asignadosIds,
-            fecha_vencimiento: fechaVencimiento || null,
-            estado,
-            duracion_estimada_hs: duracionEstimada.trim()
-              ? Number(duracionEstimada)
-              : null,
-            duracion_real_hs: duracionReal.trim() ? Number(duracionReal) : null,
-            recurrencia:
-              repetir === "_nunca"
-                ? null
-                : { frecuencia: repetir as "diaria" | "semanal" | "mensual" },
-            para_todos: paraTodos,
-          },
-          prev,
-        );
+        // El estado previo para los chequeos de permiso y el log de
+        // auditoría lo lee la propia action desde la base — no se manda
+        // desde acá (ver comentario en actualizarTarea, tablero/actions.ts).
+        await actualizarTarea(tarea.id, {
+          titulo: titulo.trim() || tarea.titulo,
+          descripcion: descripcion.trim() || null,
+          tipo,
+          prioridad,
+          area_id: areaId,
+          responsable_id: responsableId || null,
+          asignados_ids: asignadosIds,
+          fecha_vencimiento: fechaVencimiento || null,
+          estado,
+          duracion_estimada_hs: duracionEstimada.trim()
+            ? Number(duracionEstimada)
+            : null,
+          duracion_real_hs: duracionReal.trim() ? Number(duracionReal) : null,
+          recurrencia:
+            repetir === "_nunca"
+              ? null
+              : { frecuencia: repetir as "diaria" | "semanal" | "mensual" },
+          para_todos: paraTodos,
+        });
         onOpenChange(false);
       } catch (err) {
         setErrorGuardado(
