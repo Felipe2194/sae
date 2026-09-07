@@ -241,6 +241,16 @@ para el login y Calendar.
    **Picker API** únicamente. No reusar `GOOGLE_CALENDAR_API_KEY`: esa ya está
    restringida solo a Calendar y el request de Picker fallaría.
 
+   **Además, restringirla por referrer HTTP** (en la misma pantalla de la
+   API Key, sección "Restricciones de la aplicación" → "Sitios web"):
+   agregar el dominio de producción (`https://tudominio.com/*`) y, si hace
+   falta seguir probando local, `http://localhost:3000/*`. Es
+   `NEXT_PUBLIC_`, así que queda visible en el bundle del navegador para
+   cualquiera que lo busque — restringir solo la API (paso anterior) evita
+   que la usen para otra cosa, pero sin la restricción por sitio cualquiera
+   puede copiarla y usarla desde su propia página, consumiendo la cuota de
+   Picker de esta cuenta de Google Cloud.
+
 **Dónde pegarlo:**
 
 ```
