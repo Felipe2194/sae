@@ -53,7 +53,17 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "bg-popover/85 text-popover-foreground ring-foreground/10 supports-backdrop-filter:backdrop-blur-xl data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl p-4 text-sm ring-1 duration-100 outline-none sm:max-w-sm",
+          // max-h/overflow-y acá porque son la excepción, no la regla: sin
+          // esto, un diálogo con muchos campos (ej. Nueva tarea) se sale del
+          // viewport en un celular con el teclado abierto y el botón de
+          // enviar queda inalcanzable — no hay forma de scrollear para
+          // llegar a él. dvh y no vh: en Safari iOS `vh` mide contra la
+          // ventana con la barra de URL retraída, así que igual se corta.
+          // Los diálogos que ya traían su propio max-h/overflow (tarea-modal,
+          // tarea-planificada-modal, viaje-dialog) lo pisan vía className —
+          // cn() usa tailwind-merge, que resuelve el conflicto a favor del
+          // que llega después.
+          "bg-popover/85 text-popover-foreground ring-foreground/10 supports-backdrop-filter:backdrop-blur-xl data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 grid max-h-[85dvh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl p-4 text-sm ring-1 duration-100 outline-none sm:max-w-sm",
           className,
         )}
         {...props}
