@@ -90,6 +90,20 @@ Falta un reverse proxy con TLS delante (Caddy, Traefik o nginx) — no está
 incluido porque depende de cómo esté armada la infraestructura del
 servidor destino.
 
+**Importante en nginx** (u otro proxy): configurarlo para que REESCRIBA
+`X-Forwarded-For` con la IP real de quien conecta, no que solo le agregue un
+valor a lo que ya venga del cliente.
+
+```nginx
+proxy_set_header X-Forwarded-For $remote_addr;   # correcto
+# NO: proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+`lib/rate-limit.ts` (`obtenerIp`) usa ese header para el límite de intentos
+de login — con `$proxy_add_x_forwarded_for` (el default de muchas guías),
+cualquiera puede seguir mandando su propio `X-Forwarded-For` falso en cada
+intento y evadir el límite por IP.
+
 ## 4. Sin Docker (Node directo)
 
 ```bash
