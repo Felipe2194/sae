@@ -253,6 +253,7 @@ export function TableroCliente({
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(LS_COLUMNAS_COLAPSADAS);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage no existe en el server: este setState solo puede correr después de montar, es justo lo que evita el mismatch de hidratación (ver comentario más arriba).
       if (raw) setColapsadas(new Set(JSON.parse(raw)));
     } catch {
       // localStorage no disponible o valor corrupto — se queda con columnas expandidas.
@@ -279,6 +280,7 @@ export function TableroCliente({
   // Atajo desde el buscador global (Cmd/Ctrl+K → "Nueva tarea"): /tablero?nueva=1
   useEffect(() => {
     if (searchParams.get("nueva") === "1") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con un sistema externo real (el query param de la URL, seteado por el buscador global), no es estado derivable en el render.
       setDialogOpen(true);
       router.replace("/tablero");
     }

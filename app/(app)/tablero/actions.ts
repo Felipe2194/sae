@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { notificarAsignacion, notificarComentario } from "@/lib/notificaciones";
+import { enviarTelegram } from "@/lib/telegram";
 import { urlSegura } from "@/lib/utils";
 import type { TareaCard } from "./page";
 
@@ -191,7 +192,7 @@ export async function crearTarea(input: {
   para_todos?: boolean;
 }) {
   const session = await requireAuth();
-  await withUser(session.user.id, async (tx) => {
+  const mensajeTelegram = await withUser(session.user.id, async (tx) => {
     if (input.area_id) {
       await puedeGestionarArea(tx, input.area_id, session);
     }
@@ -227,9 +228,11 @@ export async function crearTarea(input: {
       ...asignadosIds,
     ];
     if (aNotificar.length > 0) {
-      await notificarAsignacion(tx, aNotificar, input.titulo);
+      return notificarAsignacion(tx, aNotificar, input.titulo);
     }
+    return null;
   });
+  if (mensajeTelegram) await enviarTelegram(mensajeTelegram);
   revalidatePath("/tablero");
   revalidatePath("/hoy");
   revalidatePath("/informes");
@@ -256,7 +259,7 @@ export async function actualizarTarea(
   const session = await requireAuth();
   const completada_en = data.estado === "hecha" ? new Date() : null;
   const responsableId = data.para_todos ? null : data.responsable_id;
-  await withUser(session.user.id, async (tx) => {
+  const mensajeTelegram = await withUser(session.user.id, async (tx) => {
     // Estado previo leído acá adentro, nunca aceptado como parámetro: esto
     // es una server action invocable directamente (no solo desde
     // tarea-modal), así que un `prev` que viniera del cliente se podía
@@ -371,9 +374,10 @@ export async function actualizarTarea(
         : []),
       ...nuevosCoasignados,
     ];
-    if (aNotificar.length > 0) {
-      await notificarAsignacion(tx, aNotificar, data.titulo);
-    }
+    const mensajeAsignacion =
+      aNotificar.length > 0
+        ? await notificarAsignacion(tx, aNotificar, data.titulo)
+        : null;
 
     // Tarea recurrente que se acaba de completar -> clonar la siguiente ocurrencia
     if (data.estado === "hecha" && prev.estado !== "hecha") {
@@ -400,7 +404,9 @@ export async function actualizarTarea(
         `;
       }
     }
+    return mensajeAsignacion;
   });
+  if (mensajeTelegram) await enviarTelegram(mensajeTelegram);
   revalidatePath("/tablero");
   revalidatePath("/hoy");
   revalidatePath("/informes");
@@ -416,6 +422,21 @@ export async function moverEstadoTarea(tareaId: string, estado: string) {
       );
     }
 
+    // `for update` bloquea la fila hasta el commit: dos llamadas casi
+    // simultáneas a moverEstadoTarea (ej. doble-tap en "Marcar hecha", que
+    // no deshabilita el botón mientras la acción está pendiente) quedan
+    // serializadas acá en vez de leer ambas el mismo estado previo y
+    // duplicar la generación de la siguiente ocurrencia más abajo.
+    const [prevRow] = await tx<[{ estado: string } | undefined]>`
+      select estado::text as estado from tarea
+      where id = ${tareaId} and organizacion_id = mi_organizacion_id()
+      for update
+    `;
+    if (!prevRow) {
+      throw new Error("La tarea no existe.");
+    }
+    const estadoPrevio = prevRow.estado;
+
     const actualizadas = await tx`
       update tarea set
         estado        = ${estado}::estado_tarea,
@@ -426,16 +447,18 @@ export async function moverEstadoTarea(tareaId: string, estado: string) {
     if (actualizadas.count === 0) {
       throw new Error("No se pudo mover la tarea: no tenés permiso.");
     }
-    await tx`
-      insert into tarea_log (tarea_id, usuario_id, campo, valor_antes, valor_despues)
-      select ${tareaId}, mi_usuario_id(), 'Estado', estado::text, ${estado}
-      from tarea where id = ${tareaId}
-    `;
+    // Antes esto leía `estado` de `tarea` DESPUÉS del update de arriba, así
+    // que valor_antes quedaba igual a valor_despues (perdía el estado
+    // previo real en el historial). Ahora usa el valor leído antes de
+    // actualizar.
+    if (estadoPrevio !== estado) {
+      await tx`
+        insert into tarea_log (tarea_id, usuario_id, campo, valor_antes, valor_despues)
+        values (${tareaId}, mi_usuario_id(), 'Estado', ${estadoPrevio}, ${estado})
+      `;
+    }
 
-    // El drag-and-drop del lado del cliente ya evita llamar acá si no hubo
-    // cambio real de estado, así que llegar con 'hecha' implica que antes no
-    // lo estaba.
-    if (estado === "hecha") {
+    if (estado === "hecha" && estadoPrevio !== "hecha") {
       await generarSiguienteOcurrencia(tx, tareaId);
     }
   });
@@ -641,7 +664,7 @@ export async function eliminarSubtarea(subtareaId: string) {
 
 export async function crearComentario(tareaId: string, contenido: string) {
   const session = await requireAuth();
-  await withUser(session.user.id, async (tx) => {
+  const mensajeTelegram = await withUser(session.user.id, async (tx) => {
     await tx`
       insert into comentario (tarea_id, autor_id, contenido)
       values (${tareaId}, mi_usuario_id(), ${contenido})
@@ -654,14 +677,16 @@ export async function crearComentario(tareaId: string, contenido: string) {
       select responsable_id, titulo from tarea where id = ${tareaId}
     `;
     if (tarea?.responsable_id) {
-      await notificarComentario(
+      return notificarComentario(
         tx,
         tarea.responsable_id,
         tarea.titulo,
         session.user.name ?? "Alguien",
       );
     }
+    return null;
   });
+  if (mensajeTelegram) await enviarTelegram(mensajeTelegram);
   revalidatePath("/tablero");
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserAvatarStack } from "@/components/features/user-avatar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useHasMounted } from "@/hooks/use-has-mounted";
 import type { TareaCard } from "./page";
 
 const SIGUIENTE_ESTADO_LABEL: Record<string, string> = {
@@ -74,8 +75,7 @@ export function TareaCardItem({
   // dnd-kit genera aria-describedby con un id autoincremental que no coincide
   // entre el render de servidor y el de cliente — se activa recién montado en
   // el cliente para evitar el hydration mismatch.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHasMounted();
 
   const style = transform
     ? { transform: CSS.Translate.toString(transform) }

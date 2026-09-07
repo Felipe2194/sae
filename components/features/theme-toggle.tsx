@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
+import { useHasMounted } from "@/hooks/use-has-mounted";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   // Evita mismatch de hidratación: el tema real solo se conoce en el cliente.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHasMounted();
 
   if (!mounted) {
     return <div className="size-8 shrink-0" aria-hidden />;

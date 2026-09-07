@@ -1,0 +1,104 @@
+# Stack de producción para servidor propio, pensado para Docker Swarm en un
+# solo nodo (ver docs/migracion-servidores-propios.md sección 3). No usarlo
+# con `docker compose up`: las claves bajo `deploy:` las ignora Compose
+# clásico — este archivo se despliega con `docker stack deploy`, que sí las
+# respeta y es lo que da el rolling update sin downtime.
+#
+# Por qué Swarm y no Compose a secas: `deploy.update_config.order: start-first`
+# hace que, al desplegar una imagen nueva, el contenedor viejo siga sirviendo
+# tráfico hasta que el nuevo pasa su HEALTHCHECK — recién ahí se corta el
+# viejo. Con `docker compose up -d --build` a secas, Compose primero para el
+# contenedor viejo y recién después arranca el nuevo: hay una ventana real
+# sin servir nada, que es justo lo que se quiere evitar. Alcanza con
+# `docker swarm init` una vez en el servidor (no hace falta un cluster real,
+# funciona igual con un solo nodo) y no agrega ninguna dependencia nueva.
+#
+# Uso: ver scripts/deploy.sh
+
+services:
+  db:
+    image: postgres:17-alpine
+    env_file: .env.prod
+    environment:
+      POSTGRES_DB: sae
+      POSTGRES_USER: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sae"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      replicas: 1
+      # La base NO lleva start-first: dos Postgres apuntando al mismo volumen
+      # a la vez corrompen los datos. stop-first (default) es lo correcto acá
+      # — el downtime de unos segundos de la base durante su propio update es
+      # aceptable porque casi nunca cambia (image: postgres:17-alpine fijo),
+      # a diferencia de la app, que cambia en cada deploy.
+      update_config:
+        order: stop-first
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        constraints: [node.role == manager]
+    networks: [sae_net]
+
+  app:
+    # deploy.sh sobreescribe esto con `IMAGE=sae-app:<sha> docker stack deploy`.
+    image: ${IMAGE:-sae-app:latest}
+    env_file: .env.prod
+    ports:
+      - "3000:3000"
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      replicas: 1
+      update_config:
+        order: start-first      # ← acá está el zero-downtime real
+        delay: 5s
+        monitor: 15s
+        failure_action: rollback
+        max_failure_ratio: 0
+      rollback_config:
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 30s
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks: [sae_net]
+    # El HEALTHCHECK ya viene definido en el Dockerfile (imagen) — Swarm lo
+    # usa automáticamente para decidir cuándo el contenedor nuevo está listo.
+
+networks:
+  # external + creada a mano una vez (ver scripts/deploy.sh) en vez de dejar
+  # que `docker stack deploy` la cree: así el nombre no queda prefijado por
+  # el stack (evita desajustes si el stack se renombra) y puede marcarse
+  # `--attachable`, imprescindible para que `docker run --network sae_net`
+  # (el contenedor de migraciones, que NO es parte del stack) pueda unirse —
+  # una red overlay creada por `docker stack deploy` sin este flag rechaza
+  # contenedores sueltos.
+  sae_net:
+    external: true
+
+volumes:
+  postgres_data:
