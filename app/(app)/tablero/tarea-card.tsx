@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserAvatarStack } from "@/components/features/user-avatar";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { TareaCard } from "./page";
 
 const SIGUIENTE_ESTADO_LABEL: Record<string, string> = {
@@ -55,11 +56,19 @@ export function TareaCardItem({
   puedeMover?: boolean;
 }) {
   const siguienteLabel = SIGUIENTE_ESTADO_LABEL[tarea.estado];
+  // Sin esto, deslizar el dedo sobre una card para scrollear la columna en
+  // celular competía con el drag (PointerSensor de dnd-kit no distingue
+  // "querés arrastrar" de "querés scrollear" hasta pasados los 8px de
+  // activationConstraint, y para entonces el gesto ya arrancó mal). Abajo de
+  // md el botón "Marcar en progreso/hecha" (más abajo, md:hidden) ya cubre
+  // el mismo caso de uso sin arrastrar.
+  const isMobile = useIsMobile();
+  const dragHabilitado = puedeMover && !isMobile;
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: overlay ? `overlay-${tarea.id}` : tarea.id,
       data: { estado: tarea.estado },
-      disabled: overlay || !puedeMover,
+      disabled: overlay || !dragHabilitado,
     });
 
   // dnd-kit genera aria-describedby con un id autoincremental que no coincide
@@ -106,15 +115,16 @@ export function TareaCardItem({
       // El arrastre se activa desde cualquier parte de la card — PointerSensor
       // ya exige 8px de movimiento antes de considerarlo drag, así que un
       // click normal (sin mover el mouse) sigue abriendo el detalle. Sin
-      // permiso para cambiar el estado, no se registran los listeners: la
-      // card se sigue pudiendo abrir (ver detalle), pero no arrastrar.
-      {...(mounted && !overlay && puedeMover ? listeners : undefined)}
-      {...(mounted && !overlay && puedeMover ? attributes : undefined)}
+      // permiso para cambiar el estado, o en celular, no se registran los
+      // listeners: la card se sigue pudiendo abrir (ver detalle), pero no
+      // arrastrar.
+      {...(mounted && !overlay && dragHabilitado ? listeners : undefined)}
+      {...(mounted && !overlay && dragHabilitado ? attributes : undefined)}
       className={isDragging ? "opacity-40" : ""}
     >
       <Card
         className={`gap-0 rounded-xl py-0 shadow-sm transition-all duration-150 select-none hover:-translate-y-0.5 hover:shadow-lg ${
-          puedeMover ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+          dragHabilitado ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
         } ${tarea.prioridad === "alta" && tarea.estado !== "hecha" ? "ring-1 ring-red-500/25" : ""}`}
         onClick={onClick}
         title={
@@ -152,7 +162,7 @@ export function TareaCardItem({
                   {TIPO_LABEL[tarea.tipo] ?? tarea.tipo}
                 </Badge>
               )}
-              {!overlay && puedeMover && (
+              {!overlay && dragHabilitado && (
                 <GripVertical
                   className="text-muted-foreground/30 pointer-events-none size-3.5"
                   aria-hidden
