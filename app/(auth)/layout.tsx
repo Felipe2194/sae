@@ -83,27 +83,29 @@ export default async function AuthLayout({
       <div className="flex flex-1 flex-col items-center justify-center p-6">
         {/* Logo visible solo en mobile */}
         <div className="mb-8 flex flex-col items-center gap-2 lg:hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={logo}
-            alt="UTN Villa María"
-            width={180}
-            className={org?.logo_url ? "block" : "block dark:hidden"}
-            style={{ objectFit: "contain" }}
-          />
-          {/* display no puede ir en `style` inline: le gana en especificidad
-              a dark:hidden/dark:block y las dos imágenes quedaban visibles a
-              la vez sin importar el tema. */}
-          {!org?.logo_url && (
-            // eslint-disable-next-line @next/next/no-img-element
+          <Link href="/" aria-label="Volver a la página principal">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/LogoUTN-dark.png"
+              src={logo}
               alt="UTN Villa María"
               width={180}
-              className="hidden dark:block"
+              className={org?.logo_url ? "block" : "block dark:hidden"}
               style={{ objectFit: "contain" }}
             />
-          )}
+            {/* display no puede ir en `style` inline: le gana en especificidad
+                a dark:hidden/dark:block y las dos imágenes quedaban visibles a
+                la vez sin importar el tema. */}
+            {!org?.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src="/LogoUTN-dark.png"
+                alt="UTN Villa María"
+                width={180}
+                className="hidden dark:block"
+                style={{ objectFit: "contain" }}
+              />
+            )}
+          </Link>
           <p className="text-muted-foreground mt-1 text-sm">
             Sistema de Administración Estudiantil
           </p>
