@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { urlSegura } from "@/lib/utils";
 import type { EstadoIntegranteViaje } from "@/types/database";
 
 async function requireAuth() {
@@ -49,7 +50,8 @@ export async function crearAccesoViaje(
 ): Promise<{ id: string } | null> {
   const session = await requireAuth();
   const etiquetaLimpia = etiqueta.trim();
-  const urlLimpia = url.trim();
+  // Solo http/https: ver comentario en crearAcceso, configuracion/actions.ts.
+  const urlLimpia = urlSegura(url.trim());
   if (!etiquetaLimpia || !urlLimpia) return null;
   const { id } = await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);

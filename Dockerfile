@@ -21,6 +21,16 @@ ENV DATABASE_URL=postgresql://placeholder:placeholder@placeholder:5432/placehold
 ENV AUTH_SECRET=placeholder-build-only
 RUN npm run build
 
+# Imagen para aplicar migraciones (db/migrate.ts) contra un Postgres de
+# producción. Se construye aparte con `--target migrator` y NO es la imagen
+# que se despliega — la de abajo (runner) es standalone y no incluye tsx ni
+# la carpeta db/, así que `docker compose exec app ...` con esa imagen no
+# puede correr migraciones (ver docs/migracion-servidores-propios.md). Esta
+# reusa `builder`, que ya tiene el repo completo + devDependencies.
+FROM builder AS migrator
+WORKDIR /app
+CMD ["node_modules/.bin/tsx", "db/migrate.ts"]
+
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -34,5 +44,13 @@ USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+
+# Usado por el orquestador (Swarm/Compose) para saber cuándo el contenedor
+# nuevo ya está listo antes de cortarle el tráfico al viejo — ver
+# docs/migracion-servidores-propios.md sección "Zero-downtime". Sin curl/wget
+# instalados en la imagen (alpine no los trae por defecto): el fetch global
+# de Node 22 alcanza, sin sumar paquetes.
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "server.js"]

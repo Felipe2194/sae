@@ -136,7 +136,7 @@ export function VisitasCliente({
   const quedanMas = listaCompleta.length > lista.length;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Visitas a colegios</h1>

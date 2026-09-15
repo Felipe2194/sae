@@ -4,7 +4,7 @@ import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { obtenerIp, registrarIntento, verificarLimiteIntentos } from '@/lib/rate-limit';
+import { obtenerIp, verificarLimiteIntentos } from '@/lib/rate-limit';
 
 const VENTANA_MS = 15 * 60 * 1000;
 
@@ -38,7 +38,11 @@ export async function login(
     return null;
   } catch (error) {
     if (error instanceof AuthError) {
-      await Promise.all([registrarIntento(claveIp), registrarIntento(claveEmail)]);
+      // No se registra el intento acá: authorize() (auth.ts) ya lo hizo antes
+      // de tirar este error — es el único lugar por el que pasan tanto este
+      // formulario como quien le pegue directo a /api/auth/callback/credentials
+      // (ver comentario ahí). Hacerlo acá también contaba cada intento
+      // fallido dos veces, bajando el límite real a la mitad del configurado.
       return { error: 'Email o contraseña incorrectos.' };
     }
     throw error; // re-lanzar el NEXT_REDIRECT de signIn

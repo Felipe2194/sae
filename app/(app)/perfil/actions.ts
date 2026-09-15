@@ -1,8 +1,9 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, refresh } from 'next/cache';
 import { auth } from '@/auth';
 import { withUser } from '@/lib/db';
+import { urlSegura } from '@/lib/utils';
 
 export async function actualizarNombre(formData: FormData) {
   const session = await auth();
@@ -14,10 +15,10 @@ export async function actualizarNombre(formData: FormData) {
   const playlistRaw = ((formData.get('playlist_url') as string | null) ?? '').trim();
   let playlistUrl: string | null = null;
   if (playlistRaw) {
-    try {
-      new URL(playlistRaw);
-      playlistUrl = playlistRaw;
-    } catch {
+    // Solo http/https: `new URL(...)` sola acepta cualquier esquema,
+    // incluido "javascript:" — ver lib/utils.ts.
+    playlistUrl = urlSegura(playlistRaw);
+    if (!playlistUrl) {
       throw new Error('El link de la playlist no es una URL válida');
     }
   }
@@ -52,9 +53,9 @@ export async function actualizarNombre(formData: FormData) {
   const fondoValorRaw = ((formData.get('fondo_valor') as string | null) ?? '').trim();
   let fondoValor: string | null = fondoValorRaw || null;
   if (fondoTipo === 'imagen' && fondoValor) {
-    try {
-      new URL(fondoValor);
-    } catch {
+    // Solo http/https, mismo criterio que playlistUrl arriba.
+    fondoValor = urlSegura(fondoValor);
+    if (!fondoValor) {
       throw new Error('La URL del fondo no es válida');
     }
   }
@@ -81,4 +82,10 @@ export async function actualizarNombre(formData: FormData) {
   revalidatePath('/perfil');
   revalidatePath('/hoy');
   revalidatePath('/', 'layout');
+  // El color/fondo se aplican en app/(app)/layout.tsx, que envuelve toda la
+  // sección — revalidatePath ya invalida esos datos, pero `refresh()` es lo
+  // que efectivamente le pide al router del cliente que traiga el árbol
+  // actualizado en la misma respuesta de esta Server Action, sin esperar a
+  // una navegación futura ni depender de un F5 manual.
+  refresh();
 }

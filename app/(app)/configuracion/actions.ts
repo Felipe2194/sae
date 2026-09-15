@@ -1,12 +1,13 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, updateTag, refresh } from "next/cache";
 import { auth } from "@/auth";
 import { withUser, sql } from "@/lib/db";
 import { generarPasswordTemporal } from "@/lib/passwords";
 import { crearEventoCalendar, extraerCalendarId } from "@/lib/google/calendar";
 import type { SeccionesHabilitadas } from "@/lib/secciones";
+import { urlSegura } from "@/lib/utils";
 
 async function requireAdmin() {
   const session = await auth();
@@ -264,6 +265,10 @@ export async function actualizarOrganizacion(data: {
   });
   revalidatePath("/configuracion");
   revalidatePath("/", "layout");
+  // El color/logo por defecto se aplican en app/(app)/layout.tsx para toda la
+  // organización — sin esto, quien lo cambia solo lo ve reflejado después de
+  // navegar o refrescar a mano.
+  refresh();
 }
 
 // ── Google Calendar ───────────────────────────────────────────────────────────
@@ -310,7 +315,10 @@ export async function actualizarSecciones(data: SeccionesHabilitadas) {
 export async function crearAcceso(formData: FormData) {
   const session = await requireAdmin();
   const etiqueta = (formData.get("etiqueta") as string).trim();
-  const url = (formData.get("url") as string).trim();
+  // Solo http/https: un acceso rápido con esquema "javascript:" se
+  // renderiza como <a href> tal cual (ver app/(app)/hoy/accesos-card.tsx y
+  // configuracion/page.tsx) y correría con la sesión de quien lo clickee.
+  const url = urlSegura((formData.get("url") as string).trim());
   if (!etiqueta || !url) return;
 
   await withUser(session.user.id, async (tx) => {

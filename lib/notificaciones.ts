@@ -1,5 +1,12 @@
 // Helpers para crear notificaciones dentro de una transacción postgres.js existente.
-import { enviarTelegram } from './telegram';
+//
+// Devuelven el texto del mensaje de Telegram (o null si no corresponde
+// mandar nada) en vez de enviarlo directamente: `enviarTelegram` hace un
+// fetch HTTP externo, y hacerlo mientras la transacción sigue abierta
+// retiene la conexión de Postgres (pool de solo 10, ver lib/db.ts) y
+// cualquier lock de fila tomado hasta que Telegram responda. El caller debe
+// llamar a `enviarTelegram(mensaje)` recién después de que `withUser`
+// resuelva.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Tx = any;
@@ -13,9 +20,9 @@ export async function notificarAsignacion(
   tx: Tx,
   usuarioIds: string | string[],
   tareaTitulo: string,
-) {
+): Promise<string | null> {
   const ids = [...new Set(Array.isArray(usuarioIds) ? usuarioIds : [usuarioIds])];
-  if (ids.length === 0) return;
+  if (ids.length === 0) return null;
 
   for (const usuarioId of ids) {
     await tx`
@@ -35,11 +42,11 @@ export async function notificarAsignacion(
       select nombre from usuario where id = ${ids[0]}
     `;
     if (usuario) {
-      await enviarTelegram(`📌 ${usuario.nombre} — nueva tarea asignada: "${tareaTitulo}"`);
+      return `📌 ${usuario.nombre} — nueva tarea asignada: "${tareaTitulo}"`;
     }
-  } else {
-    await enviarTelegram(`📌 Tarea asignada a ${ids.length} personas: "${tareaTitulo}"`);
+    return null;
   }
+  return `📌 Tarea asignada a ${ids.length} personas: "${tareaTitulo}"`;
 }
 
 export async function notificarComentario(
@@ -47,7 +54,7 @@ export async function notificarComentario(
   responsableId: string,
   tareaTitulo: string,
   autorNombre: string,
-) {
+): Promise<string | null> {
   const filas = await tx`
     insert into notificacion (usuario_id, tipo, titulo, cuerpo, href)
     select
@@ -61,6 +68,7 @@ export async function notificarComentario(
   `;
 
   if (filas.length > 0) {
-    await enviarTelegram(`💬 ${autorNombre} comentó en "${tareaTitulo}"`);
+    return `💬 ${autorNombre} comentó en "${tareaTitulo}"`;
   }
+  return null;
 }

@@ -190,7 +190,14 @@ function Columna({
 
       <div
         ref={setNodeRef}
-        className={`flex min-h-[80px] flex-col gap-2 rounded-lg transition-colors ${
+        // Antes crecía con la cantidad de tareas y empujaba la página entera
+        // hacia abajo — con muchas tareas había que scrollear toda la
+        // pantalla (header y sidebar incluidos) para ver las últimas de una
+        // columna. Con una altura acotada + scroll propio, cada columna
+        // muestra de entrada las que entran y el resto se navega adentro de
+        // la columna, sin mover el resto de la pantalla. dnd-kit auto-scrollea
+        // este contenedor solo al arrastrar cerca de su borde.
+        className={`flex min-h-[80px] max-h-[calc(100svh-22rem)] flex-col gap-2 overflow-y-auto rounded-lg transition-colors ${
           isOver ? "bg-primary/5 ring-primary/20 ring-1" : ""
         }`}
       >
@@ -253,6 +260,7 @@ export function TableroCliente({
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(LS_COLUMNAS_COLAPSADAS);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage no existe en el server: este setState solo puede correr después de montar, es justo lo que evita el mismatch de hidratación (ver comentario más arriba).
       if (raw) setColapsadas(new Set(JSON.parse(raw)));
     } catch {
       // localStorage no disponible o valor corrupto — se queda con columnas expandidas.
@@ -279,6 +287,7 @@ export function TableroCliente({
   // Atajo desde el buscador global (Cmd/Ctrl+K → "Nueva tarea"): /tablero?nueva=1
   useEffect(() => {
     if (searchParams.get("nueva") === "1") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con un sistema externo real (el query param de la URL, seteado por el buscador global), no es estado derivable en el render.
       setDialogOpen(true);
       router.replace("/tablero");
     }

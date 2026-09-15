@@ -11,6 +11,12 @@ import type { RolUsuario } from "@/types/database";
 
 const VENTANA_RATE_LIMIT_LOGIN_MS = 15 * 60 * 1000;
 
+// Cada cuánto se vuelve a confirmar contra la base que el usuario de un JWT
+// ya emitido sigue activo — ver el callback jwt() más abajo. Compromiso
+// entre no pegarle a la base en cada request y que desactivar/degradar a
+// alguien tenga efecto real pronto, no recién cuando expire el token.
+const VENTANA_REVALIDACION_MS = 5 * 60 * 1000;
+
 // Hash bcrypt real (costo 10, igual que bcrypt.hash(password, 10) más abajo)
 // pero de ninguna cuenta existente — se usa solo para que bcrypt.compare
 // tarde lo mismo cuando el email no existe que cuando existe. Ver comentario
@@ -169,7 +175,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
 
-  session: { strategy: "jwt" },
+  // maxAge acotado a una jornada laboral: sin esto, el default de Auth.js
+  // (30 días) hacía que desactivar una cuenta o bajarle el rol a alguien no
+  // tuviera efecto real hasta que su JWT expirara solo — ver
+  // VENTANA_REVALIDACION_MS más abajo, que es el mecanismo que de verdad
+  // corta el acceso antes de eso.
+  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
 
   callbacks: {
     // Login con Google: no hay adapter ni tabla de sesiones, así que la
@@ -279,7 +290,48 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.esCuentaGenerica = false;
         token.esSuperadmin = user.esSuperadmin ?? false;
         token.origenGenericoId = user.origenGenericoId;
+      } else if (token.id) {
+        // Sin `user`: no es un login nuevo, es Auth.js revalidando una
+        // sesión ya abierta (pasa en cada request — @auth/core reconstruye
+        // el token acá también detrás de auth(), tanto en proxy.ts como en
+        // cada page.tsx). Sin este chequeo, desactivar una cuenta o
+        // bajarle el rol a alguien no tenía efecto real hasta que el JWT
+        // expirara solo por maxAge (antes, 30 días por default).
+        const revalidadoEn = token.revalidadoEn ?? 0;
+        if (Date.now() - revalidadoEn < VENTANA_REVALIDACION_MS) {
+          return token;
+        }
+
+        const [usuario] = await sql<
+          {
+            rol: RolUsuario;
+            organizacion_id: string;
+            estado: string;
+            es_cuenta_generica: boolean;
+            es_superadmin: boolean;
+          }[]
+        >`
+          select rol, organizacion_id, estado, es_cuenta_generica, es_superadmin
+          from usuario where id = ${token.id}
+        `;
+        // Cuenta borrada, desactivada o degradada desde que se emitió este
+        // token: null acá corta la sesión de inmediato (ver session() en
+        // @auth/core — token !== null es lo que decide si hay sesión).
+        if (!usuario || usuario.estado !== "activo") return null;
+
+        token.rol = usuario.rol;
+        token.organizacion_id = usuario.organizacion_id;
+        token.esSuperadmin = usuario.es_superadmin;
+        // La cuenta genérica de origen de un quick-switch no se revalida
+        // acá (es un dato de la cadena de sesión, no de esta fila) — si se
+        // desactivara, quien ya cambió de perfil pierde el botón de
+        // "volver" la próxima vez que lo use (cambiar-perfil valida ahí),
+        // no la sesión actual.
+        if (!token.origenGenericoId) {
+          token.esCuentaGenerica = usuario.es_cuenta_generica;
+        }
       }
+      if (user || token.id) token.revalidadoEn = Date.now();
       return token;
     },
     session({ session, token }) {

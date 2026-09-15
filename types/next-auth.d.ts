@@ -37,5 +37,8 @@ declare module 'next-auth/jwt' {
     esCuentaGenerica?: boolean;
     origenGenericoId?: string;
     esSuperadmin?: boolean;
+    // Timestamp (Date.now()) de la última vez que se confirmó contra la base
+    // que el usuario sigue activo — ver VENTANA_REVALIDACION_MS en auth.ts.
+    revalidadoEn?: number;
   }
 }

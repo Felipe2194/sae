@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { toast } from "sonner";
 import {
   Archive,
   ArchiveRestore,
@@ -241,15 +242,21 @@ export function TareaModal({
     e.preventDefault();
     if (!nuevoAdjNombre.trim() || !nuevoAdjUrl.trim()) return;
     startAdj(async () => {
-      await crearAdjunto(tarea.id, {
-        nombre: nuevoAdjNombre.trim(),
-        url: nuevoAdjUrl.trim(),
-      });
-      const updated = await fetchAdjuntos(tarea.id);
-      setAdjuntos(updated);
-      setNuevoAdjNombre("");
-      setNuevoAdjUrl("");
-      setShowAdjForm(false);
+      try {
+        await crearAdjunto(tarea.id, {
+          nombre: nuevoAdjNombre.trim(),
+          url: nuevoAdjUrl.trim(),
+        });
+        const updated = await fetchAdjuntos(tarea.id);
+        setAdjuntos(updated);
+        setNuevoAdjNombre("");
+        setNuevoAdjUrl("");
+        setShowAdjForm(false);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "No se pudo agregar el adjunto.",
+        );
+      }
     });
   }
 
@@ -271,43 +278,30 @@ export function TareaModal({
   function handleSave() {
     setErrorGuardado(null);
     startSave(async () => {
-      const prev = {
-        titulo: tarea.titulo,
-        descripcion: tarea.descripcion ?? null,
-        tipo: tarea.tipo,
-        prioridad: tarea.prioridad,
-        area_id: tarea.area_id,
-        responsable_id: tarea.responsable_id ?? null,
-        fecha_vencimiento: tarea.fecha_vencimiento ?? null,
-        estado: tarea.estado,
-        asignados_ids: tarea.asignados.map((a) => a.id),
-        para_todos: tarea.para_todos,
-      };
       try {
-        await actualizarTarea(
-          tarea.id,
-          {
-            titulo: titulo.trim() || tarea.titulo,
-            descripcion: descripcion.trim() || null,
-            tipo,
-            prioridad,
-            area_id: areaId,
-            responsable_id: responsableId || null,
-            asignados_ids: asignadosIds,
-            fecha_vencimiento: fechaVencimiento || null,
-            estado,
-            duracion_estimada_hs: duracionEstimada.trim()
-              ? Number(duracionEstimada)
-              : null,
-            duracion_real_hs: duracionReal.trim() ? Number(duracionReal) : null,
-            recurrencia:
-              repetir === "_nunca"
-                ? null
-                : { frecuencia: repetir as "diaria" | "semanal" | "mensual" },
-            para_todos: paraTodos,
-          },
-          prev,
-        );
+        // El estado previo para los chequeos de permiso y el log de
+        // auditoría lo lee la propia action desde la base — no se manda
+        // desde acá (ver comentario en actualizarTarea, tablero/actions.ts).
+        await actualizarTarea(tarea.id, {
+          titulo: titulo.trim() || tarea.titulo,
+          descripcion: descripcion.trim() || null,
+          tipo,
+          prioridad,
+          area_id: areaId,
+          responsable_id: responsableId || null,
+          asignados_ids: asignadosIds,
+          fecha_vencimiento: fechaVencimiento || null,
+          estado,
+          duracion_estimada_hs: duracionEstimada.trim()
+            ? Number(duracionEstimada)
+            : null,
+          duracion_real_hs: duracionReal.trim() ? Number(duracionReal) : null,
+          recurrencia:
+            repetir === "_nunca"
+              ? null
+              : { frecuencia: repetir as "diaria" | "semanal" | "mensual" },
+          para_todos: paraTodos,
+        });
         onOpenChange(false);
       } catch (err) {
         setErrorGuardado(
@@ -423,7 +417,7 @@ export function TareaModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[85vh] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        className="flex max-h-[85dvh] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
         showCloseButton={false}
       >
         {/* Header */}
