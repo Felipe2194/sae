@@ -36,8 +36,10 @@ const cspHeader = `
 const nextConfig: NextConfig = {
   // "standalone" arma un bundle self-contained en .next/standalone — lo usa
   // el Dockerfile para self-hosting (ver docs/migracion-servidores-propios.md).
-  // No afecta el deploy en Vercel, que ignora esta opción.
-  output: "standalone",
+  // En Vercel rompe el build (ENOENT de next-server.js.nft.json: su pipeline
+  // ya hace su propio output file tracing y no espera este modo), así que
+  // se desactiva cuando corre ahí.
+  output: process.env.VERCEL ? undefined : "standalone",
   // "Áreas" pasó a llamarse "Proyectos" (ver db/migrations/026_proyectos.sql) —
   // no permanent para no cachear el redirect a fuego en el navegador mientras
   // el rename todavía es reciente.
