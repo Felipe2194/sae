@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { sql } from "@/lib/db";
 
 // Next no detecta la query a Postgres como razón para renderizar dinámico
@@ -36,7 +37,9 @@ export default async function AuthLayout({
               muestra sin la caja blanca y con la variante de texto blanco
               (public/LogoUTN-dark.png), igual que en el sidebar. Un logo
               subido por la organización mantiene siempre la caja blanca. */}
-          <div
+          <Link
+            href="/"
+            aria-label="Volver a la página principal"
             className={
               org?.logo_url
                 ? "rounded-2xl bg-white px-8 py-5 shadow-lg"
@@ -66,7 +69,7 @@ export default async function AuthLayout({
                 style={{ objectFit: "contain" }}
               />
             )}
-          </div>
+          </Link>
           <div className="w-full border-t border-white/30 pt-6">
             <p className="text-lg font-semibold">SAE</p>
             <p className="mt-1 text-sm opacity-75">
