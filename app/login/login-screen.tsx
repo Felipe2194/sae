@@ -66,23 +66,25 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
                   texto blanco (public/LogoUTN-dark.png) sin caja, en vez de
                   depender de `dark:` que no aplicaría acá. Un logo subido por
                   la organización mantiene la caja blanca. */}
-              {logoUrl ? (
-                <div className="rounded-xl bg-white p-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- logo variable de la organización, no un asset fijo */}
+              <Link href="/" aria-label="Volver a la página principal">
+                {logoUrl ? (
+                  <div className="rounded-xl bg-white p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- logo variable de la organización, no un asset fijo */}
+                    <img
+                      src={logo}
+                      alt="UTN Villa María"
+                      className="h-7 w-auto object-contain"
+                    />
+                  </div>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={logo}
+                    src="/LogoUTN-dark.png"
                     alt="UTN Villa María"
                     className="h-7 w-auto object-contain"
                   />
-                </div>
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src="/LogoUTN-dark.png"
-                  alt="UTN Villa María"
-                  className="h-7 w-auto object-contain"
-                />
-              )}
+                )}
+              </Link>
               <div>
                 <h1 className="text-2xl font-semibold text-balance text-white">
                   Bienvenido de nuevo
