@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, refresh } from 'next/cache';
 import { auth } from '@/auth';
 import { withUser } from '@/lib/db';
 import { urlSegura } from '@/lib/utils';
@@ -82,4 +82,10 @@ export async function actualizarNombre(formData: FormData) {
   revalidatePath('/perfil');
   revalidatePath('/hoy');
   revalidatePath('/', 'layout');
+  // El color/fondo se aplican en app/(app)/layout.tsx, que envuelve toda la
+  // sección — revalidatePath ya invalida esos datos, pero `refresh()` es lo
+  // que efectivamente le pide al router del cliente que traiga el árbol
+  // actualizado en la misma respuesta de esta Server Action, sin esperar a
+  // una navegación futura ni depender de un F5 manual.
+  refresh();
 }

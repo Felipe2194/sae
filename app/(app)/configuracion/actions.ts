@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, updateTag, refresh } from "next/cache";
 import { auth } from "@/auth";
 import { withUser, sql } from "@/lib/db";
 import { generarPasswordTemporal } from "@/lib/passwords";
@@ -265,6 +265,10 @@ export async function actualizarOrganizacion(data: {
   });
   revalidatePath("/configuracion");
   revalidatePath("/", "layout");
+  // El color/logo por defecto se aplican en app/(app)/layout.tsx para toda la
+  // organización — sin esto, quien lo cambia solo lo ve reflejado después de
+  // navegar o refrescar a mano.
+  refresh();
 }
 
 // ── Google Calendar ───────────────────────────────────────────────────────────

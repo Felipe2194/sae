@@ -190,7 +190,14 @@ function Columna({
 
       <div
         ref={setNodeRef}
-        className={`flex min-h-[80px] flex-col gap-2 rounded-lg transition-colors ${
+        // Antes crecía con la cantidad de tareas y empujaba la página entera
+        // hacia abajo — con muchas tareas había que scrollear toda la
+        // pantalla (header y sidebar incluidos) para ver las últimas de una
+        // columna. Con una altura acotada + scroll propio, cada columna
+        // muestra de entrada las que entran y el resto se navega adentro de
+        // la columna, sin mover el resto de la pantalla. dnd-kit auto-scrollea
+        // este contenedor solo al arrastrar cerca de su borde.
+        className={`flex min-h-[80px] max-h-[calc(100svh-22rem)] flex-col gap-2 overflow-y-auto rounded-lg transition-colors ${
           isOver ? "bg-primary/5 ring-primary/20 ring-1" : ""
         }`}
       >
