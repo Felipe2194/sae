@@ -30,5 +30,13 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // Script local suelto (se corre con `tsx`, no es parte de la app) que
+    // importa db/datos-importacion-sae.json — ese JSON está en .gitignore
+    // (tiene teléfonos) y no existe en un clone limpio, así que `next build`
+    // fallaba el typecheck en cualquier entorno que no sea la máquina que lo
+    // generó.
+    "db/importar-visitas-sae.ts"
+  ]
 }
