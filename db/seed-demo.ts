@@ -48,7 +48,6 @@ async function seedDemo() {
     };
     const admin = uid("admin@sae.test");
     const coord = uid("carlos@sae.test");
-    const miembro = uid("miembro@sae.test");
     const joaco = uid("joaco@sae.test");
     const cande = uid("cande@sae.test");
     const mili = uid("mili@sae.test");
