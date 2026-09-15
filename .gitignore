@@ -48,3 +48,6 @@ next-env.d.ts
 # teléfonos) — solo para uso local del script db/importar-visitas-sae.ts,
 # nunca al repo público
 /db/datos-importacion-sae.json
+
+.vercel
+.env*
