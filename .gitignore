@@ -51,3 +51,8 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# handoff de diseño (prototipos .dc.html + capturas originales) — ya
+# implementado en app/landing-screen.tsx; los assets usados quedaron
+# copiados aparte en /public/landing
+/landing
