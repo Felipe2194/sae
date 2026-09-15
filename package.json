@@ -12,6 +12,7 @@
     "db:migrate": "tsx db/migrate.ts",
     "db:seed": "tsx db/seed.ts",
     "db:seed-demo": "tsx db/seed-demo.ts",
+    "db:seed-proyectos-demo": "tsx db/seed-proyectos-demo.ts",
     "db:importar-visitas": "tsx db/importar-visitas-sae.ts",
     "test": "vitest run"
   },
