@@ -452,7 +452,7 @@ export function TableroCliente({
             <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
               <SelectValue placeholder="Proyecto" className="truncate" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-36">
               <SelectItem value="_all">Todos los proyectos</SelectItem>
               <SelectItem value={SIN_PROYECTO}>Sin proyecto</SelectItem>
               {areas.map((a) => (
@@ -482,7 +482,7 @@ export function TableroCliente({
               <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
                 <SelectValue placeholder="Viaje" className="truncate" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-36">
                 <SelectItem value="_all">Todos los viajes</SelectItem>
                 <SelectItem value={SIN_VIAJE}>Sin viaje</SelectItem>
                 {viajes.map((v) => (
@@ -507,7 +507,7 @@ export function TableroCliente({
             <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
               <SelectValue placeholder="Categoría" className="truncate" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-36">
               <SelectItem value="_all">Todas las categorías</SelectItem>
               {CATEGORIA_OPTS.map((c) => (
                 <SelectItem key={c.value} value={c.value}>
@@ -527,10 +527,10 @@ export function TableroCliente({
               ),
             }}
           >
-            <SelectTrigger className="h-8 w-32 shrink-0 text-xs">
+            <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
               <SelectValue placeholder="Prioridad" className="truncate" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-36">
               <SelectItem value="_all">Toda prioridad</SelectItem>
               {PRIORIDAD_OPTS.map((p) => (
                 <SelectItem key={p.value} value={p.value}>
@@ -553,7 +553,7 @@ export function TableroCliente({
             <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
               <SelectValue placeholder="Responsable" className="truncate" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-36">
               <SelectItem value="_all">Todos</SelectItem>
               {usuarios.map((u) => (
                 <SelectItem key={u.id} value={u.id}>

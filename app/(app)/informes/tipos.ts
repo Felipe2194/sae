@@ -49,6 +49,33 @@ export type PrecisionEstimacion = {
 
 export type ActividadBitacora = { nombre: string; dias_cargados: number };
 
+// Unión de "actividad de bitácora" + "carga por persona": una fila resumen
+// por integrante, con el detalle (tareas creadas/asignadas) cargado aparte
+// al expandir (ver fetchLogIntegrante en actions.ts) para no traer todo el
+// historial de cada persona en la carga inicial de /informes.
+export type ActividadIntegrante = {
+  id: string;
+  nombre: string;
+  tareas_creadas: number;
+  tareas_asignadas: number;
+  asignadas_hecha: number;
+  asignadas_en_progreso: number;
+  asignadas_por_hacer: number;
+  asignadas_vencidas: number;
+  dias_bitacora: number;
+  comentarios_30d: number;
+};
+
+export type LogIntegranteItem = {
+  id: string;
+  titulo: string;
+  estado: string;
+  area_nombre: string | null;
+  area_color: string | null;
+  fecha: string;
+  rol: "creada" | "asignada";
+};
+
 export type AntiguedadVencidas = {
   b0_7: number;
   b8_14: number;

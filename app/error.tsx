@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { MascotaTigre } from "@/components/features/mascota-tigre";
@@ -61,28 +60,43 @@ const QUIPS = [
 
 export default function Error({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error(error);
   }, [error]);
 
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // reset() por sí solo reintenta el render con lo que Next ya tenga
-  // cacheado para ese segmento — si el fallo fue un fetch/DB caído, puede
-  // devolver el mismo error. router.refresh() invalida esa caché y vuelve
-  // a pedir los Server Components antes de reintentar.
+  // retry() (Next 16.3+) reemplaza al viejo hack de router.refresh() + reset():
+  // vuelve a pedir los Server Components del segmento antes de re-renderizar,
+  // en vez de reusar lo que Next tenga cacheado del fallo. reset() solo
+  // limpiaba el estado de error sin refetch, por eso "Reintentar" a veces no
+  // hacía nada.
   const reintentar = () => {
     startTransition(() => {
-      router.refresh();
-      reset();
+      retry();
     });
   };
+
+  // Si el navegador se quedó sin conexión, reintentar solo va a repetir el
+  // mismo error — se lo decimos en vez de dejar que lo descubra a los golpes.
+  const [sinConexion, setSinConexion] = useState(
+    () => typeof navigator !== "undefined" && !navigator.onLine,
+  );
+  useEffect(() => {
+    const marcarOnline = () => setSinConexion(false);
+    const marcarOffline = () => setSinConexion(true);
+    window.addEventListener("online", marcarOnline);
+    window.addEventListener("offline", marcarOffline);
+    return () => {
+      window.removeEventListener("online", marcarOnline);
+      window.removeEventListener("offline", marcarOffline);
+    };
+  }, []);
 
   const [quip, setQuip] = useState(() => QUIPS[Math.floor(Math.random() * QUIPS.length)]);
 
@@ -134,32 +148,53 @@ export default function Error({
         </motion.div>
 
         <div className="flex flex-col gap-1.5">
-          <p className="text-primary text-sm font-medium">Ups</p>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={quip.titulo}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.25 }}
-              className="flex flex-col gap-1.5"
-            >
-              <h1 className="text-xl font-semibold text-balance">{quip.titulo}</h1>
-              <p className="text-muted-foreground max-w-xs text-sm text-balance">{quip.texto}</p>
-            </motion.div>
-          </AnimatePresence>
+          <p className="text-primary text-sm font-medium">{sinConexion ? "Sin conexión" : "Ups"}</p>
+          {sinConexion ? (
+            <div className="flex flex-col gap-1.5">
+              <h1 className="text-xl font-semibold text-balance">Parece que no tenés internet</h1>
+              <p className="text-muted-foreground max-w-xs text-sm text-balance">
+                Revisá tu conexión — en cuanto vuelva, vas a poder reintentar.
+              </p>
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={quip.titulo}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.25 }}
+                className="flex flex-col gap-1.5"
+              >
+                <h1 className="text-xl font-semibold text-balance">{quip.titulo}</h1>
+                <p className="text-muted-foreground max-w-xs text-sm text-balance">{quip.texto}</p>
+              </motion.div>
+            </AnimatePresence>
+          )}
         </div>
 
         <div className="mt-2 flex items-center gap-2">
-          <Button onClick={reintentar} disabled={isPending}>
+          <Button onClick={reintentar} disabled={isPending || sinConexion}>
             Reintentar
           </Button>
-          <Button variant="ghost" nativeButton={false} render={<Link href="/hoy" />}>
+          <Button
+            variant="ghost"
+            nativeButton={false}
+            render={<Link href="/hoy" />}
+            disabled={sinConexion}
+          >
             Ir a Hoy
           </Button>
         </div>
 
-        {process.env.NODE_ENV === "development" && (
+        {!sinConexion && (
+          <p className="text-muted-foreground mt-1 text-xs">
+            Código 500 · si el problema sigue, contactá al desarrollador
+            {error.digest ? ` (código de referencia: ${error.digest})` : ""}.
+          </p>
+        )}
+
+        {process.env.NODE_ENV === "development" && !sinConexion && (
           <details className="text-muted-foreground mt-2 w-full text-left text-xs">
             <summary className="cursor-pointer select-none">Detalle (solo en desarrollo)</summary>
             <pre className="bg-muted mt-1 overflow-x-auto rounded-md p-2 whitespace-pre-wrap break-words">

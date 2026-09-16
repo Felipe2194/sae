@@ -30,8 +30,10 @@ import {
   Plane,
   DoorOpen,
   Printer,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchLogIntegrante } from "./actions";
 import type {
   GlobalStats,
   ResumenArea,
@@ -39,7 +41,8 @@ import type {
   TareaAntigua,
   PrecisionEstimacion,
   SemanaTareas,
-  ActividadBitacora,
+  ActividadIntegrante,
+  LogIntegranteItem,
   AntiguedadVencidas,
   UsoPlantilla,
   ActividadComentarios,
@@ -51,6 +54,12 @@ import type {
   ReporteViajes,
   ViajeResumenInformes,
 } from "./tipos";
+
+const ESTADO_LABEL_INFORME: Record<string, string> = {
+  por_hacer: "Por hacer",
+  en_progreso: "En progreso",
+  hecha: "Hecha",
+};
 
 // Paleta validada (dataviz skill): CVD-safe y con contraste suficiente en
 // claro y oscuro, node scripts/validate_palette.js "#2563eb,#16a34a" --mode
@@ -245,7 +254,7 @@ type Props = {
   tareasAntiguas: TareaAntigua[];
   precisionEstimacion: PrecisionEstimacion;
   semanas: SemanaTareas[];
-  actividadBitacora: ActividadBitacora[];
+  actividadIntegrantes: ActividadIntegrante[];
   antiguedadVencidas: AntiguedadVencidas;
   usoPlantillas: UsoPlantilla[];
   actividadComentarios: ActividadComentarios[];
@@ -270,7 +279,7 @@ export function InformesCliente({
   tareasAntiguas,
   precisionEstimacion,
   semanas,
-  actividadBitacora,
+  actividadIntegrantes,
   antiguedadVencidas,
   usoPlantillas,
   actividadComentarios,
@@ -288,6 +297,32 @@ export function InformesCliente({
   const router = useRouter();
   const [pestaña, setPestaña] = useState<Pestaña>(tabInicial);
   const [mostrarTodasAreas, setMostrarTodasAreas] = useState(false);
+
+  // Detalle por integrante (tareas creadas/asignadas): se pide al expandir,
+  // no en la carga inicial de /informes, y se cachea en memoria para no
+  // repetir el pedido si se colapsa y se vuelve a abrir la misma persona.
+  const [integranteAbierto, setIntegranteAbierto] = useState<string | null>(null);
+  const [logPorIntegrante, setLogPorIntegrante] = useState<
+    Record<string, LogIntegranteItem[]>
+  >({});
+  const [cargandoIntegranteId, setCargandoIntegranteId] = useState<string | null>(null);
+
+  async function toggleIntegrante(id: string) {
+    if (integranteAbierto === id) {
+      setIntegranteAbierto(null);
+      return;
+    }
+    setIntegranteAbierto(id);
+    if (!logPorIntegrante[id]) {
+      setCargandoIntegranteId(id);
+      try {
+        const rows = await fetchLogIntegrante(id);
+        setLogPorIntegrante((prev) => ({ ...prev, [id]: rows }));
+      } finally {
+        setCargandoIntegranteId(null);
+      }
+    }
+  }
 
   const pestañasVisibles = PESTAÑAS.filter(
     (p) =>
@@ -651,25 +686,105 @@ export function InformesCliente({
 
       {pestaña === "actividad" && (
         <div className="flex flex-col gap-8">
-          {/* ── Actividad de bitácora ──────────────────────────────────── */}
+          {/* ── Actividad por integrante ─────────────────────────────────
+              Unión de "actividad de bitácora" + "carga por persona": una
+              fila resumen por integrante que se expande al presionarla para
+              mostrar el detalle de tareas creadas/asignadas. */}
           <section className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
-              <NotebookPen className="text-muted-foreground size-4" />
-              <h2 className="font-semibold">Actividad de bitácora (últimos 30 días)</h2>
+              <Users className="text-muted-foreground size-4" />
+              <h2 className="font-semibold">Actividad por integrante</h2>
             </div>
+            <p className="text-muted-foreground -mt-1 text-xs">
+              Días de bitácora y comentarios de los últimos 30 días. Tocá a un
+              integrante para ver el detalle de sus tareas.
+            </p>
             <Card>
               <CardContent className="p-0">
                 <div className="divide-y">
-                  {actividadBitacora.map((p) => (
-                    <div key={p.nombre} className="flex items-center gap-3 px-4 py-2.5">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.nombre}</span>
-                      <div className="w-40">
-                        <BarraSimple pct={Math.round((p.dias_cargados / 30) * 100)} />
+                  {actividadIntegrantes.map((p) => {
+                    const abierto = integranteAbierto === p.id;
+                    const log = logPorIntegrante[p.id];
+                    return (
+                      <div key={p.id}>
+                        <button
+                          type="button"
+                          onClick={() => toggleIntegrante(p.id)}
+                          className="hover:bg-muted/40 flex w-full items-center gap-2 px-4 py-2.5 text-left transition-colors"
+                        >
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.nombre}</span>
+                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                            {p.asignadas_en_progreso > 0 && (
+                              <Badge variant="secondary" className="px-1.5 py-0 text-xs whitespace-nowrap">
+                                {p.asignadas_en_progreso} en curso
+                              </Badge>
+                            )}
+                            {p.asignadas_vencidas > 0 && (
+                              <Badge variant="outline" className="border-destructive/40 text-destructive px-1.5 py-0 text-xs whitespace-nowrap">
+                                {p.asignadas_vencidas} venc.
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="px-1.5 py-0 text-xs whitespace-nowrap">
+                              {p.tareas_creadas} creadas
+                            </Badge>
+                            <span className="text-muted-foreground w-16 shrink-0 text-right text-xs tabular-nums">
+                              {p.dias_bitacora}/30d bit.
+                            </span>
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              "text-muted-foreground size-4 shrink-0 transition-transform",
+                              abierto && "rotate-180",
+                            )}
+                          />
+                        </button>
+                        {abierto && (
+                          <div className="bg-muted/20 px-4 py-3">
+                            {cargandoIntegranteId === p.id ? (
+                              <p className="text-muted-foreground text-xs">Cargando...</p>
+                            ) : !log || log.length === 0 ? (
+                              <p className="text-muted-foreground text-xs">
+                                Sin tareas creadas ni asignadas registradas.
+                              </p>
+                            ) : (
+                              <div className="flex max-h-60 flex-col gap-1.5 overflow-y-auto pr-1">
+                                {log.map((item) => (
+                                  <div
+                                    key={`${item.rol}-${item.id}`}
+                                    className="bg-card flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
+                                  >
+                                    {item.area_color && (
+                                      <span
+                                        className="size-1.5 shrink-0 rounded-full"
+                                        style={{ backgroundColor: item.area_color }}
+                                      />
+                                    )}
+                                    <span className="min-w-0 flex-1 truncate font-medium">{item.titulo}</span>
+                                    <Badge variant="outline" className="px-1 py-0 text-[10px] whitespace-nowrap">
+                                      {item.rol === "creada" ? "Creada" : "Asignada"}
+                                    </Badge>
+                                    <Badge
+                                      variant={item.estado === "hecha" ? "secondary" : "outline"}
+                                      className="px-1 py-0 text-[10px] whitespace-nowrap"
+                                    >
+                                      {ESTADO_LABEL_INFORME[item.estado] ?? item.estado}
+                                    </Badge>
+                                    <span className="text-muted-foreground shrink-0 tabular-nums">
+                                      {formatFecha(item.fecha)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
-                  {actividadBitacora.length === 0 && (
-                    <p className="text-muted-foreground px-4 py-6 text-center text-sm">No hay usuarios activos.</p>
+                    );
+                  })}
+                  {actividadIntegrantes.length === 0 && (
+                    <p className="text-muted-foreground px-4 py-6 text-center text-sm">
+                      No hay actividad registrada todavía.
+                    </p>
                   )}
                 </div>
               </CardContent>

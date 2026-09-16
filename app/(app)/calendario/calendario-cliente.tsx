@@ -428,22 +428,28 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
               <p className="text-xs font-medium text-muted-foreground">
                 Tareas este mes
               </p>
-              {tareasMes.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setSelectedDay(t.fecha_vencimiento)}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted transition-colors"
-                >
-                  <span
-                    className="size-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: t.area_color ?? "#94a3b8" }}
-                  />
-                  <span className="text-xs truncate flex-1">{t.titulo}</span>
-                  <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
-                    {t.fecha_vencimiento.slice(8)}
-                  </span>
-                </button>
-              ))}
+              {/* Tamaño fijo, no acompaña la cantidad de tareas del mes —
+                  antes crecía sin límite y estiraba todo el layout del
+                  calendario. Con altura acotada + scroll propio se navega
+                  el resto adentro de este panel. */}
+              <div className="flex flex-col gap-1 max-h-56 overflow-y-auto pr-1">
+                {tareasMes.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedDay(t.fecha_vencimiento)}
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted transition-colors"
+                  >
+                    <span
+                      className="size-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: t.area_color ?? "#94a3b8" }}
+                    />
+                    <span className="text-xs truncate flex-1">{t.titulo}</span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
+                      {t.fecha_vencimiento.slice(8)}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
