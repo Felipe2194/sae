@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { AvisoMotivo } from "@/components/features/aviso-motivo";
 import { LoginScreen } from "./login-screen";
 
 // Sin sesión todavía — se consulta la única organización del sistema
@@ -8,15 +9,23 @@ import { LoginScreen } from "./login-screen";
 // pegados al valor que tenía la organización al momento del build.
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ motivo?: string }>;
+}) {
+  const { motivo } = await searchParams;
   const [org] = await sql<{ logo_url: string | null; color_principal: string | null }[]>`
     select logo_url, color_principal from organizacion where slug = 'sae-frvm' limit 1
   `;
 
   return (
-    <LoginScreen
-      logoUrl={org?.logo_url}
-      brandColor={org?.color_principal || "#e05b22"}
-    />
+    <>
+      <AvisoMotivo motivo={motivo} />
+      <LoginScreen
+        logoUrl={org?.logo_url}
+        brandColor={org?.color_principal || "#e05b22"}
+      />
+    </>
   );
 }

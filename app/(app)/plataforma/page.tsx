@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Globe } from "lucide-react";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
+import { redirectSinPermiso } from "@/lib/redirects";
 import { Card, CardContent } from "@/components/ui/card";
 import { NuevaOrganizacionForm } from "./nueva-organizacion-form";
 import { ResetCuentaGenericaDialog } from "./reset-cuenta-generica-dialog";
@@ -25,7 +26,7 @@ export type OrganizacionFila = {
 export default async function PlataformaPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!session.user.esSuperadmin) redirect("/hoy");
+  if (!session.user.esSuperadmin) redirectSinPermiso();
 
   const organizaciones = await sql<OrganizacionFila[]>`
     select

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSeccionDeshabilitada, redirectSesionInvalida } from "@/lib/redirects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -166,7 +167,7 @@ export default async function AreaDetallePage({
       select proyectos_habilitado, tablero_habilitado from organizacion where id = mi_organizacion_id()
     `;
     // Sesión vieja que ya no resuelve a ningún usuario/organización real.
-    if (!org) redirect("/login");
+    if (!org) redirectSesionInvalida();
 
     const [area] = await tx<AreaRow[]>`
       select
@@ -332,7 +333,7 @@ export default async function AreaDetallePage({
     };
   });
 
-  if (!habilitado) redirect("/hoy");
+  if (!habilitado) redirectSeccionDeshabilitada();
   if (!area) notFound();
 
   const plantillas = await fetchPlantillas(areaId);

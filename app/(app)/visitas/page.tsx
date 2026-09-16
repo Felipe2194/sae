@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSeccionDeshabilitada, redirectSesionInvalida } from "@/lib/redirects";
 import { VisitasCliente } from "./visitas-cliente";
 import type { EstadoRelacionColegio, EstadoVisita, TipoVisita } from "@/types/database";
 
@@ -73,7 +74,7 @@ export default async function VisitasPage({
         select visitas_habilitado from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
-      if (!org) redirect("/login");
+      if (!org) redirectSesionInvalida();
 
       const visitas = await tx<VisitaFila[]>`
         select
@@ -157,7 +158,7 @@ export default async function VisitasPage({
     },
   );
 
-  if (!habilitado) redirect("/hoy");
+  if (!habilitado) redirectSeccionDeshabilitada();
 
   const aniosOpciones = Array.from(
     new Set([anioActual, ...anios, anio]),

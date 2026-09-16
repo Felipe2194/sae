@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSeccionDeshabilitada, redirectSesionInvalida } from "@/lib/redirects";
 import { TableroCliente } from "./tablero-cliente";
 
 export type TareaCard = {
@@ -52,7 +53,7 @@ export default async function TableroPage() {
         select tablero_habilitado from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
-      if (!org) redirect("/login");
+      if (!org) redirectSesionInvalida();
 
       // Auto-archivado de tareas viejas: sin esto, cada tarea que se completa
       // y nunca se archiva a mano se queda para siempre en la columna "Hecha",
@@ -158,7 +159,7 @@ export default async function TableroPage() {
     },
   );
 
-  if (!habilitado) redirect("/hoy");
+  if (!habilitado) redirectSeccionDeshabilitada();
 
   return (
     <TableroCliente
