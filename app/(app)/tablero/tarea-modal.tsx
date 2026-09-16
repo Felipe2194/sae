@@ -13,6 +13,7 @@ import {
   Paperclip,
   ExternalLink,
   Flag,
+  Settings,
 } from "lucide-react";
 import {
   Dialog,
@@ -161,9 +162,20 @@ export function TareaModal({
   onOpenChange,
 }: Props) {
   const puedeMoverEstado = puedeMoverEstadoTarea(tarea, currentUserId, rol);
+  // Título y descripción quedan fijos desde que se crea la tarea — no hay UI
+  // para editarlos acá (ver tarea-modal.tsx history / pedido original). El
+  // resto de los campos solo los edita quien creó la tarea (o un
+  // administrador) desde el panel que abre la ruedita del header; alguien
+  // asignado que no sea el creador solo puede cambiar el Estado, desde su
+  // propia ruedita reducida.
+  const esCreador = tarea.creada_por === currentUserId;
+  const esAdmin = rol === "administrador";
+  const puedeEditarTodo = esCreador || esAdmin;
+  const puedeEditarSoloEstado = !puedeEditarTodo && puedeMoverEstado;
+  const [panelEdicionAbierto, setPanelEdicionAbierto] = useState(false);
+  const [panelEstadoAbierto, setPanelEstadoAbierto] = useState(false);
+
   // ── Form state ──────────────────────────────────────────────────────────────
-  const [titulo, setTitulo] = useState(tarea.titulo);
-  const [descripcion, setDescripcion] = useState(tarea.descripcion ?? "");
   const [tipo, setTipo] = useState(tarea.tipo);
   const [prioridad, setPrioridad] = useState(tarea.prioridad);
   const [areaId, setAreaId] = useState(tarea.area_id);
@@ -227,7 +239,10 @@ export function TareaModal({
     Promise.all([
       fetchTareaDetalle(tarea.id),
       fetchAdjuntos(tarea.id),
-      fetchTareaLog(tarea.id),
+      // El historial expone valores de campos que a quien no puede editar
+      // todo se le oculta en el resto del modal — no tiene sentido pedirlo
+      // (ni mandarlo por la red) si no se va a mostrar.
+      puedeEditarTodo ? fetchTareaLog(tarea.id) : Promise.resolve([]),
     ])
       .then(([{ subtareas, comentarios }, adjRows, logRows]) => {
         setSubtareas(subtareas);
@@ -236,6 +251,7 @@ export function TareaModal({
         setLog(logRows);
       })
       .finally(() => setLoadingDetalle(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- puedeEditarTodo depende de props estables (tarea.creada_por, currentUserId, rol), no cambia mientras el modal está abierto
   }, [open, tarea.id]);
 
   function handleAddAdjunto(e: React.FormEvent) {
@@ -283,8 +299,8 @@ export function TareaModal({
         // auditoría lo lee la propia action desde la base — no se manda
         // desde acá (ver comentario en actualizarTarea, tablero/actions.ts).
         await actualizarTarea(tarea.id, {
-          titulo: titulo.trim() || tarea.titulo,
-          descripcion: descripcion.trim() || null,
+          titulo: tarea.titulo,
+          descripcion: tarea.descripcion,
           tipo,
           prioridad,
           area_id: areaId,
@@ -302,6 +318,63 @@ export function TareaModal({
               : { frecuencia: repetir as "diaria" | "semanal" | "mensual" },
           para_todos: paraTodos,
         });
+        setPanelEdicionAbierto(false);
+        onOpenChange(false);
+      } catch (err) {
+        setErrorGuardado(
+          err instanceof Error ? err.message : "No se pudo guardar el cambio.",
+        );
+      }
+    });
+  }
+
+  function handleCancelarEdicion() {
+    setTipo(tarea.tipo);
+    setPrioridad(tarea.prioridad);
+    setAreaId(tarea.area_id);
+    setResponsableId(tarea.responsable_id ?? "");
+    setAsignadosIds(tarea.asignados.map((a) => a.id));
+    setFechaVencimiento(tarea.fecha_vencimiento ?? "");
+    setEstado(tarea.estado);
+    setDuracionEstimada(
+      tarea.duracion_estimada_hs != null
+        ? String(tarea.duracion_estimada_hs)
+        : "",
+    );
+    setDuracionReal(
+      tarea.duracion_real_hs != null ? String(tarea.duracion_real_hs) : "",
+    );
+    setRepetir(tarea.recurrencia?.frecuencia ?? "_nunca");
+    setParaTodos(tarea.para_todos);
+    setErrorGuardado(null);
+    setPanelEdicionAbierto(false);
+  }
+
+  // Guardado acotado para quien solo puede cambiar el Estado (asignado que
+  // no es el creador ni administrador): manda el resto de los campos tal
+  // cual están en `tarea` para que la action los detecte sin cambios (ver
+  // `soloCambioDeEstado` en actualizarTarea, tablero/actions.ts) y no exija
+  // el permiso de gestión de proyecto que ese chequeo dispara.
+  function handleGuardarEstado() {
+    setErrorGuardado(null);
+    startSave(async () => {
+      try {
+        await actualizarTarea(tarea.id, {
+          titulo: tarea.titulo,
+          descripcion: tarea.descripcion,
+          tipo: tarea.tipo,
+          prioridad: tarea.prioridad,
+          area_id: tarea.area_id,
+          responsable_id: tarea.responsable_id,
+          asignados_ids: tarea.asignados.map((a) => a.id),
+          fecha_vencimiento: tarea.fecha_vencimiento,
+          estado,
+          duracion_estimada_hs: tarea.duracion_estimada_hs,
+          duracion_real_hs: tarea.duracion_real_hs,
+          recurrencia: tarea.recurrencia,
+          para_todos: tarea.para_todos,
+        });
+        setPanelEstadoAbierto(false);
         onOpenChange(false);
       } catch (err) {
         setErrorGuardado(
@@ -424,37 +497,65 @@ export function TareaModal({
         <DialogHeader className="shrink-0 gap-2 border-b px-5 pt-5 pb-3">
           <div className="flex items-start justify-between gap-3 pr-1">
             <div className="flex flex-wrap items-center gap-2">
-              <Flag
-                className={`mt-0.5 size-3.5 shrink-0 ${PRIORIDAD_TEXT_COLOR[prioridad] ?? "text-slate-300"}`}
-                fill="currentColor"
-                aria-label={`Prioridad ${prioridad}`}
-              />
-              {area && (
-                <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                  <span
-                    className="size-2 rounded-full"
-                    style={{ backgroundColor: area.color }}
+              {puedeEditarTodo && (
+                <>
+                  <Flag
+                    className={`mt-0.5 size-3.5 shrink-0 ${PRIORIDAD_TEXT_COLOR[prioridad] ?? "text-slate-300"}`}
+                    fill="currentColor"
+                    aria-label={`Prioridad ${prioridad}`}
                   />
-                  {area.nombre}
-                </span>
+                  {area && (
+                    <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: area.color }}
+                      />
+                      {area.nombre}
+                    </span>
+                  )}
+                  <Badge variant="secondary" className="text-xs">
+                    {TIPO_OPTS.find((t) => t.value === tipo)?.label ?? tipo}
+                  </Badge>
+                </>
               )}
-              <Badge variant="secondary" className="text-xs">
-                {TIPO_OPTS.find((t) => t.value === tipo)?.label ?? tipo}
-              </Badge>
-              <Badge
-                variant={estado === "hecha" ? "default" : "outline"}
-                className="text-xs"
-              >
-                {ESTADO_OPTS.find((e) => e.value === estado)?.label ?? estado}
-              </Badge>
+              {(puedeEditarTodo || puedeEditarSoloEstado) && (
+                <Badge
+                  variant={estado === "hecha" ? "default" : "outline"}
+                  className="text-xs"
+                >
+                  {ESTADO_OPTS.find((e) => e.value === estado)?.label ?? estado}
+                </Badge>
+              )}
             </div>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="hover:bg-muted shrink-0 rounded-md p-1 transition-colors"
-              aria-label="Cerrar"
-            >
-              <X className="size-4" />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              {puedeEditarTodo && (
+                <button
+                  onClick={() => setPanelEdicionAbierto((v) => !v)}
+                  className={`hover:bg-muted rounded-md p-1 transition-colors ${panelEdicionAbierto ? "bg-muted" : ""}`}
+                  aria-label="Editar tarea"
+                  title="Editar tarea"
+                >
+                  <Settings className="size-4" />
+                </button>
+              )}
+              {puedeEditarSoloEstado && (
+                <button
+                  onClick={() => setPanelEstadoAbierto((v) => !v)}
+                  className={`hover:bg-muted rounded-md p-1 transition-colors ${panelEstadoAbierto ? "bg-muted" : ""}`}
+                  aria-label="Cambiar estado"
+                  title="Cambiar estado"
+                >
+                  <Settings className="size-4" />
+                </button>
+              )}
+              <button
+                onClick={() => onOpenChange(false)}
+                className="hover:bg-muted rounded-md p-1 transition-colors"
+                aria-label="Cerrar"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
           </div>
           <DialogTitle className="text-left text-base leading-snug font-semibold">
             {tarea.titulo}
@@ -463,170 +564,293 @@ export function TareaModal({
 
         {/* Scrollable body */}
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
-          {/* Campos editables */}
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Título</Label>
-              <Input
-                value={titulo}
-                onChange={(e) => setTitulo(e.target.value)}
-                className="h-9"
-              />
-            </div>
+          {tarea.descripcion && (
+            <p className="text-foreground/90 text-sm leading-snug whitespace-pre-wrap">
+              {tarea.descripcion}
+            </p>
+          )}
 
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Descripción</Label>
-              <Textarea
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                placeholder="Agregá más contexto..."
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Tipo</Label>
-                <Select
-                  value={tipo}
-                  onValueChange={(v) => setTipo(v ?? "")}
-                  items={TIPO_ITEMS}
-                >
-                  <SelectTrigger className="h-8 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIPO_OPTS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Prioridad</Label>
-                <Select
-                  value={prioridad}
-                  onValueChange={(v) => setPrioridad(v ?? "")}
-                  items={PRIORIDAD_ITEMS}
-                >
-                  <SelectTrigger className="h-8 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORIDAD_OPTS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        <span className="flex items-center gap-2">
-                          <span
-                            className={`size-2 rounded-full ${PRIORIDAD_COLOR[o.value]}`}
-                          />
+          {/* Panel de edición completo — solo quien creó la tarea (o administrador) */}
+          {puedeEditarTodo && panelEdicionAbierto && (
+            <div className="bg-muted/30 flex flex-col gap-3 rounded-lg border p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Tipo</Label>
+                  <Select
+                    value={tipo}
+                    onValueChange={(v) => setTipo(v ?? "")}
+                    items={TIPO_ITEMS}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPO_OPTS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
                           {o.label}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Prioridad</Label>
+                  <Select
+                    value={prioridad}
+                    onValueChange={(v) => setPrioridad(v ?? "")}
+                    items={PRIORIDAD_ITEMS}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRIORIDAD_OPTS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={`size-2 rounded-full ${PRIORIDAD_COLOR[o.value]}`}
+                            />
+                            {o.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Proyecto</Label>
-                <Select
-                  value={areaId ?? "_none"}
-                  onValueChange={(v) =>
-                    setAreaId(!v || v === "_none" ? null : v)
-                  }
-                  items={AREA_ITEMS}
-                >
-                  <SelectTrigger className="h-8 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">Sin proyecto</SelectItem>
-                    {areas.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        <span className="flex items-center gap-1.5">
-                          <span
-                            className="size-2 rounded-full"
-                            style={{ backgroundColor: a.color }}
-                          />
-                          {a.nombre}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Proyecto</Label>
+                  <Select
+                    value={areaId ?? "_none"}
+                    onValueChange={(v) =>
+                      setAreaId(!v || v === "_none" ? null : v)
+                    }
+                    items={AREA_ITEMS}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Sin proyecto</SelectItem>
+                      {areas.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          <span className="flex items-center gap-1.5">
+                            <span
+                              className="size-2 rounded-full"
+                              style={{ backgroundColor: a.color }}
+                            />
+                            {a.nombre}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Responsable</Label>
+                  <Select
+                    value={responsableId || "_none"}
+                    onValueChange={(v) =>
+                      setResponsableId(!v || v === "_none" ? "" : v)
+                    }
+                    items={RESPONSABLE_ITEMS}
+                    disabled={paraTodos}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue placeholder="Sin asignar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Sin asignar</SelectItem>
+                      {usuarios.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Responsable</Label>
-                <Select
-                  value={responsableId || "_none"}
-                  onValueChange={(v) =>
-                    setResponsableId(!v || v === "_none" ? "" : v)
-                  }
-                  items={RESPONSABLE_ITEMS}
-                  disabled={paraTodos}
-                >
-                  <SelectTrigger className="h-8 w-full">
-                    <SelectValue placeholder="Sin asignar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">Sin asignar</SelectItem>
-                    {usuarios.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
 
-            <label className="hover:bg-muted/50 -mx-2 flex cursor-pointer items-start gap-2.5 rounded-md p-2">
-              <Checkbox
-                checked={paraTodos}
-                onCheckedChange={(checked) => {
-                  const v = checked === true;
-                  setParaTodos(v);
-                  if (v) {
-                    setResponsableId("");
-                    setAsignadosIds([]);
-                  }
-                }}
-                className="mt-0.5"
-              />
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium">Tarea para todo el equipo</span>
-                <span className="text-muted-foreground text-xs">
-                  Sin responsable fijo — aparece en el /hoy de cualquiera y la
-                  puede tomar el primero que llegue.
-                </span>
-              </div>
-            </label>
-
-            {!paraTodos && (
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Colaboradores</Label>
-                <AsignadosPicker
-                  usuarios={usuarios}
-                  selectedIds={asignadosIds}
-                  onChange={setAsignadosIds}
-                  placeholder="Sin colaboradores adicionales"
-                  permitirTodos
+              <label className="hover:bg-muted/50 -mx-2 flex cursor-pointer items-start gap-2.5 rounded-md p-2">
+                <Checkbox
+                  checked={paraTodos}
+                  onCheckedChange={(checked) => {
+                    const v = checked === true;
+                    setParaTodos(v);
+                    if (v) {
+                      setResponsableId("");
+                      setAsignadosIds([]);
+                    }
+                  }}
+                  className="mt-0.5"
                 />
-              </div>
-            )}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">
+                    Tarea para todo el equipo
+                  </span>
+                  <span className="text-muted-foreground text-xs">
+                    Sin responsable fijo — aparece en el /hoy de cualquiera y la
+                    puede tomar el primero que llegue.
+                  </span>
+                </div>
+              </label>
 
-            <div className="grid grid-cols-2 gap-3">
+              {!paraTodos && (
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Colaboradores</Label>
+                  <AsignadosPicker
+                    usuarios={usuarios}
+                    selectedIds={asignadosIds}
+                    onChange={setAsignadosIds}
+                    placeholder="Sin colaboradores adicionales"
+                    permitirTodos
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Estado</Label>
+                  <Select
+                    value={estado}
+                    onValueChange={(v) => setEstado(v ?? "")}
+                    items={ESTADO_ITEMS}
+                    disabled={!puedeMoverEstado}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ESTADO_OPTS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!puedeMoverEstado && (
+                    <p className="text-muted-foreground text-[11px]">
+                      Solo quien está asignado (o administrador) puede
+                      cambiarlo.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Fecha de vencimiento</Label>
+                  <Input
+                    type="date"
+                    value={fechaVencimiento}
+                    onChange={(e) => setFechaVencimiento(e.target.value)}
+                    className="h-8"
+                  />
+                  {tarea.tipo === "reunion" && tarea.hora_inicio && (
+                    <p className="text-muted-foreground text-[11px]">
+                      {horaFinReunion(
+                        tarea.hora_inicio,
+                        tarea.duracion_estimada_hs,
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Repetir</Label>
+                  <Select
+                    value={repetir}
+                    onValueChange={(v) => setRepetir(v ?? "_nunca")}
+                    items={REPETIR_ITEMS}
+                  >
+                    <SelectTrigger className="h-8 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REPETIR_OPTS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {repetir !== "_nunca" && !fechaVencimiento && (
+                    <p className="text-muted-foreground text-[11px]">
+                      Necesita fecha de vencimiento para generar la próxima.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Horas estimadas</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    placeholder="—"
+                    value={duracionEstimada}
+                    onChange={(e) => setDuracionEstimada(e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Horas reales</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    placeholder="—"
+                    value={duracionReal}
+                    onChange={(e) => setDuracionReal(e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col items-start gap-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleSave}
+                    disabled={isPendingSave}
+                    size="sm"
+                  >
+                    {isPendingSave ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="size-3.5 animate-spin" />
+                        Guardando...
+                      </span>
+                    ) : (
+                      "Guardar cambios"
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCancelarEdicion}
+                    disabled={isPendingSave}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+                {errorGuardado && (
+                  <p className="text-destructive text-xs">{errorGuardado}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Panel reducido — solo Estado, para quien está asignado pero no creó la tarea */}
+          {puedeEditarSoloEstado && panelEstadoAbierto && (
+            <div className="bg-muted/30 flex flex-col gap-3 rounded-lg border p-3">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Estado</Label>
                 <Select
                   value={estado}
                   onValueChange={(v) => setEstado(v ?? "")}
                   items={ESTADO_ITEMS}
-                  disabled={!puedeMoverEstado}
                 >
                   <SelectTrigger className="h-8 w-full">
                     <SelectValue />
@@ -639,106 +863,42 @@ export function TareaModal({
                     ))}
                   </SelectContent>
                 </Select>
-                {!puedeMoverEstado && (
-                  <p className="text-muted-foreground text-[11px]">
-                    Solo quien está asignado (o administrador) puede cambiarlo.
-                  </p>
-                )}
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Fecha de vencimiento</Label>
-                <Input
-                  type="date"
-                  value={fechaVencimiento}
-                  onChange={(e) => setFechaVencimiento(e.target.value)}
-                  className="h-8"
-                />
-                {tarea.tipo === "reunion" && tarea.hora_inicio && (
-                  <p className="text-muted-foreground text-[11px]">
-                    {horaFinReunion(
-                      tarea.hora_inicio,
-                      tarea.duracion_estimada_hs,
+              <div className="flex flex-col items-start gap-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleGuardarEstado}
+                    disabled={isPendingSave}
+                    size="sm"
+                  >
+                    {isPendingSave ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="size-3.5 animate-spin" />
+                        Guardando...
+                      </span>
+                    ) : (
+                      "Guardar cambios"
                     )}
-                  </p>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setEstado(tarea.estado);
+                      setErrorGuardado(null);
+                      setPanelEstadoAbierto(false);
+                    }}
+                    disabled={isPendingSave}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+                {errorGuardado && (
+                  <p className="text-destructive text-xs">{errorGuardado}</p>
                 )}
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Repetir</Label>
-                <Select
-                  value={repetir}
-                  onValueChange={(v) => setRepetir(v ?? "_nunca")}
-                  items={REPETIR_ITEMS}
-                >
-                  <SelectTrigger className="h-8 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {REPETIR_OPTS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {repetir !== "_nunca" && !fechaVencimiento && (
-                  <p className="text-muted-foreground text-[11px]">
-                    Necesita fecha de vencimiento para generar la próxima.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Horas estimadas</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  placeholder="—"
-                  value={duracionEstimada}
-                  onChange={(e) => setDuracionEstimada(e.target.value)}
-                  className="h-8"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Horas reales</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  placeholder="—"
-                  value={duracionReal}
-                  onChange={(e) => setDuracionReal(e.target.value)}
-                  className="h-8"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col items-start gap-2">
-              <Button
-                onClick={handleSave}
-                disabled={isPendingSave}
-                size="sm"
-                className="self-start"
-              >
-                {isPendingSave ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Guardando...
-                  </span>
-                ) : (
-                  "Guardar cambios"
-                )}
-              </Button>
-              {errorGuardado && (
-                <p className="text-destructive text-xs">{errorGuardado}</p>
-              )}
-            </div>
-          </div>
+          )}
 
           <Separator />
 
@@ -1007,8 +1167,9 @@ export function TareaModal({
             </form>
           </div>
 
-          {/* Historial */}
-          {log.length > 0 && (
+          {/* Historial — solo quien puede editar todos los campos, ya que
+              incluye cambios de campos que a los demás se les oculta */}
+          {puedeEditarTodo && log.length > 0 && (
             <>
               <Separator />
               <div className="flex flex-col gap-2">
@@ -1060,54 +1221,58 @@ export function TareaModal({
           )}
         </div>
 
-        {/* Footer with archive */}
-        <div className="flex shrink-0 items-center justify-end gap-3 border-t px-5 py-3">
-          {errorArchivar && (
-            <p className="text-destructive mr-auto text-xs">{errorArchivar}</p>
-          )}
-          {tarea.archivada ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRestaurar}
-              disabled={isPendingDelete}
-            >
-              <ArchiveRestore className="size-3.5" />
-              {isPendingDelete ? "Restaurando..." : "Restaurar tarea"}
-            </Button>
-          ) : confirmDelete ? (
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-sm">
-                ¿Confirmar archivado?
-              </span>
+        {/* Footer with archive — solo quien puede editar todos los campos */}
+        {puedeEditarTodo && (
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t px-5 py-3">
+            {errorArchivar && (
+              <p className="text-destructive mr-auto text-xs">
+                {errorArchivar}
+              </p>
+            )}
+            {tarea.archivada ? (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setConfirmDelete(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleArchivar}
+                onClick={handleRestaurar}
                 disabled={isPendingDelete}
               >
-                {isPendingDelete ? "Archivando..." : "Confirmar"}
+                <ArchiveRestore className="size-3.5" />
+                {isPendingDelete ? "Restaurando..." : "Restaurar tarea"}
               </Button>
-            </div>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              onClick={handleArchivar}
-            >
-              <Archive className="size-3.5" />
-              Archivar tarea
-            </Button>
-          )}
-        </div>
+            ) : confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-sm">
+                  ¿Confirmar archivado?
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleArchivar}
+                  disabled={isPendingDelete}
+                >
+                  {isPendingDelete ? "Archivando..." : "Confirmar"}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={handleArchivar}
+              >
+                <Archive className="size-3.5" />
+                Archivar tarea
+              </Button>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
