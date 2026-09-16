@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSeccionDeshabilitada, redirectSesionInvalida } from "@/lib/redirects";
 import { AreasCliente } from "./areas-cliente";
 
 type AreaRow = {
@@ -40,7 +41,7 @@ export default async function AreasPage() {
       select proyectos_habilitado from organizacion where id = mi_organizacion_id()
     `;
     // Sesión vieja que ya no resuelve a ningún usuario/organización real.
-    if (!org) redirect("/login");
+    if (!org) redirectSesionInvalida();
 
     const areas = await tx<AreaRow[]>`
       select
@@ -123,7 +124,7 @@ export default async function AreasPage() {
     return { areas: [...areas], usuarios: [...usuarios], habilitado: org.proyectos_habilitado };
   });
 
-  if (!habilitado) redirect("/hoy");
+  if (!habilitado) redirectSeccionDeshabilitada();
 
   return (
     <AreasCliente

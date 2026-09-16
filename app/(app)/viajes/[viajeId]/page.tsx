@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSeccionDeshabilitada, redirectSesionInvalida } from "@/lib/redirects";
 import { ViajeDetalleCliente } from "./viaje-detalle-cliente";
 import type { EstadoIntegranteViaje, EstadoViaje } from "@/types/database";
 import type { UsuarioOption } from "../page";
@@ -94,7 +95,7 @@ export default async function ViajeDetallePage({
         select viajes_habilitado from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
-      if (!org) redirect("/login");
+      if (!org) redirectSesionInvalida();
 
       const [viajeRow] = await tx<[ViajeDetalle | undefined]>`
         select
@@ -203,7 +204,7 @@ export default async function ViajeDetallePage({
       };
     });
 
-  if (!habilitado) redirect("/hoy");
+  if (!habilitado) redirectSeccionDeshabilitada();
   if (!viaje) notFound();
 
   return (

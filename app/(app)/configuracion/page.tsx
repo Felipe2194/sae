@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { redirectSinPermiso } from "@/lib/redirects";
 import {
   Link2,
   Trash2,
@@ -67,7 +68,7 @@ export default async function AdminPage() {
   if (!session?.user) redirect("/login");
 
   const rol = (session.user as { rol: string }).rol;
-  if (rol !== "administrador") redirect("/hoy");
+  if (rol !== "administrador") redirectSinPermiso();
 
   const { tareas, usuarios, todosUsuarios, auditoria, accesos, organizacion } =
     await withUser(session.user.id, async (tx) => {

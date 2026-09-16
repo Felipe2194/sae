@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSeccionDeshabilitada, redirectSesionInvalida } from "@/lib/redirects";
 import { CronogramaCliente } from "./cronograma-cliente";
 
 export type TurnoData = {
@@ -41,7 +42,7 @@ export default async function CronogramaPage() {
         select cronograma_habilitado from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
-      if (!org) redirect("/login");
+      if (!org) redirectSesionInvalida();
 
       const turnos = await tx<TurnoData[]>`
       select
@@ -96,7 +97,7 @@ export default async function CronogramaPage() {
     },
   );
 
-  if (!habilitado) redirect("/hoy");
+  if (!habilitado) redirectSeccionDeshabilitada();
 
   return (
     <CronogramaCliente

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSesionInvalida } from "@/lib/redirects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { AccesosCard } from "./accesos-card";
 import { BitacoraCard } from "./bitacora-card";
 import { BitacoraEquipoCard } from "./bitacora-equipo-card";
 import { MisTareasHoy } from "./mis-tareas-hoy";
+import { AvisoMotivo } from "@/components/features/aviso-motivo";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -154,7 +156,12 @@ type NovedadRow = {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function HoyPage() {
+export default async function HoyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ motivo?: string }>;
+}) {
+  const { motivo } = await searchParams;
   const session = await auth();
   if (!session?.user) redirect("/login");
 
@@ -180,7 +187,7 @@ export default async function HoyPage() {
     // vieja de una cuenta borrada, o base de datos reseteada sin recargar la
     // sesión) — es una sesión inválida, no un caso de "organización sin
     // configurar" como en app/(app)/layout.tsx.
-    if (!org) redirect("/login");
+    if (!org) redirectSesionInvalida();
 
     const tareas = await tx<TareaRow[]>`
         select
@@ -397,6 +404,7 @@ export default async function HoyPage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
+      <AvisoMotivo motivo={motivo} />
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1">
         <p className="text-muted-foreground text-sm">{fechaLarga()}</p>

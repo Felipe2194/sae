@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSeccionDeshabilitada, redirectSesionInvalida } from "@/lib/redirects";
 import { CalendarioCliente } from "./calendario-cliente";
 
 export type TareaConFecha = {
@@ -52,14 +53,14 @@ export default async function CalendarioPage() {
       select calendario_habilitado from organizacion where id = mi_organizacion_id()
     `;
     // Sesión vieja que ya no resuelve a ningún usuario/organización real.
-    if (!org) redirect("/login");
+    if (!org) redirectSesionInvalida();
 
     return { tareas: [...tareas], habilitado: org.calendario_habilitado };
   });
 
   // La organización desactivó esta sección en /configuracion — no tiene
   // sentido dejarla accesible por URL directa aunque no aparezca en el menú.
-  if (!habilitado) redirect("/hoy");
+  if (!habilitado) redirectSeccionDeshabilitada();
 
   return (
     <CalendarioCliente tareas={[...tareas]} tieneCalendar={tieneCalendar} />

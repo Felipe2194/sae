@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSinPermiso, redirectSesionInvalida } from "@/lib/redirects";
 import { InformesCliente } from "./informes-cliente";
 import type {
   GlobalStats,
@@ -31,7 +32,7 @@ export default async function InformesPage({
   if (!session?.user) redirect("/login");
 
   const rol = (session.user as { rol: string }).rol;
-  if (rol !== "administrador") redirect("/hoy");
+  if (rol !== "administrador") redirectSinPermiso();
 
   const params = await searchParams;
   const anioActual = new Date().getFullYear();
@@ -66,7 +67,7 @@ export default async function InformesPage({
       select proyectos_habilitado, visitas_habilitado, viajes_habilitado from organizacion where id = mi_organizacion_id()
     `;
     // Sesión vieja que ya no resuelve a ningún usuario/organización real.
-    if (!org) redirect("/login");
+    if (!org) redirectSesionInvalida();
 
     // Estado general de la organización — lo primero que ve el admin al
     // entrar, antes de bajar a cualquier detalle por área o por persona.

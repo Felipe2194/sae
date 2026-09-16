@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSeccionDeshabilitada, redirectSesionInvalida, redirectSinPermiso } from "@/lib/redirects";
 import { labelTipoVisita, labelEstadoVisita } from "@/app/(app)/visitas/tipos";
 import type { EstadoVisita, TipoVisita } from "@/types/database";
 import { ImprimirBoton } from "./imprimir-boton";
@@ -32,7 +33,7 @@ export default async function ReporteVisitasPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
   const rol = (session.user as { rol: string }).rol;
-  if (rol !== "administrador") redirect("/hoy");
+  if (rol !== "administrador") redirectSinPermiso();
 
   const params = await searchParams;
   const anioActual = new Date().getFullYear();
@@ -57,7 +58,7 @@ export default async function ReporteVisitasPage({
         select nombre, logo_url, visitas_habilitado from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
-      if (!organizacion) redirect("/login");
+      if (!organizacion) redirectSesionInvalida();
 
       // Mismo criterio que el reporte de Informes (ver app/(app)/informes/page.tsx):
       // "viaje" = visita_colegio o feria_expo, nos_visitan es al revés (vino
@@ -131,7 +132,7 @@ export default async function ReporteVisitasPage({
       };
     });
 
-  if (!habilitado) redirect("/hoy");
+  if (!habilitado) redirectSeccionDeshabilitada();
 
   const tituloAnio = anio === 0 ? "Todos los años" : String(anio);
 

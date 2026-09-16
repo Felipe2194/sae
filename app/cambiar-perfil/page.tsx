@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { redirectSinPermiso } from "@/lib/redirects";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cambiarPerfil } from "./actions";
 
@@ -17,7 +18,7 @@ export default async function CambiarPerfilPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  if (!session.user.puedeCambiarPerfil) redirect("/hoy");
+  if (!session.user.puedeCambiarPerfil) redirectSinPermiso();
 
   const { integrantes, logoUrl, cuentaGenerica } = await withUser(
     session.user.id,
