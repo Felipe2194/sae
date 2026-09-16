@@ -9,7 +9,7 @@ import type {
   TareaAntigua,
   PrecisionEstimacion,
   SemanaTareas,
-  ActividadBitacora,
+  ActividadIntegrante,
   AntiguedadVencidas,
   UsoPlantilla,
   ActividadComentarios,
@@ -45,7 +45,7 @@ export default async function InformesPage({
     tareasAntiguas,
     precisionEstimacion,
     semanas,
-    actividadBitacora,
+    actividadIntegrantes,
     antiguedadVencidas,
     usoPlantillas,
     actividadComentarios,
@@ -202,14 +202,64 @@ export default async function InformesPage({
       order by s.inicio asc
     `;
 
-    const actividadBitacora = await tx<ActividadBitacora[]>`
-      select u.nombre, count(b.id)::int as dias_cargados
+    // Unión de bitácora + carga por persona para el apartado "Actividad por
+    // integrante": una fila resumen por integrante. Los conteos de tarea se
+    // resuelven en subconsultas agregadas aparte (no con joins directos a
+    // `tarea` por creador y por responsable a la vez) para no multiplicar
+    // filas por combinación creador×responsable antes de contar.
+    const actividadIntegrantes = await tx<ActividadIntegrante[]>`
+      select
+        u.id,
+        u.nombre,
+        coalesce(tc.n, 0)::int             as tareas_creadas,
+        coalesce(ta.total, 0)::int         as tareas_asignadas,
+        coalesce(ta.hecha, 0)::int         as asignadas_hecha,
+        coalesce(ta.en_progreso, 0)::int   as asignadas_en_progreso,
+        coalesce(ta.por_hacer, 0)::int     as asignadas_por_hacer,
+        coalesce(ta.vencidas, 0)::int      as asignadas_vencidas,
+        coalesce(b.dias_cargados, 0)::int  as dias_bitacora,
+        coalesce(cm.comentarios, 0)::int   as comentarios_30d
       from usuario u
-      left join bitacora_diaria b on b.usuario_id = u.id
-        and b.fecha >= current_date - interval '30 days'
+      left join (
+        select creada_por, count(*) as n
+        from tarea
+        where organizacion_id = mi_organizacion_id() and archivada = false and activa = true
+        group by creada_por
+      ) tc on tc.creada_por = u.id
+      left join (
+        select
+          responsable_id,
+          count(*)                                                                       as total,
+          count(*) filter (where estado = 'hecha')                                       as hecha,
+          count(*) filter (where estado = 'en_progreso')                                 as en_progreso,
+          count(*) filter (where estado = 'por_hacer')                                   as por_hacer,
+          count(*) filter (
+            where estado != 'hecha'
+              and fecha_vencimiento is not null
+              and fecha_vencimiento < current_date
+          )                                                                               as vencidas
+        from tarea
+        where organizacion_id = mi_organizacion_id() and archivada = false and activa = true
+        group by responsable_id
+      ) ta on ta.responsable_id = u.id
+      left join (
+        select usuario_id, count(*) as dias_cargados
+        from bitacora_diaria
+        where fecha >= current_date - interval '30 days'
+        group by usuario_id
+      ) b on b.usuario_id = u.id
+      left join (
+        select autor_id, count(*) as comentarios
+        from comentario
+        where creado_en >= now() - interval '30 days'
+        group by autor_id
+      ) cm on cm.autor_id = u.id
       where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo'
-      group by u.id, u.nombre
-      order by dias_cargados desc, u.nombre asc
+        and (
+          coalesce(tc.n, 0) > 0 or coalesce(ta.total, 0) > 0
+          or coalesce(b.dias_cargados, 0) > 0 or coalesce(cm.comentarios, 0) > 0
+        )
+      order by u.nombre asc
     `;
 
     const [antiguedadVencidas] = await tx<[AntiguedadVencidas]>`
@@ -384,7 +434,7 @@ export default async function InformesPage({
       tareasAntiguas,
       precisionEstimacion,
       semanas,
-      actividadBitacora,
+      actividadIntegrantes,
       antiguedadVencidas,
       usoPlantillas,
       actividadComentarios,
@@ -431,7 +481,7 @@ export default async function InformesPage({
       tareasAntiguas={tareasAntiguas}
       precisionEstimacion={precisionEstimacion}
       semanas={semanas}
-      actividadBitacora={actividadBitacora}
+      actividadIntegrantes={actividadIntegrantes}
       antiguedadVencidas={antiguedadVencidas}
       usoPlantillas={usoPlantillas}
       actividadComentarios={actividadComentarios}
