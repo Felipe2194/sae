@@ -466,10 +466,10 @@ export function TableroCliente({
               ...Object.fromEntries(areas.map((a) => [a.id, a.nombre])),
             }}
           >
-            <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
+            <SelectTrigger className="h-8 max-w-56 min-w-[150px] shrink-0 text-xs">
               <SelectValue placeholder="Proyecto" className="truncate" />
             </SelectTrigger>
-            <SelectContent className="max-h-36">
+            <SelectContent className="max-h-36 min-w-[260px]">
               <SelectItem value="_all">Todos los proyectos</SelectItem>
               <SelectItem value={SIN_PROYECTO}>Sin proyecto</SelectItem>
               {areas.map((a) => (
@@ -479,7 +479,7 @@ export function TableroCliente({
                       className="inline-block size-2 shrink-0 rounded-full"
                       style={{ backgroundColor: a.color }}
                     />
-                    {a.nombre}
+                    <span className="block max-w-[190px] truncate">{a.nombre}</span>
                   </span>
                 </SelectItem>
               ))}
@@ -496,15 +496,19 @@ export function TableroCliente({
                 ...Object.fromEntries(viajes.map((v) => [v.id, v.nombre])),
               }}
             >
-              <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
+              <SelectTrigger className="h-8 max-w-56 min-w-[140px] shrink-0 text-xs">
                 <SelectValue placeholder="Viaje" className="truncate" />
               </SelectTrigger>
-              <SelectContent className="max-h-36">
+              <SelectContent className="max-h-36 min-w-[260px]">
                 <SelectItem value="_all">Todos los viajes</SelectItem>
                 <SelectItem value={SIN_VIAJE}>Sin viaje</SelectItem>
                 {viajes.map((v) => (
                   <SelectItem key={v.id} value={v.id}>
-                    {v.nombre}
+                    {/* Nombres de viaje sin tope (ej. "Congreso Nacional de
+                        Estudiantes de Ingeniería") pueden ser bastante más
+                        largos que un área — trunca con "…" en vez de
+                        recortarse en seco contra el borde del popup. */}
+                    <span className="block max-w-[220px] truncate">{v.nombre}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -521,10 +525,10 @@ export function TableroCliente({
               ),
             }}
           >
-            <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
+            <SelectTrigger className="h-8 min-w-[160px] shrink-0 text-xs">
               <SelectValue placeholder="Categoría" className="truncate" />
             </SelectTrigger>
-            <SelectContent className="max-h-36">
+            <SelectContent className="max-h-36 min-w-[170px]">
               <SelectItem value="_all">Todas las categorías</SelectItem>
               {CATEGORIA_OPTS.map((c) => (
                 <SelectItem key={c.value} value={c.value}>
@@ -544,7 +548,7 @@ export function TableroCliente({
               ),
             }}
           >
-            <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
+            <SelectTrigger className="h-8 min-w-[130px] shrink-0 text-xs">
               <SelectValue placeholder="Prioridad" className="truncate" />
             </SelectTrigger>
             <SelectContent className="max-h-36">
@@ -567,14 +571,14 @@ export function TableroCliente({
               ...Object.fromEntries(usuarios.map((u) => [u.id, u.nombre])),
             }}
           >
-            <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
+            <SelectTrigger className="h-8 max-w-48 min-w-[120px] shrink-0 text-xs">
               <SelectValue placeholder="Responsable" className="truncate" />
             </SelectTrigger>
-            <SelectContent className="max-h-36">
+            <SelectContent className="max-h-36 min-w-[220px]">
               <SelectItem value="_all">Todos</SelectItem>
               {usuarios.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
-                  {u.nombre}
+                  <span className="block max-w-[190px] truncate">{u.nombre}</span>
                 </SelectItem>
               ))}
             </SelectContent>
