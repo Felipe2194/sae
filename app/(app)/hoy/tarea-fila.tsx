@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { CalendarDays, Users } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,6 +32,11 @@ type TareaFilaProps = {
   fechaRelativa: string | null;
   vencida: boolean;
   paraTodos?: boolean;
+  // "Mis tareas de hoy" no permite tildarlas hechas desde acá — hay que
+  // entrar a leerlas antes. En ese modo la fila entera es un link a
+  // /tablero?tarea=<id> (ver el efecto que lo consume en tablero-cliente.tsx)
+  // en vez de tener un checkbox de completar.
+  soloLectura?: boolean;
 };
 
 export function TareaFila({
@@ -44,6 +50,7 @@ export function TareaFila({
   fechaRelativa,
   vencida,
   paraTodos,
+  soloLectura,
 }: TareaFilaProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -61,16 +68,18 @@ export function TareaFila({
 
   const hecha = estado === "hecha";
 
-  return (
+  const contenido = (
     <div
-      className={`flex items-start gap-3 py-2.5 transition-opacity ${isPending ? "opacity-50" : ""}`}
+      className={`flex items-start gap-3 py-2.5 transition-opacity ${isPending ? "opacity-50" : ""} ${soloLectura ? "hover:bg-muted/50 -mx-2 rounded-md px-2" : ""}`}
     >
-      <Checkbox
-        checked={hecha}
-        onCheckedChange={handleToggle}
-        disabled={isPending}
-        className="mt-0.5 shrink-0"
-      />
+      {!soloLectura && (
+        <Checkbox
+          checked={hecha}
+          onCheckedChange={handleToggle}
+          disabled={isPending}
+          className="mt-0.5 shrink-0"
+        />
+      )}
 
       <div className="flex-1 min-w-0">
         <p
@@ -119,4 +128,14 @@ export function TareaFila({
       </div>
     </div>
   );
+
+  if (soloLectura) {
+    return (
+      <Link href={`/tablero?tarea=${id}`} className="block">
+        {contenido}
+      </Link>
+    );
+  }
+
+  return contenido;
 }

@@ -294,6 +294,23 @@ export function TableroCliente({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe correr cuando cambia el query param
   }, [searchParams]);
 
+  // Atajo desde "Mis tareas de hoy" (/hoy): /tablero?tarea=<id> abre esa
+  // tarea directo, sin que la persona tenga que buscarla en las columnas.
+  // Si el id no existe más en tareasIniciales (se archivó, la borraron) no
+  // pasa nada — solo se limpia el query param.
+  useEffect(() => {
+    const tareaId = searchParams.get("tarea");
+    if (!tareaId) return;
+    const tarea = tareasIniciales.find((t) => t.id === tareaId);
+    if (tarea) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mismo criterio que el efecto de "nueva" arriba: sincroniza con el query param de la URL.
+      setSelectedTarea(tarea);
+      setModalOpen(true);
+    }
+    router.replace("/tablero");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe correr cuando cambia el query param
+  }, [searchParams]);
+
   useEffect(() => {
     if (!dragError) return;
     const id = setTimeout(() => setDragError(null), 4000);

@@ -57,7 +57,7 @@ export function MisTareasHoy({ tareas }: { tareas: TareaRow[] }) {
           }
           transition={{ duration: 0.2 }}
         >
-          <TareaFila {...t} vencida={false} />
+          <TareaFila {...t} vencida={false} soloLectura />
         </motion.div>
       ))}
     </AnimatePresence>
