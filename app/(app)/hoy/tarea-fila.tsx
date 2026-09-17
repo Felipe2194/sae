@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { CalendarDays, Users } from "lucide-react";
+import { CalendarDays, Users, Flag } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toggleTarea } from "./actions";
@@ -14,10 +14,13 @@ const TIPO_LABEL: Record<string, string> = {
   reunion: "Reunión",
 };
 
+// Misma bandera que tarea-card.tsx (tablero): un punto se confundía con el
+// punto de color del área/proyecto, la bandera es una forma distinta y de
+// lectura inmediata como "prioridad".
 const PRIORIDAD_COLOR: Record<string, string> = {
-  baja: "bg-slate-300",
-  media: "bg-amber-400",
-  alta: "bg-red-500",
+  baja: "text-slate-300",
+  media: "text-amber-500",
+  alta: "text-red-500",
 };
 
 type TareaFilaProps = {
@@ -82,21 +85,23 @@ export function TareaFila({
       )}
 
       <div className="flex-1 min-w-0">
-        <p
-          className={`text-sm leading-snug ${hecha ? "text-muted-foreground line-through" : "font-medium"}`}
-        >
-          {titulo}
-        </p>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <span
-            className={`size-1.5 rounded-full shrink-0 ${PRIORIDAD_COLOR[prioridad] ?? "bg-slate-300"}`}
+        <div className="flex items-start gap-1.5">
+          <Flag
+            className={`mt-[3px] size-3 shrink-0 ${PRIORIDAD_COLOR[prioridad] ?? "text-slate-300"}`}
+            fill="currentColor"
+            aria-label={`Prioridad ${prioridad}`}
           />
-          {areaNombre && (
-            <span className="text-xs text-muted-foreground truncate">
-              {areaNombre}
-            </span>
-          )}
+          <p
+            className={`text-sm leading-snug ${hecha ? "text-muted-foreground line-through" : "font-medium"}`}
+          >
+            {titulo}
+          </p>
         </div>
+        {areaNombre && (
+          <span className="text-xs text-muted-foreground truncate mt-0.5 block pl-[18px]">
+            {areaNombre}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
