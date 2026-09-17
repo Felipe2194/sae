@@ -54,21 +54,29 @@ export async function notificarComentario(
   responsableId: string,
   tareaTitulo: string,
   autorNombre: string,
+  autorId: string,
 ): Promise<string | null> {
-  const filas = await tx`
+  // No notificar autocomentarios. Antes este filtro vivía en el WHERE de un
+  // insert-select con `returning id` (para saber si se insertó algo) — pero
+  // `returning` fuerza a Postgres a revalidar la fila insertada contra la
+  // policy de SELECT de notificacion (usuario_id = mi_usuario_id()), que
+  // siempre es falsa acá porque se notifica a OTRA persona (el
+  // responsable). Eso rompía con "new row violates row-level security
+  // policy" cada vez que alguien comentaba una tarea que no era propia — el
+  // caso normal. El filtro se resuelve en JS antes del insert, y el insert
+  // queda un plain `values` sin `returning`, igual que notificarAsignacion.
+  if (responsableId === autorId) return null;
+
+  await tx`
     insert into notificacion (usuario_id, tipo, titulo, cuerpo, href)
-    select
+    values (
       ${responsableId},
       'comentario',
       ${'Comentario en "' + tareaTitulo + '"'},
       ${autorNombre},
       '/tablero'
-    where ${responsableId}::uuid != mi_usuario_id()
-    returning id
+    )
   `;
 
-  if (filas.length > 0) {
-    return `💬 ${autorNombre} comentó en "${tareaTitulo}"`;
-  }
-  return null;
+  return `💬 ${autorNombre} comentó en "${tareaTitulo}"`;
 }

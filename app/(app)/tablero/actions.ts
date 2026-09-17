@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import { notificarAsignacion, notificarComentario } from "@/lib/notificaciones";
 import { enviarTelegram } from "@/lib/telegram";
 import { urlSegura } from "@/lib/utils";
@@ -12,6 +13,31 @@ async function requireAuth() {
   const session = await auth();
   if (!session?.user) throw new Error("No autenticado");
   return session;
+}
+
+// Notificar (asignación o comentario) es un efecto secundario best-effort,
+// nunca debe poder tirar abajo la acción principal (guardar el comentario,
+// crear/editar la tarea). Antes corría dentro de la MISMA transacción que
+// esa acción — un fallo ahí (constraint, RLS, lo que sea) abortaba también
+// el INSERT/UPDATE principal, con la persona viendo un error 500 y
+// perdiendo lo que acababa de escribir. Corre en su propia transacción,
+// después de que la principal ya confirmó, y cualquier error acá se loguea
+// y se traga en vez de propagarse — mismo criterio que ya usa
+// enviarTelegram() (lib/telegram.ts) para no romper el flujo que lo llama.
+async function notificarSinRomper(
+  userId: string,
+  accion: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+  fn: (tx: any) => Promise<string | null>,
+): Promise<string | null> {
+  try {
+    return await withUser(userId, fn);
+  } catch (error) {
+    logger.warn(`${accion}: no se pudo generar la notificación`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 // Mover una tarea de columna (estado) es más restrictivo que editarla: acá
@@ -192,13 +218,15 @@ export async function crearTarea(input: {
   para_todos?: boolean;
 }) {
   const session = await requireAuth();
-  const mensajeTelegram = await withUser(session.user.id, async (tx) => {
+  const aNotificar = await withUser(session.user.id, async (tx) => {
     if (input.area_id) {
       await puedeGestionarArea(tx, input.area_id, session);
     }
     // Defensivo: una tarea para_todos nunca lleva responsable, aunque el
     // cliente mande algo raro (coincide con el check constraint de la base).
-    const responsableId = input.para_todos ? null : input.responsable_id || null;
+    const responsableId = input.para_todos
+      ? null
+      : input.responsable_id || null;
     const [{ id }] = await tx<[{ id: string }]>`
       insert into tarea (
         organizacion_id, area_id, titulo, descripcion, tipo, prioridad,
@@ -223,16 +251,17 @@ export async function crearTarea(input: {
     const asignadosIds = input.para_todos ? [] : (input.asignados_ids ?? []);
     await sincronizarAsignados(tx, id, asignadosIds);
 
-    const aNotificar = [
-      ...(responsableId ? [responsableId] : []),
-      ...asignadosIds,
-    ];
-    if (aNotificar.length > 0) {
-      return notificarAsignacion(tx, aNotificar, input.titulo);
-    }
-    return null;
+    return [...(responsableId ? [responsableId] : []), ...asignadosIds];
   });
-  if (mensajeTelegram) await enviarTelegram(mensajeTelegram);
+
+  if (aNotificar.length > 0) {
+    const mensajeTelegram = await notificarSinRomper(
+      session.user.id,
+      "crearTarea",
+      (tx) => notificarAsignacion(tx, aNotificar, input.titulo),
+    );
+    if (mensajeTelegram) await enviarTelegram(mensajeTelegram);
+  }
   revalidatePath("/tablero");
   revalidatePath("/hoy");
   revalidatePath("/informes");
@@ -259,7 +288,7 @@ export async function actualizarTarea(
   const session = await requireAuth();
   const completada_en = data.estado === "hecha" ? new Date() : null;
   const responsableId = data.para_todos ? null : data.responsable_id;
-  const mensajeTelegram = await withUser(session.user.id, async (tx) => {
+  const aNotificar = await withUser(session.user.id, async (tx) => {
     // Estado previo leído acá adentro, nunca aceptado como parámetro: esto
     // es una server action invocable directamente (no solo desde
     // tarea-modal), así que un `prev` que viniera del cliente se podía
@@ -362,8 +391,10 @@ export async function actualizarTarea(
       await sincronizarAsignados(tx, tareaId, data.asignados_ids);
     }
 
-    // Notificar a quien se sume como responsable o co-asignado — no a quien
-    // ya estaba, para no repetir el aviso en cada guardado sin cambios reales.
+    // A quién notificar (responsable o co-asignado nuevo — no a quien ya
+    // estaba, para no repetir el aviso en cada guardado sin cambios reales)
+    // se calcula acá adentro porque necesita `prev`, pero la notificación en
+    // sí corre después de este commit (ver notificarSinRomper más abajo).
     const antes = new Set(prev.asignados_ids);
     const nuevosCoasignados = (data.asignados_ids ?? []).filter(
       (id) => !antes.has(id),
@@ -374,10 +405,6 @@ export async function actualizarTarea(
         : []),
       ...nuevosCoasignados,
     ];
-    const mensajeAsignacion =
-      aNotificar.length > 0
-        ? await notificarAsignacion(tx, aNotificar, data.titulo)
-        : null;
 
     // Tarea recurrente que se acaba de completar -> clonar la siguiente ocurrencia
     if (data.estado === "hecha" && prev.estado !== "hecha") {
@@ -404,9 +431,18 @@ export async function actualizarTarea(
         `;
       }
     }
-    return mensajeAsignacion;
+    return aNotificar;
   });
-  if (mensajeTelegram) await enviarTelegram(mensajeTelegram);
+
+  if (aNotificar.length > 0) {
+    const mensajeTelegram = await notificarSinRomper(
+      session.user.id,
+      "actualizarTarea",
+      (tx) => notificarAsignacion(tx, aNotificar, data.titulo),
+    );
+    if (mensajeTelegram) await enviarTelegram(mensajeTelegram);
+  }
+
   revalidatePath("/tablero");
   revalidatePath("/hoy");
   revalidatePath("/informes");
@@ -664,28 +700,34 @@ export async function eliminarSubtarea(subtareaId: string) {
 
 export async function crearComentario(tareaId: string, contenido: string) {
   const session = await requireAuth();
-  const mensajeTelegram = await withUser(session.user.id, async (tx) => {
+  await withUser(session.user.id, async (tx) => {
     await tx`
       insert into comentario (tarea_id, autor_id, contenido)
       values (${tareaId}, mi_usuario_id(), ${contenido})
     `;
+  });
 
-    // Notificar al responsable de la tarea si no es el autor
-    const [tarea] = await tx<
-      [{ responsable_id: string | null; titulo: string }]
-    >`
-      select responsable_id, titulo from tarea where id = ${tareaId}
-    `;
-    if (tarea?.responsable_id) {
+  // Notificar al responsable corre después de que el comentario ya se
+  // guardó, en su propia transacción — ver notificarSinRomper más arriba.
+  const mensajeTelegram = await notificarSinRomper(
+    session.user.id,
+    "crearComentario",
+    async (tx) => {
+      const [tarea] = await tx<
+        [{ responsable_id: string | null; titulo: string }]
+      >`
+        select responsable_id, titulo from tarea where id = ${tareaId}
+      `;
+      if (!tarea?.responsable_id) return null;
       return notificarComentario(
         tx,
         tarea.responsable_id,
         tarea.titulo,
         session.user.name ?? "Alguien",
+        session.user.id,
       );
-    }
-    return null;
-  });
+    },
+  );
   if (mensajeTelegram) await enviarTelegram(mensajeTelegram);
   revalidatePath("/tablero");
 }
