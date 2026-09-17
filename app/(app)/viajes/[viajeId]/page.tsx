@@ -219,6 +219,7 @@ export default async function ViajeDetallePage({
       pagos={pagos}
       canManage={canManage}
       currentUserId={session.user.id}
+      currentUserName={session.user.name ?? ""}
     />
   );
 }

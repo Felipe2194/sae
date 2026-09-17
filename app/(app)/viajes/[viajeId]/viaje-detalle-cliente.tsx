@@ -62,6 +62,7 @@ type Props = {
   pagos: PagoRow[];
   canManage: boolean;
   currentUserId: string;
+  currentUserName: string;
 };
 
 export function ViajeDetalleCliente({
@@ -75,6 +76,7 @@ export function ViajeDetalleCliente({
   pagos,
   canManage,
   currentUserId,
+  currentUserName,
 }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pestaña, setPestaña] = useState<Pestaña>("inscriptos");
@@ -303,7 +305,13 @@ export function ViajeDetalleCliente({
       )}
 
       {pestaña === "pagos" && (
-        <PagosTab viajeId={viaje.id} integrantes={integrantes} pagosIniciales={pagos} canManage={canManage} />
+        <PagosTab
+          viajeId={viaje.id}
+          integrantes={integrantes}
+          pagosIniciales={pagos}
+          canManage={canManage}
+          currentUserName={currentUserName}
+        />
       )}
 
       {pestaña === "documentos" && (

@@ -28,16 +28,20 @@ function formatMonto(n: number): string {
   return `$${n.toLocaleString("es-AR")}`;
 }
 
+const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Tarjeta"] as const;
+
 export function PagosTab({
   viajeId,
   integrantes,
   pagosIniciales,
   canManage,
+  currentUserName,
 }: {
   viajeId: string;
   integrantes: IntegranteViajeRow[];
   pagosIniciales: PagoRow[];
   canManage: boolean;
+  currentUserName: string;
 }) {
   const [pagos, setPagos] = useState(pagosIniciales);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -83,7 +87,7 @@ export function PagosTab({
         const nuevo = await registrarPago(viajeId, {
           viajeIntegranteId: integranteId,
           monto: montoNum,
-          medioPago: medioPago.trim() || null,
+          medioPago: medioPago || null,
           fechaPago,
         });
         if (nuevo) {
@@ -94,9 +98,9 @@ export function PagosTab({
               viaje_integrante_id: integranteId,
               integrante_nombre: integrante ? `${integrante.nombre} ${integrante.apellido}` : "",
               monto: montoNum,
-              medio_pago: medioPago.trim() || null,
+              medio_pago: medioPago || null,
               fecha_pago: fechaPago,
-              registrado_por_nombre: "",
+              registrado_por_nombre: currentUserName,
             },
             ...prev,
           ]);
@@ -169,6 +173,7 @@ export function PagosTab({
                     <span className="text-muted-foreground text-xs">
                       {new Date(p.fecha_pago + "T00:00:00").toLocaleDateString("es-AR")}
                       {p.medio_pago ? ` · ${p.medio_pago}` : ""}
+                      {p.registrado_por_nombre ? ` · registró ${p.registrado_por_nombre}` : ""}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -224,12 +229,19 @@ export function PagosTab({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm">Medio de pago</Label>
-              <Input
-                value={medioPago}
-                onChange={(e) => setMedioPago(e.target.value)}
-                placeholder="Efectivo, transferencia..."
-                className="h-10"
-              />
+              <div className="flex flex-wrap gap-2">
+                {MEDIOS_PAGO.map((medio) => (
+                  <Button
+                    key={medio}
+                    type="button"
+                    variant={medioPago === medio ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setMedioPago((prev) => (prev === medio ? "" : medio))}
+                  >
+                    {medio}
+                  </Button>
+                ))}
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm">Fecha</Label>

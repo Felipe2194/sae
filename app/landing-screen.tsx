@@ -127,7 +127,7 @@ export function LandingScreen() {
       <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-[#ece5dc] bg-[rgba(251,249,246,0.93)] px-[28px] py-[13px] backdrop-blur-[8px]">
         <div className="flex min-w-0 items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- asset fijo, se prioriza el crop exacto del diseño */}
-          <img src="/LogoUTN-dark.png" alt="UTN Villa María" className="block h-7 w-auto" />
+          <img src="/LogoUTN.png" alt="UTN Villa María" className="block h-7 w-auto" />
           <span className="border-l border-[#e3dbd1] pl-3 text-xs text-[#6b625a]">
             SAE · Sistema de Actividades Estudiantiles
           </span>
