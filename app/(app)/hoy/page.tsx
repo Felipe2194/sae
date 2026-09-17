@@ -531,7 +531,13 @@ export default async function HoyPage({
           {/* Pulso + En la oficina ahora + Accesos rápidos: fila horizontal
               debajo de las tareas de hoy en vez de apiladas. La música ahora
               vive en un reproductor global (ver components/features/music-player.tsx). */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* items-start: por defecto un grid estira todas las celdas de la
+              fila a la altura de la más alta — con muchos accesos rápidos,
+              esa card crecía y arrastraba a Pulso/En la oficina con ella
+              aunque su propio contenido no necesitara ese alto. Cada card
+              ahora mide lo que su contenido pide (el tope de altura de
+              Accesos rápidos, con scroll propio, vive en accesos-card.tsx). */}
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-3">
             <Card>
               <CardHeader className="px-4 pt-4 pb-2">
                 <CardTitle className="text-sm font-semibold">Pulso</CardTitle>
