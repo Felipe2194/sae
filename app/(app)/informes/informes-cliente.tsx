@@ -126,12 +126,17 @@ function StatTile({
   icon?: React.ElementType;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-xl border p-4">
+    // min-w-0: sin esto, un valor largo (montos en pesos como "$30.051.000")
+    // no encoge dentro de la grilla — por default un item de grid tiene
+    // min-width: auto, así que en vez de ajustarse al ancho de la card se
+    // desborda por encima del borde. break-words en el valor deja que
+    // arme una segunda línea en vez de recortarse.
+    <div className="flex min-w-0 flex-col gap-1 rounded-xl border p-4">
       <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
         {Icon && <Icon className="size-3.5" />}
         {label}
       </span>
-      <span className={`text-2xl font-semibold ${colorClass ?? ""}`}>{value}</span>
+      <span className={`text-2xl font-semibold break-words ${colorClass ?? ""}`}>{value}</span>
     </div>
   );
 }
