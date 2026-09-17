@@ -199,29 +199,40 @@ export default async function ReporteVisitasPage({
               nombre de contacto o lista de integrantes larga estira la
               tabla más allá del contenedor centrado — visualmente "toda la
               información se va para el costado" en vez de quedar centrada
-              en la hoja. overflow-x-auto es solo la red de seguridad. */}
+              en la hoja. overflow-x-auto es solo la red de seguridad.
+              Fecha necesita 8ch reales para "31/12/2026" sin arrancar a
+              tallar el ancho de Colegio — con un 8% se quedaba corta
+              (table-fixed no encoge el contenido, lo desborda por encima
+              del padding) y la fecha terminaba pegada al nombre del
+              colegio, sin espacio visible entre columnas. px-2 (en vez de
+              solo pr-2) le da a cada columna aire de los dos lados. Fecha/
+              Tipo/Estado van centradas por ser valores cortos y fijos —
+              Colegio/Localidad/Integrantes/Contacto quedan a la izquierda
+              (texto libre, se lee mejor así) y Alumnos a la derecha (es un
+              número, mismo criterio que la tabla de "Visitas por
+              localidad" de abajo). */}
           <div className="overflow-x-auto">
             <table className="w-full table-fixed border-collapse text-xs">
               <colgroup>
-                <col className="w-[8%]" />
-                <col className="w-[19%]" />
-                <col className="w-[12%]" />
+                <col className="w-[10%]" />
+                <col className="w-[18%]" />
                 <col className="w-[11%]" />
+                <col className="w-[10%]" />
                 <col className="w-[9%]" />
-                <col className="w-[7%]" />
+                <col className="w-[9%]" />
                 <col className="w-[19%]" />
-                <col className="w-[15%]" />
+                <col className="w-[14%]" />
               </colgroup>
               <thead>
                 <tr className="border-b border-neutral-400 text-left text-neutral-500">
-                  <th className="py-1.5 pr-2">Fecha</th>
-                  <th className="py-1.5 pr-2">Colegio</th>
-                  <th className="py-1.5 pr-2">Localidad</th>
-                  <th className="py-1.5 pr-2">Tipo</th>
-                  <th className="py-1.5 pr-2">Estado</th>
-                  <th className="py-1.5 pr-2 text-right">Alumnos</th>
-                  <th className="py-1.5 pr-2">Integrantes</th>
-                  <th className="py-1.5">Contacto</th>
+                  <th className="px-2 py-1.5 text-center">Fecha</th>
+                  <th className="px-2 py-1.5">Colegio</th>
+                  <th className="px-2 py-1.5">Localidad</th>
+                  <th className="px-2 py-1.5 text-center">Tipo</th>
+                  <th className="px-2 py-1.5 text-center">Estado</th>
+                  <th className="px-2 py-1.5 text-right">Alumnos</th>
+                  <th className="px-2 py-1.5">Integrantes</th>
+                  <th className="px-2 py-1.5">Contacto</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,28 +241,30 @@ export default async function ReporteVisitasPage({
                     key={v.id}
                     className="break-inside-avoid border-b border-neutral-200 align-top"
                   >
-                    <td className="py-1.5 pr-2">
+                    <td className="px-2 py-1.5 text-center whitespace-nowrap">
                       {new Date(v.fecha + "T00:00:00").toLocaleDateString(
                         "es-AR",
                       )}
                     </td>
-                    <td className="py-1.5 pr-2 break-words">
+                    <td className="px-2 py-1.5 break-words">
                       {v.colegio_nombre}
                     </td>
-                    <td className="py-1.5 pr-2 break-words">
+                    <td className="px-2 py-1.5 break-words">
                       {v.ciudad ?? "—"}
                     </td>
-                    <td className="py-1.5 pr-2">{labelTipoVisita(v.tipo)}</td>
-                    <td className="py-1.5 pr-2">
+                    <td className="px-2 py-1.5 text-center">
+                      {labelTipoVisita(v.tipo)}
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
                       {labelEstadoVisita(v.estado)}
                     </td>
-                    <td className="py-1.5 pr-2 text-right">
+                    <td className="px-2 py-1.5 text-right">
                       {v.cant_alumnos ?? "—"}
                     </td>
-                    <td className="py-1.5 pr-2 break-words">
+                    <td className="px-2 py-1.5 break-words">
                       {v.integrantes.join(", ") || "—"}
                     </td>
-                    <td className="py-1.5 break-words">
+                    <td className="px-2 py-1.5 break-words">
                       {v.contacto_nombre ?? "—"}
                     </td>
                   </tr>
