@@ -13,13 +13,12 @@ type Props = {
   brandColor: string;
 };
 
-// Pantalla de login — sigue el tema claro/oscuro del resto de la app (antes
-// era siempre oscura, fija). El panel de marca usa el color de la
-// organización tal cual en los dos temas (es un color saturado, se sostiene
-// solo); lo que cambia con el tema es el panel del formulario (tokens
-// card/foreground/muted-foreground) y, para orgs sin logo propio, qué
-// variante del logo UTN se muestra — ver comentario en el logo por defecto
-// más abajo.
+// Pantalla de login — siempre clara, sin importar el tema del resto de la
+// app (que por defecto es oscuro, ver DEFAULT_THEME en theme-provider.tsx).
+// El panel de marca usa el color de la organización tal cual (es un color
+// saturado, se sostiene solo); el panel del formulario fuerza los tokens
+// card/foreground/muted-foreground a sus valores claros vía lightVars más
+// abajo, para no quedar oscuro cuando el resto de la app lo está.
 //
 // Vive fuera de (auth) porque ese layout envuelve todo con su propio panel
 // de marca de dos columnas — esta pantalla ya arma las suyas, envolverla
@@ -29,8 +28,26 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
   const [state, action, isPending] = useActionState(login, null);
   const brandGradient = `linear-gradient(160deg, ${brandColor} 0%, color-mix(in oklch, ${brandColor}, black 40%) 100%)`;
 
+  // El login siempre se ve claro, sin importar el tema (oscuro por defecto)
+  // del resto de la app: pisamos acá las variables de fondo/texto/borde para
+  // que bg-background/bg-card/text-foreground/etc. (propias y las que usan
+  // los componentes de shadcn/base-ui por debajo, como Input o Separator)
+  // resuelvan siempre a los valores del tema claro de app/globals.css.
+  const lightVars = {
+    "--background": "oklch(0.974 0.009 70)",
+    "--foreground": "oklch(0.16 0.01 60)",
+    "--card": "oklch(0.990 0.005 70)",
+    "--card-foreground": "oklch(0.16 0.01 60)",
+    "--muted-foreground": "oklch(0.50 0.02 60)",
+    "--border": "oklch(0.878 0.014 68)",
+    "--input": "oklch(0.878 0.014 68)",
+  } as React.CSSProperties;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+    <div
+      className="flex min-h-screen items-center justify-center bg-background px-4 py-10"
+      style={lightVars}
+    >
       <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl md:grid-cols-2">
         {/* ── Panel de marca ──────────────────────────────────────────── */}
         <div
@@ -41,12 +58,12 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
             {logoUrl ? (
               // Logo subido por la organización: caja blanca siempre, sea
               // cual sea el tema — no sabemos si el logo tiene texto oscuro.
-              <div className="w-fit rounded-xl bg-white px-4 py-2.5">
+              <div className="w-fit rounded-xl bg-white px-5 py-3">
                 {/* eslint-disable-next-line @next/next/no-img-element -- logo variable de la organización, no un asset fijo */}
                 <img
                   src={logoUrl}
                   alt="UTN Villa María"
-                  className="h-7 w-auto object-contain"
+                  className="h-9 w-auto object-contain"
                 />
               </div>
             ) : (
@@ -58,19 +75,13 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
               <img
                 src="/LogoUTN-dark.png"
                 alt="UTN Villa María"
-                className="h-7 w-auto object-contain"
+                className="h-9 w-auto object-contain"
               />
             )}
           </Link>
-          <div>
-            <p className="text-sm font-medium text-white/70">
-              Sistema de Administración Estudiantil
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-balance">
-              Gestioná tu cursado, tus trámites y tu información académica
-              desde un mismo lugar.
-            </h2>
-          </div>
+          <p className="text-sm font-medium text-white/70">
+            Sistema de Administración Estudiantil
+          </p>
         </div>
 
         {/* ── Panel del formulario ────────────────────────────────────── */}
@@ -83,29 +94,17 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
                 <img
                   src={logoUrl}
                   alt="UTN Villa María"
-                  className="h-8 w-auto object-contain"
+                  className="h-9 w-auto object-contain"
                 />
               ) : (
-                <>
-                  {/* Acá sí seguimos el tema: fondo del panel es
-                      bg-card/bg-background, no un color fijo, así que la
-                      variante de logo tiene que cambiar con el tema —
-                      display no puede ir en `style` inline, le gana en
-                      especificidad a dark:hidden/dark:block y las dos
-                      imágenes quedarían visibles a la vez. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/LogoUTN.png"
-                    alt="UTN Villa María"
-                    className="block h-8 w-auto object-contain dark:hidden"
-                  />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/LogoUTN-dark.png"
-                    alt="UTN Villa María"
-                    className="hidden h-8 w-auto object-contain dark:block"
-                  />
-                </>
+                // Panel siempre claro (ver lightVars más arriba): alcanza con
+                // la variante de texto oscuro del logo UTN, sin toggle de tema.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src="/LogoUTN.png"
+                  alt="UTN Villa María"
+                  className="h-9 w-auto object-contain"
+                />
               )}
             </Link>
           </div>
