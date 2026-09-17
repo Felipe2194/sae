@@ -125,47 +125,57 @@ export function AccesosCard({ accesos: inicial, canManage }: Props) {
           </p>
         )}
 
-        {accesos.map((ar, i) => (
-          <div key={ar.id} className="group flex items-center gap-1">
-            <a
-              href={ar.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:bg-muted flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-2.5 text-sm transition-colors"
-            >
-              <SitioIcon url={ar.url} />
-              <span className="truncate">{ar.etiqueta}</span>
-            </a>
-            {canManage && (
-              <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
-                <button
-                  onClick={() => handleMover(ar.id, "arriba")}
-                  disabled={isPendingMutacion || i === 0}
-                  className="text-muted-foreground hover:text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-30 rounded-md p-1.5"
-                  aria-label={`Mover ${ar.etiqueta} arriba`}
+        {accesos.length > 0 && (
+          // Alto acotado + scroll propio: sin esto la lista crecía sin
+          // límite con cada acceso agregado, y al ser una celda más del
+          // grid de Pulso/En la oficina (ver comentario en items-start en
+          // hoy/page.tsx) terminaba estirando a las otras dos con ella.
+          // Cabe justo lo que ocupan Pulso/En la oficina; el resto scrollea
+          // adentro de la card, no de la página.
+          <div className="-mx-1 flex max-h-[210px] flex-col gap-1 overflow-y-auto px-1">
+            {accesos.map((ar, i) => (
+              <div key={ar.id} className="group flex items-center gap-1">
+                <a
+                  href={ar.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:bg-muted flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-2.5 text-sm transition-colors"
                 >
-                  <ChevronUp className="size-3.5" />
-                </button>
-                <button
-                  onClick={() => handleMover(ar.id, "abajo")}
-                  disabled={isPendingMutacion || i === accesos.length - 1}
-                  className="text-muted-foreground hover:text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-30 rounded-md p-1.5"
-                  aria-label={`Mover ${ar.etiqueta} abajo`}
-                >
-                  <ChevronDown className="size-3.5" />
-                </button>
-                <button
-                  onClick={() => handleEliminar(ar.id)}
-                  disabled={isPendingMutacion}
-                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md p-1.5"
-                  aria-label={`Eliminar ${ar.etiqueta}`}
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
+                  <SitioIcon url={ar.url} />
+                  <span className="truncate">{ar.etiqueta}</span>
+                </a>
+                {canManage && (
+                  <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      onClick={() => handleMover(ar.id, "arriba")}
+                      disabled={isPendingMutacion || i === 0}
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-30 rounded-md p-1.5"
+                      aria-label={`Mover ${ar.etiqueta} arriba`}
+                    >
+                      <ChevronUp className="size-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleMover(ar.id, "abajo")}
+                      disabled={isPendingMutacion || i === accesos.length - 1}
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-30 rounded-md p-1.5"
+                      aria-label={`Mover ${ar.etiqueta} abajo`}
+                    >
+                      <ChevronDown className="size-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleEliminar(ar.id)}
+                      disabled={isPendingMutacion}
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md p-1.5"
+                      aria-label={`Eliminar ${ar.etiqueta}`}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
+            ))}
           </div>
-        ))}
+        )}
 
         {canManage && mostrarForm && (
           <form
