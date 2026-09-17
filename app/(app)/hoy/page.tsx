@@ -489,7 +489,7 @@ export default async function HoyPage({
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="divide-y px-4 pb-3">
+            <CardContent className="px-4 pb-3">
               {paraHoy.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-8 text-center">
                   <CheckCircle2 className="size-8 text-green-500 opacity-60" />
@@ -508,22 +508,29 @@ export default async function HoyPage({
                   )}
                 </div>
               ) : (
-                <MisTareasHoy
-                  tareas={paraHoy.map((t) => ({
-                    id: t.id,
-                    titulo: t.titulo,
-                    estado: t.estado,
-                    prioridad: t.prioridad,
-                    tipo: t.tipo,
-                    areaColor: t.area_color,
-                    areaNombre: t.area_nombre,
-                    fecha: t.fecha_vencimiento,
-                    fechaRelativa: t.fecha_vencimiento
-                      ? fechaRelativa(t.fecha_vencimiento, hoyISO)
-                      : null,
-                    paraTodos: t.para_todos,
-                  }))}
-                />
+                // Alto acotado + scroll propio: con muchas tareas para hoy
+                // esta card crecía sin límite y estiraba toda la columna
+                // izquierda de "Hoy" (mismo criterio que Accesos rápidos, ver
+                // accesos-card.tsx) — a partir de ~5 tareas se navega adentro
+                // de la card, no scrolleando toda la página.
+                <div className="max-h-[300px] divide-y overflow-x-hidden overflow-y-auto">
+                  <MisTareasHoy
+                    tareas={paraHoy.map((t) => ({
+                      id: t.id,
+                      titulo: t.titulo,
+                      estado: t.estado,
+                      prioridad: t.prioridad,
+                      tipo: t.tipo,
+                      areaColor: t.area_color,
+                      areaNombre: t.area_nombre,
+                      fecha: t.fecha_vencimiento,
+                      fechaRelativa: t.fecha_vencimiento
+                        ? fechaRelativa(t.fecha_vencimiento, hoyISO)
+                        : null,
+                      paraTodos: t.para_todos,
+                    }))}
+                  />
+                </div>
               )}
             </CardContent>
           </Card>
