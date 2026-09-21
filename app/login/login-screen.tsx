@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +27,12 @@ type Props = {
 // pendiente-de-aprobacion/ se quedan con el layout viejo, no se tocaron.
 export function LoginScreen({ logoUrl, brandColor }: Props) {
   const [state, action, isPending] = useActionState(login, null);
-  const brandGradient = `linear-gradient(160deg, ${brandColor} 0%, color-mix(in oklch, ${brandColor}, black 40%) 100%)`;
+  const [verPassword, setVerPassword] = useState(false);
+  // Velo de color de marca semitransparente sobre la foto de la sede — deja
+  // verse el edificio pero mantiene suficiente contraste para que el logo y
+  // el texto blanco de encima sigan siendo legibles con cualquier color de
+  // organización.
+  const brandGradient = `linear-gradient(160deg, color-mix(in oklch, ${brandColor}, transparent 22%) 0%, color-mix(in oklch, ${brandColor}, black 55%) 100%)`;
 
   // El login siempre se ve claro, sin importar el tema (oscuro por defecto)
   // del resto de la app: pisamos acá las variables de fondo/texto/borde para
@@ -34,6 +40,13 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
   // los componentes de shadcn/base-ui por debajo, como Input o Separator)
   // resuelvan siempre a los valores del tema claro de app/globals.css.
   const lightVars = {
+    // Los tokens de --foreground/--background de acá abajo pintan bien los
+    // textos con clases explícitas (text-foreground, etc.), pero los campos
+    // nativos (<input>) no los heredan — el navegador les pinta el texto
+    // tipeado según el color-scheme del documento entero, que sigue el tema
+    // oscuro por default de la app (ver THEME_SCRIPT en app/layout.tsx). Sin
+    // este colorScheme quedaba texto claro sobre fondo claro, ilegible.
+    colorScheme: "light",
     "--background": "oklch(0.974 0.009 70)",
     "--foreground": "oklch(0.16 0.01 60)",
     "--card": "oklch(0.990 0.005 70)",
@@ -45,14 +58,24 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-background px-4 py-10"
-      style={lightVars}
+      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-fixed bg-background px-4 py-10"
+      style={{
+        ...lightVars,
+        // Misma foto que el panel de marca, pero de fondo de toda la
+        // pantalla — un velo casi opaco del --background claro encima para
+        // que la tarjeta del formulario (blanca, sin foto detrás) siga
+        // teniendo contraste y no compita visualmente con la imagen.
+        backgroundImage:
+          "linear-gradient(oklch(0.974 0.009 70 / 92%), oklch(0.974 0.009 70 / 92%)), url('/login-fondo.jpg')",
+      }}
     >
       <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl md:grid-cols-2">
         {/* ── Panel de marca ──────────────────────────────────────────── */}
         <div
-          className="relative hidden flex-col justify-between p-10 text-white md:flex"
-          style={{ background: brandGradient }}
+          className="relative hidden flex-col justify-between bg-cover bg-center p-10 text-white md:flex"
+          style={{
+            backgroundImage: `${brandGradient}, url('/login-fondo.jpg')`,
+          }}
         >
           <Link href="/" aria-label="Volver a la página principal" className="w-fit">
             {logoUrl ? (
@@ -169,15 +192,26 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                maxLength={72}
-                autoComplete="current-password"
-                className="h-11"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={verPassword ? "text" : "password"}
+                  required
+                  maxLength={72}
+                  autoComplete="current-password"
+                  className="h-11 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setVerPassword((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-10 items-center justify-center"
+                  aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  tabIndex={-1}
+                >
+                  {verPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
 
             {state?.error && (
