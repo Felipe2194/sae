@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { GRADIENTES_FONDO, type GradienteFondoKey } from "@/lib/fondos";
 import { actualizarNombre } from "./actions";
 
@@ -45,6 +46,7 @@ type Props = {
   fondoValor: string | null;
   colorPrincipal: string | null;
   colorPrincipalOrg: string | null;
+  musicaMobileHabilitada: boolean;
 };
 
 export function PerfilForm({
@@ -57,9 +59,13 @@ export function PerfilForm({
   fondoValor: fondoValorInicial,
   colorPrincipal: colorPrincipalInicial,
   colorPrincipalOrg,
+  musicaMobileHabilitada: musicaMobileHabilitadaInicial,
 }: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [playlistUrlValue, setPlaylistUrlValue] = useState(playlistUrl ?? "");
+  const [musicaMobileHabilitada, setMusicaMobileHabilitada] = useState(
+    musicaMobileHabilitadaInicial,
+  );
   const [color, setColor] = useState(avatarColor ?? COLORES[0].hex);
   const [colorPrincipal, setColorPrincipal] = useState<string | null>(
     colorPrincipalInicial,
@@ -414,6 +420,11 @@ export function PerfilForm({
                     : ""
               }
             />
+            <input
+              type="hidden"
+              name="musica_mobile_habilitada"
+              value={musicaMobileHabilitada ? "true" : "false"}
+            />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="nombre">Nombre completo</Label>
@@ -458,6 +469,25 @@ export function PerfilForm({
                 para elegir en el widget de música de &ldquo;Hoy&rdquo;.
               </p>
             </div>
+
+            <label className="hover:bg-muted/50 -mx-2 flex cursor-pointer items-start gap-3 rounded-md p-2">
+              <Checkbox
+                checked={musicaMobileHabilitada}
+                onCheckedChange={(checked) =>
+                  setMusicaMobileHabilitada(checked === true)
+                }
+                className="mt-0.5"
+              />
+              <div className="flex flex-col gap-0.5">
+                <Label className="cursor-pointer text-sm font-medium">
+                  Mostrar el reproductor de música en el celular
+                </Label>
+                <p className="text-muted-foreground text-xs">
+                  Por defecto viene oculto en pantallas chicas para no
+                  ocupar espacio. Activalo si lo querés igual.
+                </p>
+              </div>
+            </label>
 
             {error && <p className="text-destructive text-sm">{error}</p>}
 
