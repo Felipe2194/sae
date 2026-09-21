@@ -363,14 +363,18 @@ export function InformesCliente({
         </p>
       </div>
 
-      <div className="bg-muted flex w-fit items-center gap-1 rounded-lg p-1">
+      {/* overflow-x-auto + shrink-0: "Visitas a colegios" es una etiqueta
+          larga y con las 4 pestañas juntas no entran en el ancho de un
+          celular — sin esto, w-fit desbordaba el contenedor y esas dos
+          últimas pestañas quedaban cortadas fuera de pantalla. */}
+      <div className="bg-muted flex w-full items-center gap-1 overflow-x-auto rounded-lg p-1 sm:w-fit">
         {pestañasVisibles.map((p) => (
           <button
             key={p.value}
             type="button"
             onClick={() => setPestaña(p.value)}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               pestaña === p.value
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",

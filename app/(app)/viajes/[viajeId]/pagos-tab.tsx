@@ -140,8 +140,13 @@ export function PagosTab({
           ) : (
             <div className="flex flex-col gap-1">
               {saldos.map(({ integrante, pagado, saldo }) => (
-                <div key={integrante.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
-                  <span className="font-medium">{integrante.nombre} {integrante.apellido}</span>
+                <div
+                  key={integrante.id}
+                  className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 py-1.5 text-sm"
+                >
+                  <span className="min-w-0 truncate font-medium">
+                    {integrante.nombre} {integrante.apellido}
+                  </span>
                   <div className="text-muted-foreground flex items-center gap-3 text-xs">
                     <span>Pagado {formatMonto(pagado)}</span>
                     <span className={saldo > 0 ? "text-amber-600 dark:text-amber-400 font-medium" : ""}>

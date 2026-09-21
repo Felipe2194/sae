@@ -235,14 +235,18 @@ export function ViajeDetalleCliente({
         </CardContent>
       </Card>
 
-      <div className="bg-muted flex w-fit items-center gap-1 rounded-lg p-1">
+      {/* overflow-x-auto + shrink-0: con 5 pestañas ("Documentos" incluida)
+          esta barra no entra en el ancho de un celular — sin esto, w-fit
+          desbordaba el contenedor y "Pagos"/"Documentos" quedaban cortadas
+          fuera de pantalla, sin scroll para llegar a ellas. */}
+      <div className="bg-muted flex w-full items-center gap-1 overflow-x-auto rounded-lg p-1 sm:w-fit">
         {PESTAÑAS.map((p) => (
           <button
             key={p.value}
             type="button"
             onClick={() => setPestaña(p.value)}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               pestaña === p.value
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
