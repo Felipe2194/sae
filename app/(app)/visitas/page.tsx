@@ -76,76 +76,80 @@ export default async function VisitasPage({
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
       if (!org) redirectSesionInvalida();
 
-      const visitas = await tx<VisitaFila[]>`
-        select
-          v.id, v.colegio_id, c.nombre as colegio_nombre, c.ciudad, c.zona,
-          v.fecha::text, v.hora_inicio::text, v.hora_fin::text,
-          v.tipo::text as tipo, v.estado::text as estado, v.cant_alumnos,
-          v.contacto_nombre, v.contacto_cargo, v.contacto_email, v.contacto_telefono,
-          v.observaciones, v.asignado_por_id, up.nombre as asignado_por_nombre,
-          v.google_event_id, v.creada_por,
-          coalesce(
-            (
-              select json_agg(
-                json_build_object('id', u.id, 'nombre', u.nombre, 'avatar_color', u.avatar_color)
-                order by u.nombre
-              )
-              from visita_integrante vi
-              join usuario u on u.id = vi.usuario_id
-              where vi.visita_id = v.id
-            ),
-            '[]'
-          ) as integrantes
-        from visita_colegio v
-        join colegio c on c.id = v.colegio_id
-        left join usuario up on up.id = v.asignado_por_id
-        where v.organizacion_id = mi_organizacion_id()
-          and extract(year from v.fecha) = ${anio}
-        order by v.fecha asc, v.hora_inicio asc nulls last
-      `;
+      // Las cinco queries son independientes entre sí — Promise.all para que
+      // postgres.js las pipelinee en un solo round-trip en vez de cinco.
+      const [visitas, colegios, usuarios, presencia, aniosDisponibles] = await Promise.all([
+        tx<VisitaFila[]>`
+          select
+            v.id, v.colegio_id, c.nombre as colegio_nombre, c.ciudad, c.zona,
+            v.fecha::text, v.hora_inicio::text, v.hora_fin::text,
+            v.tipo::text as tipo, v.estado::text as estado, v.cant_alumnos,
+            v.contacto_nombre, v.contacto_cargo, v.contacto_email, v.contacto_telefono,
+            v.observaciones, v.asignado_por_id, up.nombre as asignado_por_nombre,
+            v.google_event_id, v.creada_por,
+            coalesce(
+              (
+                select json_agg(
+                  json_build_object('id', u.id, 'nombre', u.nombre, 'avatar_color', u.avatar_color)
+                  order by u.nombre
+                )
+                from visita_integrante vi
+                join usuario u on u.id = vi.usuario_id
+                where vi.visita_id = v.id
+              ),
+              '[]'
+            ) as integrantes
+          from visita_colegio v
+          join colegio c on c.id = v.colegio_id
+          left join usuario up on up.id = v.asignado_por_id
+          where v.organizacion_id = mi_organizacion_id()
+            and extract(year from v.fecha) = ${anio}
+          order by v.fecha asc, v.hora_inicio asc nulls last
+        `,
 
-      const colegios = await tx<ColegioFila[]>`
-        select
-          c.id, c.nombre, c.ciudad, c.zona, c.contacto_nombre, c.contacto_cargo,
-          c.contacto_email, c.contacto_telefono,
-          c.estado_relacion::text as estado_relacion,
-          count(v.id)::int as total_visitas,
-          max(v.fecha)::text as ultima_visita
-        from colegio c
-        left join visita_colegio v on v.colegio_id = c.id
-        where c.organizacion_id = mi_organizacion_id()
-        group by c.id
-        order by c.nombre asc
-      `;
+        tx<ColegioFila[]>`
+          select
+            c.id, c.nombre, c.ciudad, c.zona, c.contacto_nombre, c.contacto_cargo,
+            c.contacto_email, c.contacto_telefono,
+            c.estado_relacion::text as estado_relacion,
+            count(v.id)::int as total_visitas,
+            max(v.fecha)::text as ultima_visita
+          from colegio c
+          left join visita_colegio v on v.colegio_id = c.id
+          where c.organizacion_id = mi_organizacion_id()
+          group by c.id
+          order by c.nombre asc
+        `,
 
-      const usuarios = await tx<UsuarioOption[]>`
-        select id, nombre, avatar_color from usuario
-        where organizacion_id = mi_organizacion_id() and estado = 'activo'
-        order by nombre asc
-      `;
+        tx<UsuarioOption[]>`
+          select id, nombre, avatar_color from usuario
+          where organizacion_id = mi_organizacion_id() and estado = 'activo'
+          order by nombre asc
+        `,
 
-      const presencia = await tx<PresenciaFila[]>`
-        select
-          u.id as usuario_id, u.nombre, u.avatar_color,
-          count(v.id)::int as visitas_registradas,
-          count(v.id) filter (where v.estado = 'realizado')::int as visitas_realizadas
-        from usuario u
-        left join visita_integrante vi on vi.usuario_id = u.id
-        left join visita_colegio v
-          on v.id = vi.visita_id
-          and v.organizacion_id = mi_organizacion_id()
-          and extract(year from v.fecha) = ${anio}
-        where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo'
-        group by u.id, u.nombre, u.avatar_color
-        order by visitas_registradas desc, u.nombre asc
-      `;
+        tx<PresenciaFila[]>`
+          select
+            u.id as usuario_id, u.nombre, u.avatar_color,
+            count(v.id)::int as visitas_registradas,
+            count(v.id) filter (where v.estado = 'realizado')::int as visitas_realizadas
+          from usuario u
+          left join visita_integrante vi on vi.usuario_id = u.id
+          left join visita_colegio v
+            on v.id = vi.visita_id
+            and v.organizacion_id = mi_organizacion_id()
+            and extract(year from v.fecha) = ${anio}
+          where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo'
+          group by u.id, u.nombre, u.avatar_color
+          order by visitas_registradas desc, u.nombre asc
+        `,
 
-      const aniosDisponibles = await tx<{ anio: number }[]>`
-        select distinct extract(year from fecha)::int as anio
-        from visita_colegio
-        where organizacion_id = mi_organizacion_id()
-        order by anio desc
-      `;
+        tx<{ anio: number }[]>`
+          select distinct extract(year from fecha)::int as anio
+          from visita_colegio
+          where organizacion_id = mi_organizacion_id()
+          order by anio desc
+        `,
+      ]);
 
       return {
         visitas: [...visitas],

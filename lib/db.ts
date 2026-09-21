@@ -26,23 +26,32 @@ export { sql };
 //   Postgres (UTC por defecto en Docker — sin esto, "hoy" podía cambiar
 //   hasta 3 horas antes de medianoche real en Argentina).
 // Los tres son LOCAL: se revierten automáticamente al terminar la transacción.
+//
+// Las tres queries de setup van en Promise.all (no awaits en serie): sobre
+// una conexión, postgres.js las manda en un solo pipeline y Postgres las
+// ejecuta en el mismo orden que si fueran secuenciales, pero en un solo
+// round-trip de red en vez de tres — importante porque cada withUser() se
+// llama por lo menos dos veces por navegación (layout + página) y contra una
+// base remota (Neon) cada round-trip pesa. zona_horaria es NOT NULL en
+// organizacion, así que el set_config del timezone se puede plegar en la
+// misma query que lo lee en vez de esperar el resultado para decidir si
+// mandarlo.
 export async function withUser<T>(
   userId: string,
   fn: (tx: postgres.TransactionSql) => Promise<T>,
 ): Promise<T> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return sql.begin(async (tx): Promise<any> => {
-    await tx`set local role sae_app`;
-    await tx`select set_config('app.user_id', ${userId}, true)`;
-    const [org] = await tx<[{ zona_horaria: string } | undefined]>`
-      select o.zona_horaria
-      from usuario u
-      join organizacion o on o.id = u.organizacion_id
-      where u.id = ${userId}
-    `;
-    if (org?.zona_horaria) {
-      await tx`select set_config('timezone', ${org.zona_horaria}, true)`;
-    }
+    await Promise.all([
+      tx`set local role sae_app`,
+      tx`select set_config('app.user_id', ${userId}, true)`,
+      tx`
+        select set_config('timezone', o.zona_horaria, true)
+        from usuario u
+        join organizacion o on o.id = u.organizacion_id
+        where u.id = ${userId}
+      `,
+    ]);
     return fn(tx);
   }) as Promise<T>;
 }
