@@ -5,6 +5,7 @@ import { revalidatePath, updateTag, refresh } from "next/cache";
 import { auth } from "@/auth";
 import { withUser, sql } from "@/lib/db";
 import { generarPasswordTemporal } from "@/lib/passwords";
+import { generarTokenInvitacion, DURACION_INVITACION_MS } from "@/lib/invitaciones";
 import { crearEventoCalendar, extraerCalendarId } from "@/lib/google/calendar";
 import type { SeccionesHabilitadas } from "@/lib/secciones";
 import { urlSegura } from "@/lib/utils";
@@ -209,6 +210,35 @@ export async function resetearPassword(
   });
   revalidatePath("/configuracion");
   return { passwordTemporal };
+}
+
+// Genera un link de un solo uso para que el propio usuario cargue su email
+// real y elija su contraseña — pensado para las cuentas dadas de alta con un
+// placeholder (ej. @sae.test) que hoy nadie puede loguear con su email real.
+// Devuelve el token crudo (nunca se guarda así en la base, ver
+// lib/invitaciones.ts) para mostrarlo una única vez, mismo patrón que la
+// contraseña temporal de crearUsuario/resetearPassword. Generar uno nuevo
+// pisa cualquier token anterior de esa persona — el link viejo deja de
+// funcionar solo, no hace falta invalidarlo aparte.
+export async function generarInvitacion(userId: string): Promise<{ token: string }> {
+  const session = await requireAdmin();
+  if (userId === session.user.id)
+    throw new Error("No podés invitarte a vos mismo");
+
+  const { token, hash } = generarTokenInvitacion();
+  const expira = new Date(Date.now() + DURACION_INVITACION_MS);
+
+  const filas = await withUser(session.user.id, async (tx) => {
+    return await tx`
+      update usuario
+      set token_invitacion_hash = ${hash}, token_invitacion_expira = ${expira}
+      where id = ${userId} and organizacion_id = mi_organizacion_id()
+      returning id
+    `;
+  });
+  if (filas.length === 0) throw new Error("El usuario no existe.");
+
+  return { token };
 }
 
 // ── Tareas ────────────────────────────────────────────────────────────────────
