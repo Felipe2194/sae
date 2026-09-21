@@ -124,11 +124,16 @@ export function LandingScreen() {
       style={{ fontFamily: "var(--font-landing-sans), system-ui, sans-serif" }}
     >
       {/* ── Header ────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-[#ece5dc] bg-[rgba(251,249,246,0.93)] px-[28px] py-[13px] backdrop-blur-[8px]">
+      {/* En mobile no entraban el subtítulo + 3 links + botón en una sola
+          fila sin wrap: se desbordaba horizontalmente. El subtítulo y los
+          links de ancla se ocultan debajo de sm (siguen disponibles
+          scrolleando la página); el logo y "Iniciar sesión" quedan
+          siempre visibles, que es lo mínimo para orientarse y entrar. */}
+      <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-[#ece5dc] bg-[rgba(251,249,246,0.93)] px-[16px] py-[13px] backdrop-blur-[8px] sm:px-[28px]">
         <div className="flex min-w-0 items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- asset fijo, se prioriza el crop exacto del diseño */}
           <img src="/LogoUTN.png" alt="UTN Villa María" className="block h-7 w-auto" />
-          <span className="border-l border-[#e3dbd1] pl-3 text-xs text-[#6b625a]">
+          <span className="hidden border-l border-[#e3dbd1] pl-3 text-xs text-[#6b625a] sm:inline">
             SAE · Sistema de Actividades Estudiantiles
           </span>
         </div>
@@ -137,7 +142,7 @@ export function LandingScreen() {
             <a
               key={link.href}
               href={link.href}
-              className="text-[13.5px] font-medium text-[#4d453d] hover:text-[#1f1a16]"
+              className="hidden text-[13.5px] font-medium text-[#4d453d] hover:text-[#1f1a16] md:inline"
             >
               {link.label}
             </a>
