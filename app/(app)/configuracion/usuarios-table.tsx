@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { KeyRound, Monitor, Trash2, Eye, EyeOff } from "lucide-react";
+import { KeyRound, Link2, Monitor, Trash2, Eye, EyeOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import {
   cambiarEstadoUsuario,
   cambiarRolUsuario,
   eliminarUsuario,
+  generarInvitacion,
   marcarCuentaGenerica,
   resetearPassword,
 } from "./actions";
@@ -75,6 +76,9 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
   const [copiado, setCopiado] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isPendingDelete, startDelete] = useTransition();
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteCopiado, setInviteCopiado] = useState(false);
+  const [isPendingInvite, startInvite] = useTransition();
 
   function aprobar() {
     startTransition(() => cambiarEstadoUsuario(usuario.id, "activo"));
@@ -156,6 +160,26 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
     setTimeout(() => setCopiado(false), 1500);
   }
 
+  function invitar() {
+    startInvite(async () => {
+      try {
+        const { token } = await generarInvitacion(usuario.id);
+        setInviteLink(`${window.location.origin}/invitacion/${token}`);
+      } catch (e) {
+        toast.error(
+          e instanceof Error ? e.message : "No se pudo generar el link.",
+        );
+      }
+    });
+  }
+
+  function copiarInvite() {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    setInviteCopiado(true);
+    setTimeout(() => setInviteCopiado(false), 1500);
+  }
+
   return {
     pending,
     resetOpen,
@@ -179,6 +203,12 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
     abrirReset,
     confirmarReset,
     copiarPassword,
+    inviteLink,
+    setInviteLink,
+    inviteCopiado,
+    isPendingInvite,
+    invitar,
+    copiarInvite,
   };
 }
 
@@ -289,6 +319,45 @@ function PasswordDialog({
   );
 }
 
+function InvitacionDialog({
+  usuario,
+  a,
+}: {
+  usuario: UsuarioFila;
+  a: ReturnType<typeof useUsuarioRowActions>;
+}) {
+  return (
+    <Dialog
+      open={a.inviteLink !== null}
+      onOpenChange={(v) => !v && a.setInviteLink(null)}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Link de invitación</DialogTitle>
+          <DialogDescription>
+            Mandaselo a {usuario.nombre} por el canal que uses habitualmente
+            (Telegram, WhatsApp). Vale por 7 días y solo funciona una vez —
+            ahí carga su email real y elige su contraseña.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center gap-2">
+          <code className="bg-muted flex-1 overflow-x-auto rounded-lg border px-3 py-2 font-mono text-xs whitespace-nowrap">
+            {a.inviteLink}
+          </code>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={a.copiarInvite}
+            className="h-9 shrink-0"
+          >
+            {a.inviteCopiado ? "Copiado" : "Copiar"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AccionesUsuario({
   usuario,
   esSelf,
@@ -358,6 +427,19 @@ function AccionesUsuario({
           title="Resetear contraseña"
         >
           <KeyRound className="size-3.5" />
+        </Button>
+      )}
+
+      {usuario.estado === "activo" && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-muted-foreground h-8 text-xs"
+          onClick={a.invitar}
+          disabled={a.isPendingInvite}
+          title="Generar link de invitación (para que cargue su email real)"
+        >
+          <Link2 className="size-3.5" />
         </Button>
       )}
 
@@ -483,6 +565,7 @@ function UsuarioRow({
         copiado={a.copiado}
         copiarPassword={a.copiarPassword}
       />
+      <InvitacionDialog usuario={usuario} a={a} />
     </tr>
   );
 }
@@ -543,6 +626,7 @@ function UsuarioCard({
         copiado={a.copiado}
         copiarPassword={a.copiarPassword}
       />
+      <InvitacionDialog usuario={usuario} a={a} />
     </div>
   );
 }
