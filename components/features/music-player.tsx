@@ -105,9 +105,10 @@ export type PlaylistPersona = { usuarioId: string; nombre: string; url: string }
 type Props = {
   playlists: PlaylistPersona[];
   usuarioActualId: string;
+  mostrarEnCelular: boolean;
 };
 
-export function MusicPlayer({ playlists, usuarioActualId }: Props) {
+export function MusicPlayer({ playlists, usuarioActualId, mostrarEnCelular }: Props) {
   const opciones = useMemo(() => {
     const propias = playlists
       .map((p) => {
@@ -221,7 +222,14 @@ export function MusicPlayer({ playlists, usuarioActualId }: Props) {
   }, [actual.embedId]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+    // Oculto por defecto debajo de md (ver mostrarEnCelular, configurable en
+    // /perfil) — mismo criterio de "nunca desmontar" que el minimizado de
+    // más abajo: se oculta con clases, no con un render condicional, así
+    // que si alguien lo habilita a mitad de sesión el audio sigue sonando
+    // en vez de tener que arrancar de cero.
+    <div
+      className={`fixed bottom-4 right-4 z-50 ${mostrarEnCelular ? "flex" : "hidden md:flex"} flex-col items-end gap-2`}
+    >
       <div
         className={`overflow-hidden rounded-xl border bg-card shadow-lg transition-all duration-200 ${
           abierto ? "w-72 h-auto opacity-100" : "size-0 border-transparent opacity-0"

@@ -67,6 +67,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         visitas_habilitado: boolean;
         tablero_habilitado: boolean;
         viajes_habilitado: boolean;
+        musica_mobile_habilitada: boolean;
       }[]>`
         select
           u.avatar_color, o.logo_url,
@@ -75,7 +76,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           u.fondo_tipo, u.fondo_valor,
           o.calendario_habilitado, o.cronograma_habilitado,
           o.proyectos_habilitado, o.visitas_habilitado, o.tablero_habilitado,
-          o.viajes_habilitado
+          o.viajes_habilitado, u.musica_mobile_habilitada
         from usuario u
         join organizacion o on o.id = u.organizacion_id
         where u.id = mi_usuario_id()
@@ -154,6 +155,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <MusicPlayer
         playlists={playlists.map((p) => ({ usuarioId: p.usuario_id, nombre: p.nombre, url: p.url }))}
         usuarioActualId={session.user.id}
+        mostrarEnCelular={fila?.musica_mobile_habilitada ?? false}
       />
     </SidebarProvider>
   );

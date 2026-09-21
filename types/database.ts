@@ -94,6 +94,7 @@ export interface UsuarioRow {
   fondo_valor: string | null;
   es_superadmin: boolean;
   color_principal: string | null;
+  musica_mobile_habilitada: boolean;
 }
 
 export interface UsuarioInsert {
@@ -112,6 +113,7 @@ export interface UsuarioInsert {
   fondo_valor?: string | null;
   es_superadmin?: boolean;
   color_principal?: string | null;
+  musica_mobile_habilitada?: boolean;
 }
 
 export type UsuarioUpdate = Partial<Omit<UsuarioInsert, "organizacion_id">>;
