@@ -189,7 +189,23 @@ export default async function HoyPage({
     // configurar" como en app/(app)/layout.tsx.
     if (!org) redirectSesionInvalida();
 
-    const tareas = await tx<TareaRow[]>`
+    // Ninguna de estas 9 queries depende del resultado de otra — van todas
+    // juntas en Promise.all para que postgres.js las pipelinee en un solo
+    // round-trip de red en vez de nueve (esta página es la que más se
+    // visita, y contra una base remota cada round-trip se nota al navegar).
+    const [
+      tareas,
+      [stats],
+      enOficina,
+      accesos,
+      [novedad],
+      [bitacoraHoy],
+      bitacoraEquipo,
+      tareasCompletadasHoy,
+      subtareasCompletadasHoy,
+      comentariosHoy,
+    ] = await Promise.all([
+      tx<TareaRow[]>`
         select
           t.id,
           t.titulo,
@@ -211,9 +227,9 @@ export default async function HoyPage({
           and t.archivada = false
           and t.activa = true
         order by t.fecha_vencimiento asc nulls last, t.orden asc
-      `;
+      `,
 
-    const [stats] = await tx<[StatRow]>`
+      tx<[StatRow]>`
         select
           count(*)         filter (where estado != 'hecha')::int                           as abiertas,
           count(*)         filter (where estado = 'en_progreso')::int                      as en_progreso,
@@ -223,13 +239,14 @@ export default async function HoyPage({
         where organizacion_id = mi_organizacion_id()
           and archivada = false
           and activa = true
-      `;
+      `,
 
-    // "En la oficina ahora": excluye a quien marcó ausencia o cambio de
-    // turno hoy — si es cambio, se suma más abajo a quien lo cubre en vez de
-    // a quien tenía el turno original. Es un reemplazo puntual: el turno fijo
-    // (tabla turno) no se toca, mañana vuelve a figurar la persona de siempre.
-    const enOficina = await tx<PersonaRow[]>`
+      // "En la oficina ahora": excluye a quien marcó ausencia o cambio de
+      // turno hoy — si es cambio, se suma más abajo a quien lo cubre en vez
+      // de a quien tenía el turno original. Es un reemplazo puntual: el
+      // turno fijo (tabla turno) no se toca, mañana vuelve a figurar la
+      // persona de siempre.
+      tx<PersonaRow[]>`
         with turno_activo as (
           select t.usuario_id
           from turno t
@@ -256,20 +273,20 @@ export default async function HoyPage({
           on e.usuario_id = ta.usuario_id and e.tipo = 'cambio' and e.fecha = current_date
         join usuario ur on ur.id = e.usuario_reemplazo_id
         order by nombre asc
-      `;
+      `,
 
-    const accesos = await tx<AccesoRow[]>`
+      tx<AccesoRow[]>`
         select id, etiqueta, url
         from acceso_rapido
         where organizacion_id = mi_organizacion_id()
           and area_id is null
           and viaje_id is null
         order by orden asc
-      `;
+      `,
 
-    // Última novedad de cualquier área — banner discreto para que no haga
-    // falta entrar a cada área a ver si hay algo nuevo.
-    const [novedad] = await tx<NovedadRow[]>`
+      // Última novedad de cualquier área — banner discreto para que no haga
+      // falta entrar a cada área a ver si hay algo nuevo.
+      tx<NovedadRow[]>`
         select
           n.contenido,
           a.nombre  as area_nombre,
@@ -282,18 +299,18 @@ export default async function HoyPage({
         where a.organizacion_id = mi_organizacion_id()
         order by n.creada_en desc
         limit 1
-      `;
+      `,
 
-    const [bitacoraHoy] = await tx<BitacoraHoyRow[]>`
+      tx<BitacoraHoyRow[]>`
         select hecho, pendiente, observaciones
         from bitacora_diaria
         where usuario_id = mi_usuario_id() and fecha = current_date
-      `;
+      `,
 
-    // Bitácora del resto del equipo, hoy — para que el turno siguiente vea
-    // acá qué se hizo y qué quedó pendiente en vez de por WhatsApp. La
-    // propia no se repite (ya está arriba, en bitacoraHoy).
-    const bitacoraEquipo = await tx<BitacoraEquipoRow[]>`
+      // Bitácora del resto del equipo, hoy — para que el turno siguiente vea
+      // acá qué se hizo y qué quedó pendiente en vez de por WhatsApp. La
+      // propia no se repite (ya está arriba, en bitacoraHoy).
+      tx<BitacoraEquipoRow[]>`
         select
           u.nombre, u.avatar_color,
           b.hecho, b.pendiente, b.observaciones,
@@ -304,9 +321,9 @@ export default async function HoyPage({
           and b.fecha = current_date
           and b.usuario_id != mi_usuario_id()
         order by b.creada_en asc
-      `;
+      `,
 
-    const tareasCompletadasHoy = await tx<{ titulo: string }[]>`
+      tx<{ titulo: string }[]>`
         select titulo
         from tarea t
         where (
@@ -317,13 +334,11 @@ export default async function HoyPage({
           and t.completada_en::date = current_date
           and t.archivada = false
         order by t.completada_en asc
-      `;
+      `,
 
-    // Subtareas que el usuario resolvió hoy en sus propias tareas — evita
-    // que tenga que reescribir a mano el avance que ya quedó registrado.
-    const subtareasCompletadasHoy = await tx<
-      { titulo: string; tarea_titulo: string }[]
-    >`
+      // Subtareas que el usuario resolvió hoy en sus propias tareas — evita
+      // que tenga que reescribir a mano el avance que ya quedó registrado.
+      tx<{ titulo: string; tarea_titulo: string }[]>`
         select s.titulo, t.titulo as tarea_titulo
         from subtarea s
         join tarea t on t.id = s.tarea_id
@@ -334,19 +349,18 @@ export default async function HoyPage({
           and s.hecha = true
           and s.completada_en::date = current_date
         order by s.completada_en asc
-      `;
+      `,
 
-    // Comentarios que el usuario dejó hoy en cualquier tarea.
-    const comentariosHoy = await tx<
-      { contenido: string; tarea_titulo: string }[]
-    >`
+      // Comentarios que el usuario dejó hoy en cualquier tarea.
+      tx<{ contenido: string; tarea_titulo: string }[]>`
         select c.contenido, t.titulo as tarea_titulo
         from comentario c
         join tarea t on t.id = c.tarea_id
         where c.autor_id = mi_usuario_id()
           and c.creado_en::date = current_date
         order by c.creado_en asc
-      `;
+      `,
+    ]);
 
     const lineasHecho = [
       ...tareasCompletadasHoy.map((t) => `- ${t.titulo}`),

@@ -48,47 +48,52 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // en /perfil o de branding en /configuracion se vea reflejado al toque, sin
   // esperar a un nuevo login. El fondo es preferencia personal (usuario.*),
   // no de la organización — cada quien elige el suyo en /perfil.
+  // Las dos queries son independientes entre sí (ninguna depende del
+  // resultado de la otra) — van en Promise.all para que postgres.js las
+  // pipelinee en un solo round-trip en vez de dos. Este layout corre en
+  // cada navegación dentro de la app, así que cuenta doble.
   const { fila, playlists } = await withUser(session.user.id, async (tx) => {
-    const [fila] = await tx<{
-      avatar_color: string | null;
-      logo_url: string | null;
-      color_principal_usuario: string | null;
-      color_principal_org: string | null;
-      fondo_tipo: 'gradiente' | 'imagen' | null;
-      fondo_valor: string | null;
-      calendario_habilitado: boolean;
-      cronograma_habilitado: boolean;
-      proyectos_habilitado: boolean;
-      visitas_habilitado: boolean;
-      tablero_habilitado: boolean;
-      viajes_habilitado: boolean;
-    }[]>`
-      select
-        u.avatar_color, o.logo_url,
-        u.color_principal as color_principal_usuario,
-        o.color_principal as color_principal_org,
-        u.fondo_tipo, u.fondo_valor,
-        o.calendario_habilitado, o.cronograma_habilitado,
-        o.proyectos_habilitado, o.visitas_habilitado, o.tablero_habilitado,
-        o.viajes_habilitado
-      from usuario u
-      join organizacion o on o.id = u.organizacion_id
-      where u.id = mi_usuario_id()
-    `;
-
-    // Playlists que la gente cargó en su perfil, para elegir en el
-    // reproductor de música. Se consulta acá (y no en /hoy) porque el
-    // reproductor ahora vive en el layout — así el audio sigue sonando al
-    // navegar entre secciones en vez de cortarse y tener que volver a
-    // darle play.
-    const playlists = await tx<{ usuario_id: string; nombre: string; url: string }[]>`
-      select id as usuario_id, nombre, playlist_url as url
-      from usuario
-      where organizacion_id = mi_organizacion_id()
-        and estado = 'activo'
-        and playlist_url is not null
-      order by nombre asc
-    `;
+    const [[fila], playlists] = await Promise.all([
+      tx<{
+        avatar_color: string | null;
+        logo_url: string | null;
+        color_principal_usuario: string | null;
+        color_principal_org: string | null;
+        fondo_tipo: 'gradiente' | 'imagen' | null;
+        fondo_valor: string | null;
+        calendario_habilitado: boolean;
+        cronograma_habilitado: boolean;
+        proyectos_habilitado: boolean;
+        visitas_habilitado: boolean;
+        tablero_habilitado: boolean;
+        viajes_habilitado: boolean;
+      }[]>`
+        select
+          u.avatar_color, o.logo_url,
+          u.color_principal as color_principal_usuario,
+          o.color_principal as color_principal_org,
+          u.fondo_tipo, u.fondo_valor,
+          o.calendario_habilitado, o.cronograma_habilitado,
+          o.proyectos_habilitado, o.visitas_habilitado, o.tablero_habilitado,
+          o.viajes_habilitado
+        from usuario u
+        join organizacion o on o.id = u.organizacion_id
+        where u.id = mi_usuario_id()
+      `,
+      // Playlists que la gente cargó en su perfil, para elegir en el
+      // reproductor de música. Se consulta acá (y no en /hoy) porque el
+      // reproductor ahora vive en el layout — así el audio sigue sonando al
+      // navegar entre secciones en vez de cortarse y tener que volver a
+      // darle play.
+      tx<{ usuario_id: string; nombre: string; url: string }[]>`
+        select id as usuario_id, nombre, playlist_url as url
+        from usuario
+        where organizacion_id = mi_organizacion_id()
+          and estado = 'activo'
+          and playlist_url is not null
+        order by nombre asc
+      `,
+    ]);
 
     return { fila, playlists: [...playlists] };
   });
