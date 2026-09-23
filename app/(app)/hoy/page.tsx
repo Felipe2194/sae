@@ -260,7 +260,8 @@ export default async function HoyPage({
         select u.nombre
         from turno_activo ta
         join usuario u on u.id = ta.usuario_id
-        where not exists (
+        where u.estado = 'activo'
+          and not exists (
           select 1 from excepcion_turno e
           where e.usuario_id = ta.usuario_id
             and e.tipo in ('ausencia', 'cambio')

@@ -58,6 +58,8 @@ export default async function CronogramaPage() {
       join usuario u on u.id = t.usuario_id
       where t.vigente_desde <= current_date
         and (t.vigente_hasta is null or t.vigente_hasta >= current_date)
+        -- Quien fue dado de baja no cubre turnos aunque le hayan quedado cargados.
+        and u.estado = 'activo'
       order by t.dia_semana, t.hora_inicio, u.nombre
     `;
 
