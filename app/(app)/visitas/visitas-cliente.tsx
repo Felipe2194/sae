@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { Plus, Pencil, Trash2, CalendarCheck } from "lucide-react";
+import { Plus, Pencil, CalendarCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +22,6 @@ import { UserAvatarStack } from "@/components/features/user-avatar";
 import { VisitaDialog } from "./visita-dialog";
 import { ColegiosCliente } from "./colegios-cliente";
 import { PresenciaEquipo } from "./presencia-equipo";
-import { eliminarVisita } from "./actions";
 import { labelTipoVisita, labelEstadoVisita } from "./tipos";
 import { cn } from "@/lib/utils";
 import type { ColegioFila, PresenciaFila, UsuarioOption, VisitaFila } from "./page";
@@ -76,8 +74,6 @@ export function VisitasCliente({
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<VisitaFila | undefined>(undefined);
-  const [, startTransition] = useTransition();
-  const [borrandoId, setBorrandoId] = useState<string | null>(null);
   const [pestaña, setPestaña] = useState<Pestaña>("proximas");
   const [visibles, setVisibles] = useState(PAGINA);
 
@@ -89,15 +85,6 @@ export function VisitasCliente({
   function abrirEditar(v: VisitaFila) {
     setEditando(v);
     setDialogOpen(true);
-  }
-
-  function handleEliminar(id: string) {
-    setBorrandoId(id);
-    startTransition(async () => {
-      await eliminarVisita(id);
-      toast.success("Visita eliminada.");
-      setBorrandoId(null);
-    });
   }
 
   function cambiarPestaña(p: Pestaña) {
@@ -275,15 +262,6 @@ export function VisitasCliente({
                           onClick={() => abrirEditar(v)}
                         >
                           <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-muted-foreground hover:text-destructive size-7"
-                          disabled={borrandoId === v.id}
-                          onClick={() => handleEliminar(v.id)}
-                        >
-                          <Trash2 className="size-3.5" />
                         </Button>
                       </td>
                     </tr>

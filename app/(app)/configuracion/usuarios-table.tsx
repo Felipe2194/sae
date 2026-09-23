@@ -30,6 +30,7 @@ import {
   marcarCuentaGenerica,
   resetearPassword,
 } from "./actions";
+import { QuitarDelEquipoDialog } from "./quitar-del-equipo-dialog";
 
 export type UsuarioFila = {
   id: string;
@@ -79,13 +80,10 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [inviteCopiado, setInviteCopiado] = useState(false);
   const [isPendingInvite, startInvite] = useTransition();
+  const [quitarOpen, setQuitarOpen] = useState(false);
 
   function aprobar() {
     startTransition(() => cambiarEstadoUsuario(usuario.id, "activo"));
-  }
-
-  function desactivar() {
-    startTransition(() => cambiarEstadoUsuario(usuario.id, "inactivo"));
   }
 
   function reactivar() {
@@ -99,8 +97,9 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
     }
     startDelete(async () => {
       try {
-        await eliminarUsuario(usuario.id);
-        toast.success(`${usuario.nombre} eliminado.`);
+        const { error } = await eliminarUsuario(usuario.id);
+        if (error) toast.error(error);
+        else toast.success(`${usuario.nombre} eliminado.`);
       } catch (e) {
         toast.error(
           e instanceof Error ? e.message : "No se pudo eliminar el usuario.",
@@ -195,7 +194,8 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
     setConfirmDelete,
     isPendingDelete,
     aprobar,
-    desactivar,
+    quitarOpen,
+    setQuitarOpen,
     reactivar,
     eliminar,
     onRolChange,
@@ -383,11 +383,11 @@ function AccionesUsuario({
         <Button
           size="sm"
           variant="outline"
-          onClick={a.desactivar}
+          onClick={() => a.setQuitarOpen(true)}
           disabled={a.pending}
           className="text-destructive hover:text-destructive h-8 text-xs"
         >
-          Desactivar
+          Quitar del equipo
         </Button>
       ) : (
         <Button
@@ -519,12 +519,16 @@ function RolUsuario({
   );
 }
 
+type Activo = { id: string; nombre: string };
+
 function UsuarioRow({
   usuario,
   esSelf,
+  activos,
 }: {
   usuario: UsuarioFila;
   esSelf: boolean;
+  activos: Activo[];
 }) {
   const a = useUsuarioRowActions(usuario);
   const badge = ESTADO_BADGE[usuario.estado];
@@ -566,6 +570,14 @@ function UsuarioRow({
         copiarPassword={a.copiarPassword}
       />
       <InvitacionDialog usuario={usuario} a={a} />
+      {a.quitarOpen && (
+        <QuitarDelEquipoDialog
+          usuario={usuario}
+          activos={activos}
+          open={a.quitarOpen}
+          onOpenChange={a.setQuitarOpen}
+        />
+      )}
     </tr>
   );
 }
@@ -573,9 +585,11 @@ function UsuarioRow({
 function UsuarioCard({
   usuario,
   esSelf,
+  activos,
 }: {
   usuario: UsuarioFila;
   esSelf: boolean;
+  activos: Activo[];
 }) {
   const a = useUsuarioRowActions(usuario);
   const badge = ESTADO_BADGE[usuario.estado];
@@ -627,6 +641,14 @@ function UsuarioCard({
         copiarPassword={a.copiarPassword}
       />
       <InvitacionDialog usuario={usuario} a={a} />
+      {a.quitarOpen && (
+        <QuitarDelEquipoDialog
+          usuario={usuario}
+          activos={activos}
+          open={a.quitarOpen}
+          onOpenChange={a.setQuitarOpen}
+        />
+      )}
     </div>
   );
 }
@@ -638,6 +660,9 @@ export function UsuariosTable({
   usuarios: UsuarioFila[];
   selfId: string;
 }) {
+  const activos = usuarios
+    .filter((u) => u.estado === "activo")
+    .map((u) => ({ id: u.id, nombre: u.nombre }));
   const pendientes = usuarios.filter((u) => u.estado === "pendiente");
   const resto = usuarios.filter((u) => u.estado !== "pendiente");
   const ordenados = [...pendientes, ...resto];
@@ -674,7 +699,7 @@ export function UsuariosTable({
           </thead>
           <tbody>
             {ordenados.map((u) => (
-              <UsuarioRow key={u.id} usuario={u} esSelf={u.id === selfId} />
+              <UsuarioRow key={u.id} usuario={u} esSelf={u.id === selfId} activos={activos} />
             ))}
           </tbody>
         </table>
@@ -683,7 +708,7 @@ export function UsuariosTable({
       {/* Mobile: tarjetas — la tabla con 4 columnas no entra sin cortar Rol */}
       <div className="max-h-96 overflow-y-auto md:hidden">
         {ordenados.map((u) => (
-          <UsuarioCard key={u.id} usuario={u} esSelf={u.id === selfId} />
+          <UsuarioCard key={u.id} usuario={u} esSelf={u.id === selfId} activos={activos} />
         ))}
       </div>
     </>

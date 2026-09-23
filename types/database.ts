@@ -330,6 +330,7 @@ export interface ColegioRow {
   nombre: string;
   ciudad: string | null;
   zona: string | null;
+  provincia: string | null;
   contacto_nombre: string | null;
   contacto_cargo: string | null;
   contacto_email: string | null;
@@ -344,6 +345,7 @@ export interface ColegioInsert {
   nombre: string;
   ciudad?: string | null;
   zona?: string | null;
+  provincia?: string | null;
   contacto_nombre?: string | null;
   contacto_cargo?: string | null;
   contacto_email?: string | null;

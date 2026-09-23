@@ -22,7 +22,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { actualizarColegio, type ColegioUpdateInput } from "./actions";
-import { ESTADOS_RELACION_COLEGIO } from "./tipos";
+import {
+  ESTADOS_RELACION_COLEGIO,
+  PROVINCIAS_ARGENTINAS,
+  emailValido,
+  telefonoValido,
+} from "./tipos";
 import type { ColegioFila } from "./page";
 
 const ESTADO_RELACION_BADGE: Record<
@@ -40,6 +45,8 @@ function formatFecha(iso: string | null): string {
   return `${d}/${m}/${y}`;
 }
 
+const SIN_PROVINCIA = "_none";
+
 function ColegioEditDialog({
   colegio,
   open,
@@ -53,6 +60,7 @@ function ColegioEditDialog({
   const [nombre, setNombre] = useState(colegio.nombre);
   const [ciudad, setCiudad] = useState(colegio.ciudad ?? "");
   const [zona, setZona] = useState(colegio.zona ?? "");
+  const [provincia, setProvincia] = useState(colegio.provincia ?? "");
   const [contactoNombre, setContactoNombre] = useState(colegio.contacto_nombre ?? "");
   const [contactoCargo, setContactoCargo] = useState(colegio.contacto_cargo ?? "");
   const [contactoEmail, setContactoEmail] = useState(colegio.contacto_email ?? "");
@@ -62,14 +70,22 @@ function ColegioEditDialog({
   const ESTADO_ITEMS = Object.fromEntries(
     ESTADOS_RELACION_COLEGIO.map((e) => [e.value, e.label]),
   );
+  const PROVINCIA_ITEMS = {
+    [SIN_PROVINCIA]: "Sin definir",
+    ...Object.fromEntries(PROVINCIAS_ARGENTINAS.map((p) => [p, p])),
+  };
+
+  const emailInvalido = !emailValido(contactoEmail);
+  const telefonoInvalido = !telefonoValido(contactoTelefono);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!nombre.trim()) return;
+    if (!nombre.trim() || emailInvalido || telefonoInvalido) return;
     const payload: ColegioUpdateInput = {
       nombre: nombre.trim(),
       ciudad: ciudad.trim() || null,
       zona: zona.trim() || null,
+      provincia: provincia || null,
       contactoNombre: contactoNombre.trim() || null,
       contactoCargo: contactoCargo.trim() || null,
       contactoEmail: contactoEmail.trim() || null,
@@ -117,6 +133,26 @@ function ColegioEditDialog({
               />
             </div>
           </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Provincia</Label>
+            <Select
+              value={provincia || SIN_PROVINCIA}
+              onValueChange={(v) => setProvincia(v === SIN_PROVINCIA ? "" : (v ?? ""))}
+              items={PROVINCIA_ITEMS}
+            >
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_PROVINCIA}>Sin definir</SelectItem>
+                {PROVINCIAS_ARGENTINAS.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Contacto</Label>
@@ -144,14 +180,21 @@ function ColegioEditDialog({
                 onChange={(e) => setContactoEmail(e.target.value)}
                 className="h-9"
               />
+              {emailInvalido && (
+                <p className="text-destructive text-xs">Email inválido.</p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Teléfono</Label>
               <Input
+                type="tel"
                 value={contactoTelefono}
                 onChange={(e) => setContactoTelefono(e.target.value)}
                 className="h-9"
               />
+              {telefonoInvalido && (
+                <p className="text-destructive text-xs">Teléfono inválido.</p>
+              )}
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -176,7 +219,10 @@ function ColegioEditDialog({
             </Select>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={isPending || !nombre.trim()}>
+            <Button
+              type="submit"
+              disabled={isPending || !nombre.trim() || emailInvalido || telefonoInvalido}
+            >
               {isPending ? "Guardando..." : "Guardar cambios"}
             </Button>
           </DialogFooter>
