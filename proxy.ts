@@ -1,7 +1,16 @@
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 
-const RUTAS_PUBLICAS = ['/login', '/registro', '/pendiente-de-aprobacion', '/inscripcion-viaje'];
+// /invitacion/ es pública porque quien la abre todavía no tiene sesión: la
+// página valida el token contra la base (y vence a los 7 días). Sin esto el
+// link de invitación terminaba siempre en /login.
+const RUTAS_PUBLICAS = [
+  '/login',
+  '/registro',
+  '/pendiente-de-aprobacion',
+  '/inscripcion-viaje',
+  '/invitacion/',
+];
 
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
