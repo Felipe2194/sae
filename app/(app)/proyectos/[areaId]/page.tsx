@@ -242,7 +242,7 @@ export default async function AreaDetallePage({
     const usuarios = puedePlanificarInterno
       ? await tx<UsuarioRow[]>`
           select id, nombre, avatar_color from usuario
-          where organizacion_id = mi_organizacion_id() and estado = 'activo'
+          where organizacion_id = mi_organizacion_id() and estado = 'activo' and not oculto
           order by nombre asc
         `
       : [];

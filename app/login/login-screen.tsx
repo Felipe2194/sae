@@ -17,9 +17,9 @@ type Props = {
 // Pantalla de login — siempre clara, sin importar el tema del resto de la
 // app (que por defecto es oscuro, ver DEFAULT_THEME en theme-provider.tsx).
 // El panel de marca usa el color de la organización tal cual (es un color
-// saturado, se sostiene solo); el panel del formulario fuerza los tokens
-// card/foreground/muted-foreground a sus valores claros vía lightVars más
-// abajo, para no quedar oscuro cuando el resto de la app lo está.
+// saturado, se sostiene solo); el panel del formulario fuerza el tema claro
+// con la clase `light` más abajo, para no quedar oscuro cuando el resto de la
+// app lo está.
 //
 // Vive fuera de (auth) porque ese layout envuelve todo con su propio panel
 // de marca de dos columnas — esta pantalla ya arma las suyas, envolverla
@@ -35,32 +35,15 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
   const brandGradient = `linear-gradient(160deg, color-mix(in oklch, ${brandColor}, transparent 22%) 0%, color-mix(in oklch, ${brandColor}, black 55%) 100%)`;
 
   // El login siempre se ve claro, sin importar el tema (oscuro por defecto)
-  // del resto de la app: pisamos acá las variables de fondo/texto/borde para
-  // que bg-background/bg-card/text-foreground/etc. (propias y las que usan
-  // los componentes de shadcn/base-ui por debajo, como Input o Separator)
-  // resuelvan siempre a los valores del tema claro de app/globals.css.
-  const lightVars = {
-    // Los tokens de --foreground/--background de acá abajo pintan bien los
-    // textos con clases explícitas (text-foreground, etc.), pero los campos
-    // nativos (<input>) no los heredan — el navegador les pinta el texto
-    // tipeado según el color-scheme del documento entero, que sigue el tema
-    // oscuro por default de la app (ver THEME_SCRIPT en app/layout.tsx). Sin
-    // este colorScheme quedaba texto claro sobre fondo claro, ilegible.
-    colorScheme: "light",
-    "--background": "oklch(0.974 0.009 70)",
-    "--foreground": "oklch(0.16 0.01 60)",
-    "--card": "oklch(0.990 0.005 70)",
-    "--card-foreground": "oklch(0.16 0.01 60)",
-    "--muted-foreground": "oklch(0.50 0.02 60)",
-    "--border": "oklch(0.878 0.014 68)",
-    "--input": "oklch(0.878 0.014 68)",
-  } as React.CSSProperties;
-
+  // del resto de la app: la clase `light` (app/globals.css) trae todos los
+  // tokens del tema claro, fija el color de texto y color-scheme, y apaga las
+  // variantes dark: de los componentes (Input, Button outline). Antes se
+  // pisaban solo algunas variables a mano y quedaban etiquetas, texto
+  // tipeado y el botón de Google en blanco sobre fondo claro.
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-cover bg-center bg-fixed bg-background px-4 py-10"
+      className="light flex min-h-screen items-center justify-center bg-cover bg-center bg-fixed bg-background px-4 py-10"
       style={{
-        ...lightVars,
         // Misma foto que el panel de marca, pero de fondo de toda la
         // pantalla — un velo casi opaco del --background claro encima para
         // que la tarjeta del formulario (blanca, sin foto detrás) siga
@@ -120,7 +103,7 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
                   className="h-9 w-auto object-contain"
                 />
               ) : (
-                // Panel siempre claro (ver lightVars más arriba): alcanza con
+                // Panel siempre claro (clase `light` más arriba): alcanza con
                 // la variante de texto oscuro del logo UTN, sin toggle de tema.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

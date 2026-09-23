@@ -35,7 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         select exists(
           select 1 from usuario
           where organizacion_id = mi_organizacion_id()
-            and estado = 'activo'
+            and estado = 'activo' and not oculto
             and es_cuenta_generica = false
             and id != mi_usuario_id()
         ) as existe
@@ -93,7 +93,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         select id as usuario_id, nombre, playlist_url as url
         from usuario
         where organizacion_id = mi_organizacion_id()
-          and estado = 'activo'
+          and estado = 'activo' and not oculto
           and playlist_url is not null
         order by nombre asc
       `,
