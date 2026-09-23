@@ -2,7 +2,10 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* `.light` marca una zona que se ve siempre clara aunque la app esté en
+   oscuro (el login): ahí adentro no aplican las variantes dark: de los
+   componentes, que si no pintaban fondos/textos oscuros sobre la tarjeta clara. */
+@custom-variant dark (&:is(.dark *):not(.light, .light *));
 
 @theme inline {
   --color-background: var(--background);
@@ -64,7 +67,10 @@
   --text-2xl--line-height: 2.05rem;
 }
 
-:root {
+/* `.light` repite los tokens del tema claro para forzarlo en un subárbol
+   (ver @custom-variant dark arriba y app/login/login-screen.tsx). */
+:root,
+.light {
   /* UTN naranja como color primario */
   --primary: oklch(0.62 0.19 42);
   --primary-foreground: oklch(1 0 0);
@@ -158,6 +164,13 @@
   }
   html {
     @apply font-sans;
+  }
+  /* El color de texto se hereda ya calculado desde <body> (oscuro = texto
+     claro): hay que volver a fijarlo acá para que tome el --foreground claro.
+     color-scheme: light hace lo mismo con los <input> nativos. */
+  .light {
+    color-scheme: light;
+    color: var(--foreground);
   }
 }
 

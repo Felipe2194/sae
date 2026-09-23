@@ -29,7 +29,7 @@ export default async function CambiarPerfilPage() {
       select id, nombre, avatar_color
       from usuario
       where organizacion_id = mi_organizacion_id()
-        and estado = 'activo'
+        and estado = 'activo' and not oculto
         and es_cuenta_generica = false
         and id != mi_usuario_id()
       order by nombre asc
@@ -50,7 +50,7 @@ export default async function CambiarPerfilPage() {
       select id, nombre, avatar_color
       from usuario
       where organizacion_id = mi_organizacion_id()
-        and estado = 'activo'
+        and estado = 'activo' and not oculto
         and es_cuenta_generica = true
       limit 1
     `;

@@ -60,7 +60,7 @@ export default async function CronogramaPage() {
       where t.vigente_desde <= current_date
         and (t.vigente_hasta is null or t.vigente_hasta >= current_date)
         -- Quien fue dado de baja no cubre turnos aunque le hayan quedado cargados.
-        and u.estado = 'activo'
+        and u.estado = 'activo' and not u.oculto
       order by t.dia_semana, t.hora_inicio, u.nombre
     `;
 
@@ -68,7 +68,7 @@ export default async function CronogramaPage() {
       // cualquiera pueda marcar su propia ausencia — se trae siempre.
       const usuarios = await tx<UsuarioOpt[]>`
       select id, nombre, avatar_color from usuario
-      where organizacion_id = mi_organizacion_id() and estado = 'activo'
+      where organizacion_id = mi_organizacion_id() and estado = 'activo' and not oculto
       order by nombre asc
     `;
 

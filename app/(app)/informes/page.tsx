@@ -139,7 +139,7 @@ export default async function InformesPage({
         and t.archivada = false
         and t.activa = true
       where u.organizacion_id = mi_organizacion_id()
-        and u.estado = 'activo'
+        and u.estado = 'activo' and not u.oculto
       group by u.id, u.nombre
       having count(t.id) > 0
       order by count(t.id) filter (where t.estado != 'hecha') desc, u.nombre asc
@@ -255,7 +255,7 @@ export default async function InformesPage({
         where creado_en >= now() - interval '30 days'
         group by autor_id
       ) cm on cm.autor_id = u.id
-      where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo'
+      where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo' and not u.oculto
         and (
           coalesce(tc.n, 0) > 0 or coalesce(ta.total, 0) > 0
           or coalesce(b.dias_cargados, 0) > 0 or coalesce(cm.comentarios, 0) > 0
@@ -290,7 +290,7 @@ export default async function InformesPage({
       select u.nombre, count(c.id)::int as comentarios
       from usuario u
       left join comentario c on c.autor_id = u.id and c.creado_en >= now() - interval '30 days'
-      where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo'
+      where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo' and not u.oculto
       group by u.id, u.nombre
       having count(c.id) > 0
       order by comentarios desc
@@ -302,7 +302,7 @@ export default async function InformesPage({
       left join excepcion_turno e on e.usuario_id = u.id
         and e.tipo = 'ausencia'
         and e.fecha >= current_date - interval '90 days'
-      where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo'
+      where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo' and not u.oculto
       group by u.id, u.nombre
       having count(e.id) > 0
       order by ausencias desc
@@ -311,7 +311,7 @@ export default async function InformesPage({
     const ultimosLogins = await tx<UltimoLogin[]>`
       select nombre, rol, ultimo_login::text as ultimo_login
       from usuario
-      where organizacion_id = mi_organizacion_id() and estado = 'activo'
+      where organizacion_id = mi_organizacion_id() and estado = 'activo' and not oculto
       order by ultimo_login desc nulls last, nombre asc
     `;
 
@@ -375,7 +375,7 @@ export default async function InformesPage({
         and v.organizacion_id = mi_organizacion_id()
         and v.estado = 'realizado'
         and (${anioVisitas} = 0 or extract(year from v.fecha) = ${anioVisitas})
-      where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo'
+      where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo' and not u.oculto
       group by u.id, u.nombre
       having count(vi.usuario_id) > 0
       order by visitas_realizadas desc, u.nombre asc

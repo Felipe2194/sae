@@ -127,7 +127,7 @@ export default async function VisitasPage({
 
         tx<UsuarioOption[]>`
           select id, nombre, avatar_color from usuario
-          where organizacion_id = mi_organizacion_id() and estado = 'activo'
+          where organizacion_id = mi_organizacion_id() and estado = 'activo' and not oculto
           order by nombre asc
         `,
 
@@ -142,7 +142,7 @@ export default async function VisitasPage({
             on v.id = vi.visita_id
             and v.organizacion_id = mi_organizacion_id()
             and extract(year from v.fecha) = ${anio}
-          where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo'
+          where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo' and not u.oculto
           group by u.id, u.nombre, u.avatar_color
           order by visitas_registradas desc, u.nombre asc
         `,

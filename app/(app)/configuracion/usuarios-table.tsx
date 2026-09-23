@@ -40,6 +40,8 @@ export type UsuarioFila = {
   estado: "pendiente" | "activo" | "inactivo";
   creada_en: string;
   es_cuenta_generica: boolean;
+  // Cuenta de revisión que no figura para el equipo (ver 047_usuario_oculto.sql).
+  oculto: boolean;
 };
 
 const ESTADO_BADGE: Record<
@@ -59,6 +61,18 @@ const ESTADO_BADGE: Record<
     className: "bg-muted text-muted-foreground",
   },
 };
+
+function EtiquetaOculta() {
+  return (
+    <Badge
+      variant="outline"
+      className="ml-2 align-middle text-[10px]"
+      title="No figura para el equipo: selectores, Presencia, Informes ni Cambiar perfil"
+    >
+      Oculta
+    </Badge>
+  );
+}
 
 const ROL_LABEL: Record<UsuarioFila["rol"], string> = {
   miembro: "Miembro",
@@ -548,6 +562,7 @@ function UsuarioRow({
               Cuenta de oficina
             </Badge>
           )}
+          {usuario.oculto && <EtiquetaOculta />}
         </p>
         <p className="text-muted-foreground text-xs">{usuario.email}</p>
       </td>
@@ -615,6 +630,7 @@ function UsuarioCard({
                 Cuenta de oficina
               </Badge>
             )}
+            {usuario.oculto && <EtiquetaOculta />}
           </p>
           <p className="text-muted-foreground truncate text-xs">
             {usuario.email}
@@ -661,7 +677,7 @@ export function UsuariosTable({
   selfId: string;
 }) {
   const activos = usuarios
-    .filter((u) => u.estado === "activo")
+    .filter((u) => u.estado === "activo" && !u.oculto)
     .map((u) => ({ id: u.id, nombre: u.nombre }));
   const pendientes = usuarios.filter((u) => u.estado === "pendiente");
   const resto = usuarios.filter((u) => u.estado !== "pendiente");

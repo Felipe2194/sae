@@ -65,7 +65,7 @@ export default async function ViajesPage() {
 
     const usuarios = await tx<UsuarioOption[]>`
       select id, nombre, avatar_color from usuario
-      where organizacion_id = mi_organizacion_id() and estado = 'activo'
+      where organizacion_id = mi_organizacion_id() and estado = 'activo' and not oculto
       order by nombre asc
     `;
 
