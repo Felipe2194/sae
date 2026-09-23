@@ -304,6 +304,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const [usuario] = await sql<
           {
+            nombre: string;
             rol: RolUsuario;
             organizacion_id: string;
             estado: string;
@@ -311,7 +312,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             es_superadmin: boolean;
           }[]
         >`
-          select rol, organizacion_id, estado, es_cuenta_generica, es_superadmin
+          select nombre, rol, organizacion_id, estado, es_cuenta_generica, es_superadmin
           from usuario where id = ${token.id}
         `;
         // Cuenta borrada, desactivada o degradada desde que se emitió este
@@ -319,6 +320,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // @auth/core — token !== null es lo que decide si hay sesión).
         if (!usuario || usuario.estado !== "activo") return null;
 
+        // El nombre se puede cambiar desde /perfil: sin esto session.user.name
+        // quedaba con el del login hasta cerrar sesión. Las pantallas que lo
+        // muestran igual lo leen de la base; esto cubre el resto.
+        token.name = usuario.nombre;
         token.rol = usuario.rol;
         token.organizacion_id = usuario.organizacion_id;
         token.esSuperadmin = usuario.es_superadmin;

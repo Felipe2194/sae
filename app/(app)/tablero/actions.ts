@@ -713,17 +713,21 @@ export async function crearComentario(tareaId: string, contenido: string) {
     session.user.id,
     "crearComentario",
     async (tx) => {
+      // El nombre del autor sale de la base, no de la sesión: si lo cambió
+      // en /perfil, la notificación que ve el otro tiene que decir el nuevo.
       const [tarea] = await tx<
-        [{ responsable_id: string | null; titulo: string }]
+        [{ responsable_id: string | null; titulo: string; autor_nombre: string | null }]
       >`
-        select responsable_id, titulo from tarea where id = ${tareaId}
+        select responsable_id, titulo,
+          (select nombre from usuario where id = mi_usuario_id()) as autor_nombre
+        from tarea where id = ${tareaId}
       `;
       if (!tarea?.responsable_id) return null;
       return notificarComentario(
         tx,
         tarea.responsable_id,
         tarea.titulo,
-        session.user.name ?? "Alguien",
+        tarea.autor_nombre ?? session.user.name ?? "Alguien",
         session.user.id,
       );
     },
