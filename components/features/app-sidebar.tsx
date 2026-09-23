@@ -16,8 +16,9 @@ import {
   Globe,
   School,
   Plane,
+  Lock,
 } from "lucide-react";
-import type { SeccionesHabilitadas } from "@/lib/secciones";
+import type { SeccionesHabilitadas, SeccionOpcionalKey } from "@/lib/secciones";
 import {
   Sidebar,
   SidebarContent,
@@ -130,6 +131,7 @@ export function AppSidebar({
   puedeCambiarPerfil,
   esSuperadmin,
   secciones,
+  soloAdmin = [],
 }: {
   user: SidebarUser;
   rol: string;
@@ -138,6 +140,9 @@ export function AppSidebar({
   puedeCambiarPerfil?: boolean;
   esSuperadmin?: boolean;
   secciones: SeccionesHabilitadas;
+  // Secciones que el equipo no ve: solo llega con datos para administradores,
+  // que las ven marcadas con un candado.
+  soloAdmin?: SeccionOpcionalKey[];
 }) {
   const pathname = usePathname();
   // En mobile la sidebar es un Sheet (cajón) que se abre encima de la
@@ -229,6 +234,12 @@ export function AppSidebar({
                     <span className="group-data-[collapsible=icon]:hidden">
                       {item.label}
                     </span>
+                    {item.seccion && soloAdmin.includes(item.seccion) && (
+                      <Lock
+                        className="text-muted-foreground ml-auto size-3.5 group-data-[collapsible=icon]:hidden"
+                        aria-label="Solo visible para administradores"
+                      />
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

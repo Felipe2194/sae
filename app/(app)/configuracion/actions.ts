@@ -7,7 +7,11 @@ import { withUser, sql } from "@/lib/db";
 import { generarPasswordTemporal } from "@/lib/passwords";
 import { generarTokenInvitacion, DURACION_INVITACION_MS } from "@/lib/invitaciones";
 import { crearEventoCalendar, extraerCalendarId } from "@/lib/google/calendar";
-import type { SeccionesHabilitadas } from "@/lib/secciones";
+import {
+  SECCIONES_OPCIONALES,
+  type SeccionesHabilitadas,
+  type SeccionOpcionalKey,
+} from "@/lib/secciones";
 import { urlSegura } from "@/lib/utils";
 
 async function requireAdmin() {
@@ -682,8 +686,13 @@ export async function actualizarGoogleCalendarId(calendarId: string | null) {
 // Qué secciones del sidebar usa esta organización (ver migración 032 y
 // lib/secciones.ts). Hoy y Tablero no se tocan acá: siempre están activas.
 
-export async function actualizarSecciones(data: SeccionesHabilitadas) {
+export async function actualizarSecciones(
+  data: SeccionesHabilitadas,
+  soloAdmin: SeccionOpcionalKey[],
+) {
   const session = await requireAdmin();
+  const claves = new Set<string>(SECCIONES_OPCIONALES.map((s) => s.key));
+  const soloAdminValidas = soloAdmin.filter((k) => claves.has(k));
   await withUser(session.user.id, async (tx) => {
     await tx`
       update organizacion
@@ -692,7 +701,8 @@ export async function actualizarSecciones(data: SeccionesHabilitadas) {
         cronograma_habilitado = ${data.cronograma},
         proyectos_habilitado = ${data.proyectos},
         visitas_habilitado = ${data.visitas},
-        viajes_habilitado = ${data.viajes}
+        viajes_habilitado = ${data.viajes},
+        secciones_solo_admin = ${soloAdminValidas}::text[]
       where id = mi_organizacion_id()
     `;
   });

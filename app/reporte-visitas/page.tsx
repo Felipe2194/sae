@@ -55,7 +55,9 @@ export default async function ReporteVisitasPage({
           },
         ]
       >`
-        select nombre, logo_url, visitas_habilitado from organizacion where id = mi_organizacion_id()
+        select nombre, logo_url,
+          seccion_visible(visitas_habilitado, secciones_solo_admin, 'visitas') as visitas_habilitado
+        from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
       if (!organizacion) redirectSesionInvalida();

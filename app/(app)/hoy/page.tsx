@@ -181,7 +181,8 @@ export default async function HoyPage({
     tableroHabilitado,
   } = await withUser(session.user.id, async (tx) => {
     const [org] = await tx<[{ tablero_habilitado: boolean }]>`
-      select tablero_habilitado from organizacion where id = mi_organizacion_id()
+      select seccion_visible(tablero_habilitado, secciones_solo_admin, 'tablero') as tablero_habilitado
+      from organizacion where id = mi_organizacion_id()
     `;
     // session.user.id no resuelve a ningún usuario/organización real (sesión
     // vieja de una cuenta borrada, o base de datos reseteada sin recargar la

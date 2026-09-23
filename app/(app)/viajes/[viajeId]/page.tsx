@@ -92,7 +92,8 @@ export default async function ViajeDetallePage({
     habilitado,
   } = await withUser(session.user.id, async (tx) => {
       const [org] = await tx<[{ viajes_habilitado: boolean }]>`
-        select viajes_habilitado from organizacion where id = mi_organizacion_id()
+        select seccion_visible(viajes_habilitado, secciones_solo_admin, 'viajes') as viajes_habilitado
+        from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
       if (!org) redirectSesionInvalida();

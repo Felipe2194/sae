@@ -164,7 +164,10 @@ export default async function AreaDetallePage({
     tableroHabilitado,
   } = await withUser(session.user.id, async (tx) => {
     const [org] = await tx<[{ proyectos_habilitado: boolean; tablero_habilitado: boolean }]>`
-      select proyectos_habilitado, tablero_habilitado from organizacion where id = mi_organizacion_id()
+      select
+        seccion_visible(proyectos_habilitado, secciones_solo_admin, 'proyectos') as proyectos_habilitado,
+        seccion_visible(tablero_habilitado, secciones_solo_admin, 'tablero') as tablero_habilitado
+      from organizacion where id = mi_organizacion_id()
     `;
     // Sesión vieja que ya no resuelve a ningún usuario/organización real.
     if (!org) redirectSesionInvalida();

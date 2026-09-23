@@ -39,7 +39,8 @@ export default async function CronogramaPage() {
     session.user.id,
     async (tx) => {
       const [org] = await tx<[{ cronograma_habilitado: boolean }]>`
-        select cronograma_habilitado from organizacion where id = mi_organizacion_id()
+        select seccion_visible(cronograma_habilitado, secciones_solo_admin, 'cronograma') as cronograma_habilitado
+        from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
       if (!org) redirectSesionInvalida();

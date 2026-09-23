@@ -73,7 +73,8 @@ export default async function VisitasPage({
     session.user.id,
     async (tx) => {
       const [org] = await tx<[{ visitas_habilitado: boolean }]>`
-        select visitas_habilitado from organizacion where id = mi_organizacion_id()
+        select seccion_visible(visitas_habilitado, secciones_solo_admin, 'visitas') as visitas_habilitado
+        from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
       if (!org) redirectSesionInvalida();
