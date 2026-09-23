@@ -13,6 +13,7 @@ export type VisitaFila = {
   colegio_nombre: string;
   ciudad: string | null;
   zona: string | null;
+  provincia: string | null;
   fecha: string;
   hora_inicio: string | null;
   hora_fin: string | null;
@@ -36,6 +37,7 @@ export type ColegioFila = {
   nombre: string;
   ciudad: string | null;
   zona: string | null;
+  provincia: string | null;
   contacto_nombre: string | null;
   contacto_cargo: string | null;
   contacto_email: string | null;
@@ -82,6 +84,7 @@ export default async function VisitasPage({
         tx<VisitaFila[]>`
           select
             v.id, v.colegio_id, c.nombre as colegio_nombre, c.ciudad, c.zona,
+            c.provincia,
             v.fecha::text, v.hora_inicio::text, v.hora_fin::text,
             v.tipo::text as tipo, v.estado::text as estado, v.cant_alumnos,
             v.contacto_nombre, v.contacto_cargo, v.contacto_email, v.contacto_telefono,
@@ -109,7 +112,7 @@ export default async function VisitasPage({
 
         tx<ColegioFila[]>`
           select
-            c.id, c.nombre, c.ciudad, c.zona, c.contacto_nombre, c.contacto_cargo,
+            c.id, c.nombre, c.ciudad, c.zona, c.provincia, c.contacto_nombre, c.contacto_cargo,
             c.contacto_email, c.contacto_telefono,
             c.estado_relacion::text as estado_relacion,
             count(v.id)::int as total_visitas,

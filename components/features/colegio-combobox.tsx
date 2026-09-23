@@ -9,7 +9,7 @@ export type ColegioOption = {
   id: string;
   nombre: string;
   ciudad: string | null;
-  zona: string | null;
+  provincia: string | null;
 };
 
 function normalizar(texto: string): string {
@@ -133,9 +133,9 @@ export function ColegioCombobox({
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{c.nombre}</p>
-                {(c.ciudad || c.zona) && (
+                {(c.ciudad || c.provincia) && (
                   <p className="text-muted-foreground truncate text-xs">
-                    {[c.ciudad, c.zona].filter(Boolean).join(" · ")}
+                    {[c.ciudad, c.provincia].filter(Boolean).join(" · ")}
                   </p>
                 )}
               </div>

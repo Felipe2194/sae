@@ -9,12 +9,53 @@ import {
   eliminarEventoCalendar,
 } from "@/lib/google/calendar";
 import type { EstadoVisita, TipoVisita } from "@/types/database";
-import { ESTADOS_VISITA_SINCRONIZABLES, labelTipoVisita } from "./tipos";
+import {
+  ESTADOS_VISITA_SINCRONIZABLES,
+  labelTipoVisita,
+  horaDentroDeFranjaLaboral,
+  emailValido,
+  telefonoValido,
+} from "./tipos";
 
 async function requireAuth() {
   const session = await auth();
   if (!session?.user) throw new Error("No autenticado");
   return session;
+}
+
+export type VisitaDelDia = {
+  id: string;
+  colegio_nombre: string;
+  hora_inicio: string | null;
+  hora_fin: string | null;
+  estado: EstadoVisita;
+};
+
+// Para avisar, al elegir la fecha, qué otras visitas ya están anotadas ese
+// día y en qué horario — así se evita pisar un horario ya ocupado. Se llama
+// desde el cliente cada vez que cambia la fecha del formulario (ver
+// visita-dialog.tsx). No es un bloqueo: solo informa, porque puede haber
+// más de una persona del equipo visitando el mismo día sin problema.
+export async function obtenerVisitasDelDia(
+  fecha: string,
+  excluirId?: string,
+): Promise<VisitaDelDia[]> {
+  const session = await requireAuth();
+  return withUser(session.user.id, async (tx) => {
+    const filas = await tx<VisitaDelDia[]>`
+      select
+        v.id, c.nombre as colegio_nombre, v.hora_inicio::text as hora_inicio,
+        v.hora_fin::text as hora_fin, v.estado::text as estado
+      from visita_colegio v
+      join colegio c on c.id = v.colegio_id
+      where v.organizacion_id = mi_organizacion_id()
+        and v.fecha = ${fecha}
+        and v.estado != 'cancelado'
+        and (${excluirId ?? null}::uuid is null or v.id != ${excluirId ?? null})
+      order by v.hora_inicio asc nulls last
+    `;
+    return [...filas];
+  });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
@@ -30,20 +71,26 @@ async function sincronizarIntegrantes(tx: any, visitaId: string, usuarioIds: str
 
 // Busca un colegio existente por nombre (case-insensitive, dentro de la org)
 // o lo crea — reemplaza el auto-registro por onEdit del Sheet. Si el colegio
-// ya existía pero le faltaba ciudad y/o zona, y la visita trae esos datos,
-// los completa ahí mismo (backfill): así el directorio se va enriqueciendo
-// con lo que carga cada visita en vez de quedar incompleto para siempre.
+// ya existía pero le faltaba ciudad y/o provincia, y la visita trae esos
+// datos, los completa ahí mismo (backfill): así el directorio se va
+// enriqueciendo con lo que carga cada visita en vez de quedar incompleto
+// para siempre.
 async function resolverColegio(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
   tx: any,
-  input: { colegioId: string | null; nombre: string; ciudad: string | null; zona: string | null },
+  input: {
+    colegioId: string | null;
+    nombre: string;
+    ciudad: string | null;
+    provincia: string | null;
+  },
 ): Promise<string> {
   if (input.colegioId) {
-    if (input.ciudad || input.zona) {
+    if (input.ciudad || input.provincia) {
       await tx`
         update colegio set
-          ciudad = coalesce(ciudad, ${input.ciudad}),
-          zona   = coalesce(zona, ${input.zona})
+          ciudad    = coalesce(ciudad, ${input.ciudad}),
+          provincia = coalesce(provincia, ${input.provincia})
         where id = ${input.colegioId} and organizacion_id = mi_organizacion_id()
       `;
     }
@@ -59,8 +106,8 @@ async function resolverColegio(
   `;
   if (existente) return existente.id;
   const [{ id }] = await tx<[{ id: string }]>`
-    insert into colegio (organizacion_id, nombre, ciudad, zona)
-    values (mi_organizacion_id(), ${nombre}, ${input.ciudad}, ${input.zona})
+    insert into colegio (organizacion_id, nombre, ciudad, provincia)
+    values (mi_organizacion_id(), ${nombre}, ${input.ciudad}, ${input.provincia})
     returning id
   `;
   return id;
@@ -70,7 +117,7 @@ export type VisitaInput = {
   colegioId: string | null;
   colegioNombreNuevo?: string;
   ciudad?: string | null;
-  zona?: string | null;
+  provincia?: string | null;
   fecha: string;
   horaInicio: string | null;
   horaFin: string | null;
@@ -82,7 +129,6 @@ export type VisitaInput = {
   contactoEmail: string | null;
   contactoTelefono: string | null;
   observaciones: string | null;
-  asignadoPorId: string | null;
   integrantesIds: string[];
 };
 
@@ -119,10 +165,25 @@ function armarEvento(
   };
 }
 
+function validarVisitaInput(data: VisitaInput): void {
+  if (!horaDentroDeFranjaLaboral(data.horaInicio) || !horaDentroDeFranjaLaboral(data.horaFin)) {
+    throw new Error(
+      "El horario de la visita tiene que estar entre 08:00–12:00 o 14:00–21:00.",
+    );
+  }
+  if (!emailValido(data.contactoEmail)) {
+    throw new Error("El email del contacto no es válido.");
+  }
+  if (!telefonoValido(data.contactoTelefono)) {
+    throw new Error("El teléfono del contacto no es válido.");
+  }
+}
+
 export async function crearVisita(
   data: VisitaInput,
 ): Promise<{ id: string; sincronizada: boolean; error: string | null }> {
   const session = await requireAuth();
+  validarVisitaInput(data);
 
   const { visitaId, colegioNombre, integrantesNombres, zonaHoraria, calendarId } =
     await withUser(session.user.id, async (tx) => {
@@ -130,7 +191,7 @@ export async function crearVisita(
         colegioId: data.colegioId,
         nombre: data.colegioNombreNuevo ?? "",
         ciudad: data.ciudad ?? null,
-        zona: data.zona ?? null,
+        provincia: data.provincia ?? null,
       });
 
       const [{ id }] = await tx<[{ id: string }]>`
@@ -145,8 +206,9 @@ export async function crearVisita(
           ${data.horaInicio}, ${data.horaFin}, ${data.tipo}::tipo_visita,
           ${data.estado}::estado_visita, ${data.cantAlumnos},
           ${data.contactoNombre}, ${data.contactoCargo}, ${data.contactoEmail},
-          ${data.contactoTelefono}, ${data.observaciones}, ${data.asignadoPorId},
-          mi_usuario_id()
+          ${data.contactoTelefono}, ${data.observaciones},
+          -- Quien carga la visita queda como quien la coordinó; no se elige.
+          mi_usuario_id(), mi_usuario_id()
         )
         returning id
       `;
@@ -204,6 +266,7 @@ export async function actualizarVisita(
   data: VisitaInput,
 ): Promise<{ sincronizada: boolean; error: string | null }> {
   const session = await requireAuth();
+  validarVisitaInput(data);
 
   const { colegioNombre, integrantesNombres, zonaHoraria, googleEventIdPrevio, calendarId } =
     await withUser(session.user.id, async (tx) => {
@@ -217,7 +280,7 @@ export async function actualizarVisita(
         colegioId: data.colegioId,
         nombre: data.colegioNombreNuevo ?? "",
         ciudad: data.ciudad ?? null,
-        zona: data.zona ?? null,
+        provincia: data.provincia ?? null,
       });
 
       await tx`
@@ -233,8 +296,7 @@ export async function actualizarVisita(
           contacto_cargo     = ${data.contactoCargo},
           contacto_email     = ${data.contactoEmail},
           contacto_telefono  = ${data.contactoTelefono},
-          observaciones      = ${data.observaciones},
-          asignado_por_id    = ${data.asignadoPorId}
+          observaciones      = ${data.observaciones}
         where id = ${visitaId} and organizacion_id = mi_organizacion_id()
       `;
       await sincronizarIntegrantes(tx, visitaId, data.integrantesIds);
@@ -310,50 +372,9 @@ export async function actualizarVisita(
   return { sincronizada, error };
 }
 
-export async function eliminarVisita(visitaId: string): Promise<void> {
-  const session = await requireAuth();
-  const { googleEventId, calendarId } = await withUser(session.user.id, async (tx) => {
-    const [visita] = await tx<
-      [{ google_event_id: string | null; colegio_nombre: string; fecha: string } | undefined]
-    >`
-      select v.google_event_id, c.nombre as colegio_nombre, v.fecha::text
-      from visita_colegio v
-      join colegio c on c.id = v.colegio_id
-      where v.id = ${visitaId} and v.organizacion_id = mi_organizacion_id()
-    `;
-    await tx`
-      delete from visita_colegio
-      where id = ${visitaId} and organizacion_id = mi_organizacion_id()
-    `;
-    if (visita) {
-      await tx`
-        insert into auditoria (organizacion_id, usuario_id, entidad, entidad_id, entidad_nombre, campo, valor_antes, valor_despues)
-        values (
-          mi_organizacion_id(), mi_usuario_id(), 'visita', ${visitaId},
-          ${`${visita.colegio_nombre} (${visita.fecha})`}, '(eliminada)', 'existía', null
-        )
-      `;
-    }
-    const [org] = await tx<[{ google_calendar_id: string | null }]>`
-      select google_calendar_id from organizacion where id = mi_organizacion_id()
-    `;
-    return {
-      googleEventId: visita?.google_event_id ?? null,
-      calendarId: org?.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
-    };
-  });
-  if (googleEventId) {
-    try {
-      await eliminarEventoCalendar(calendarId, googleEventId);
-      updateTag("calendar-events");
-    } catch {
-      // Si Calendar rechaza el borrado (ya no existe, etc.) no bloqueamos el
-      // borrado de la visita, que ya se hizo.
-    }
-  }
-  revalidatePath("/visitas");
-  revalidatePath("/informes");
-}
+// No hay acción para eliminar visitas a propósito: era demasiado fácil
+// borrar una por error desde la tabla y se perdía el historial. Una visita
+// que no va más se marca como Cancelada editándola.
 
 // Copia el contacto de esta visita puntual al directorio de colegios —
 // equivalente a "📋 Guardar contacto de esta fila → Colegios" del Sheet.
@@ -392,6 +413,7 @@ export type ColegioUpdateInput = {
   nombre: string;
   ciudad: string | null;
   zona: string | null;
+  provincia: string | null;
   contactoNombre: string | null;
   contactoCargo: string | null;
   contactoEmail: string | null;
@@ -404,12 +426,19 @@ export async function actualizarColegio(
   data: ColegioUpdateInput,
 ): Promise<void> {
   const session = await requireAuth();
+  if (!emailValido(data.contactoEmail)) {
+    throw new Error("El email del contacto no es válido.");
+  }
+  if (!telefonoValido(data.contactoTelefono)) {
+    throw new Error("El teléfono del contacto no es válido.");
+  }
   await withUser(session.user.id, async (tx) => {
     await tx`
       update colegio set
         nombre            = ${data.nombre},
         ciudad             = ${data.ciudad},
         zona               = ${data.zona},
+        provincia          = ${data.provincia},
         contacto_nombre    = ${data.contactoNombre},
         contacto_cargo     = ${data.contactoCargo},
         contacto_email     = ${data.contactoEmail},

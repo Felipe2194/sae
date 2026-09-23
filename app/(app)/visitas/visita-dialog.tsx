@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -24,15 +24,37 @@ import { AsignadosPicker } from "@/components/features/asignados-picker";
 import { ColegioCombobox, type ColegioOption } from "@/components/features/colegio-combobox";
 import { SugerenciaInput } from "@/components/features/sugerencia-input";
 import type { EstadoVisita, TipoVisita } from "@/types/database";
-import { crearVisita, actualizarVisita, type VisitaInput } from "./actions";
+import {
+  crearVisita,
+  actualizarVisita,
+  obtenerVisitasDelDia,
+  type VisitaInput,
+  type VisitaDelDia,
+} from "./actions";
 import {
   TIPOS_VISITA,
   ESTADOS_VISITA,
   CARGOS_CONTACTO_SUGERIDOS,
+  PROVINCIAS_ARGENTINAS,
+  generarOpcionesHorario,
+  emailValido,
+  telefonoValido,
 } from "./tipos";
 import type { ColegioFila, UsuarioOption, VisitaFila } from "./page";
 
-const SIN_ASIGNAR = "_none";
+const SIN_PROVINCIA = "_none";
+const SIN_HORA = "_none";
+const HORARIOS_DISPONIBLES = generarOpcionesHorario();
+// Al crear, solo Pendiente/Confirmado tienen sentido — Realizado, Cancelado
+// y Reprogramado son estados a los que se llega *después*, editando la
+// visita, y solo estorban en el alta (ver pedido del equipo).
+const ESTADOS_VISITA_CREACION = ESTADOS_VISITA.filter(
+  (e) => e.value === "pendiente" || e.value === "confirmado",
+);
+
+function formatHora(hora: string | null): string {
+  return hora ? hora.slice(0, 5) : "";
+}
 
 type Props = {
   open: boolean;
@@ -60,20 +82,23 @@ export function VisitaDialog({
     visitaInicial?.colegio_nombre ?? "",
   );
   const [ciudad, setCiudad] = useState(visitaInicial?.ciudad ?? "");
-  const [zona, setZona] = useState(visitaInicial?.zona ?? "");
+  const [provincia, setProvincia] = useState(visitaInicial?.provincia ?? "");
   const [fecha, setFecha] = useState(visitaInicial?.fecha ?? "");
   const [horaInicio, setHoraInicio] = useState(
-    visitaInicial?.hora_inicio?.slice(0, 5) ?? "",
+    formatHora(visitaInicial?.hora_inicio ?? null),
   );
   const [horaFin, setHoraFin] = useState(
-    visitaInicial?.hora_fin?.slice(0, 5) ?? "",
+    formatHora(visitaInicial?.hora_fin ?? null),
   );
   const [tipo, setTipo] = useState<TipoVisita>(
     visitaInicial?.tipo ?? "visita_colegio",
   );
+  // Al crear, arranca en Confirmado: anotar la visita ya implica que quedó
+  // acordada con el colegio — Pendiente queda como excepción manual.
   const [estado, setEstado] = useState<EstadoVisita>(
-    visitaInicial?.estado ?? "pendiente",
+    visitaInicial?.estado ?? "confirmado",
   );
+  const [visitasDelDia, setVisitasDelDia] = useState<VisitaDelDia[]>([]);
   const [cantAlumnos, setCantAlumnos] = useState(
     visitaInicial?.cant_alumnos?.toString() ?? "",
   );
@@ -82,9 +107,6 @@ export function VisitaDialog({
   // más abajo.
   const [integrantesIds, setIntegrantesIds] = useState<string[]>(
     visitaInicial?.integrantes.map((i) => i.id) ?? [],
-  );
-  const [asignadoPorId, setAsignadoPorId] = useState(
-    visitaInicial?.asignado_por_id ?? "",
   );
   const [contactoNombre, setContactoNombre] = useState(
     visitaInicial?.contacto_nombre ?? "",
@@ -102,34 +124,39 @@ export function VisitaDialog({
     visitaInicial?.observaciones ?? "",
   );
 
+  const emailInvalido = !emailValido(contactoEmail);
+  const telefonoInvalido = !telefonoValido(contactoTelefono);
+
   const TIPO_ITEMS = Object.fromEntries(TIPOS_VISITA.map((t) => [t.value, t.label]));
+  const ESTADOS_VISITA_MOSTRADOS = isEdit ? ESTADOS_VISITA : ESTADOS_VISITA_CREACION;
   const ESTADO_ITEMS = Object.fromEntries(
-    ESTADOS_VISITA.map((e) => [e.value, e.label]),
+    ESTADOS_VISITA_MOSTRADOS.map((e) => [e.value, e.label]),
   );
-  const ASIGNADO_ITEMS = {
-    [SIN_ASIGNAR]: "Sin asignar",
-    ...Object.fromEntries(usuarios.map((u) => [u.id, u.nombre])),
+  const PROVINCIA_ITEMS = {
+    [SIN_PROVINCIA]: "Sin definir",
+    ...Object.fromEntries(PROVINCIAS_ARGENTINAS.map((p) => [p, p])),
+  };
+  const HORA_ITEMS = {
+    [SIN_HORA]: "Sin definir",
+    ...Object.fromEntries(HORARIOS_DISPONIBLES.map((h) => [h, h])),
   };
   const colegioOptions: ColegioOption[] = colegios.map((c) => ({
     id: c.id,
     nombre: c.nombre,
     ciudad: c.ciudad,
-    zona: c.zona,
+    provincia: c.provincia,
   }));
-  // Sugerencias de ciudad/zona: lo que ya se cargó en otros colegios, para
-  // no terminar con variantes de escritura de la misma localidad.
+  // Sugerencias de ciudad: lo que ya se cargó en otros colegios, para no
+  // terminar con variantes de escritura de la misma localidad.
   const ciudadesSugeridas = colegios
     .map((c) => c.ciudad)
     .filter((c): c is string => !!c);
-  const zonasSugeridas = colegios
-    .map((c) => c.zona)
-    .filter((z): z is string => !!z);
 
   function seleccionarColegio(c: ColegioOption) {
     setColegioId(c.id);
     setColegioNombre(c.nombre);
     setCiudad(c.ciudad ?? "");
-    setZona(c.zona ?? "");
+    setProvincia(c.provincia ?? "");
   }
 
   function cambiarNombreColegio(texto: string) {
@@ -140,16 +167,31 @@ export function VisitaDialog({
     setColegioId(null);
   }
 
+  // Al elegir la fecha, avisa qué otras visitas ya están anotadas ese día y
+  // en qué horario, para no terminar pisando un horario ya ocupado.
+  useEffect(() => {
+    let cancelado = false;
+    const promesa = fecha
+      ? obtenerVisitasDelDia(fecha, visitaInicial?.id)
+      : Promise.resolve([]);
+    promesa.then((filas) => {
+      if (!cancelado) setVisitasDelDia(filas);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [fecha, visitaInicial?.id]);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!fecha || !colegioNombre.trim()) return;
+    if (!fecha || !colegioNombre.trim() || emailInvalido || telefonoInvalido) return;
     setError(null);
 
     const payload: VisitaInput = {
       colegioId,
       colegioNombreNuevo: colegioId ? undefined : colegioNombre.trim(),
       ciudad: ciudad.trim() || null,
-      zona: zona.trim() || null,
+      provincia: provincia || null,
       fecha,
       horaInicio: horaInicio || null,
       horaFin: horaFin || null,
@@ -161,7 +203,6 @@ export function VisitaDialog({
       contactoEmail: contactoEmail.trim() || null,
       contactoTelefono: contactoTelefono.trim() || null,
       observaciones: observaciones.trim() || null,
-      asignadoPorId: asignadoPorId === SIN_ASIGNAR || !asignadoPorId ? null : asignadoPorId,
       integrantesIds,
     };
 
@@ -213,7 +254,7 @@ export function VisitaDialog({
             />
             <p className="text-muted-foreground text-xs">
               {colegioId
-                ? "Colegio existente — se completan ciudad y zona si ya las tenía cargadas."
+                ? "Colegio existente — se completan ciudad y provincia si ya las tenía cargadas."
                 : colegioNombre.trim()
                   ? "Se va a crear como colegio/evento nuevo."
                   : "Escribí para buscar en el directorio o cargar uno nuevo."}
@@ -232,13 +273,24 @@ export function VisitaDialog({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label className="text-sm">Zona / Región</Label>
-              <SugerenciaInput
-                value={zona}
-                onChange={setZona}
-                sugerencias={zonasSugeridas}
-                className="h-11 text-base"
-              />
+              <Label className="text-sm">Provincia</Label>
+              <Select
+                value={provincia || SIN_PROVINCIA}
+                onValueChange={(v) => setProvincia(v === SIN_PROVINCIA ? "" : (v ?? ""))}
+                items={PROVINCIA_ITEMS}
+              >
+                <SelectTrigger className="h-11 w-full text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_PROVINCIA}>Sin definir</SelectItem>
+                  {PROVINCIAS_ARGENTINAS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -255,23 +307,63 @@ export function VisitaDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm">Hora inicio</Label>
-              <Input
-                type="time"
-                value={horaInicio}
-                onChange={(e) => setHoraInicio(e.target.value)}
-                className="h-11 text-base"
-              />
+              <Select
+                value={horaInicio || SIN_HORA}
+                onValueChange={(v) => setHoraInicio(v === SIN_HORA ? "" : (v ?? ""))}
+                items={HORA_ITEMS}
+              >
+                <SelectTrigger className="h-11 w-full text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_HORA}>Sin definir</SelectItem>
+                  {HORARIOS_DISPONIBLES.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm">Hora fin</Label>
-              <Input
-                type="time"
-                value={horaFin}
-                onChange={(e) => setHoraFin(e.target.value)}
-                className="h-11 text-base"
-              />
+              <Select
+                value={horaFin || SIN_HORA}
+                onValueChange={(v) => setHoraFin(v === SIN_HORA ? "" : (v ?? ""))}
+                items={HORA_ITEMS}
+              >
+                <SelectTrigger className="h-11 w-full text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_HORA}>Sin definir</SelectItem>
+                  {HORARIOS_DISPONIBLES.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {visitasDelDia.length > 0 && (
+            <div className="rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-amber-900">
+              <p className="text-xs font-medium">
+                Ya hay {visitasDelDia.length} visita
+                {visitasDelDia.length !== 1 ? "s" : ""} registrada
+                {visitasDelDia.length !== 1 ? "s" : ""} ese día:
+              </p>
+              <ul className="mt-1 flex flex-col gap-0.5 text-xs">
+                {visitasDelDia.map((v) => (
+                  <li key={v.id}>
+                    {v.hora_inicio ? formatHora(v.hora_inicio) : "sin hora"}
+                    {v.hora_fin ? `–${formatHora(v.hora_fin)}` : ""} · {v.colegio_nombre}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
@@ -297,20 +389,26 @@ export function VisitaDialog({
               <Label className="text-sm">Estado</Label>
               <Select
                 value={estado}
-                onValueChange={(v) => setEstado((v ?? "pendiente") as EstadoVisita)}
+                onValueChange={(v) => setEstado((v ?? "confirmado") as EstadoVisita)}
                 items={ESTADO_ITEMS}
               >
                 <SelectTrigger className="h-11 w-full text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ESTADOS_VISITA.map((e) => (
+                  {ESTADOS_VISITA_MOSTRADOS.map((e) => (
                     <SelectItem key={e.value} value={e.value}>
                       {e.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {!isEdit && (
+                <p className="text-muted-foreground text-xs">
+                  Realizado, Cancelado y Reprogramado se cambian después,
+                  editando la visita.
+                </p>
+              )}
             </div>
           </div>
 
@@ -325,26 +423,16 @@ export function VisitaDialog({
                 className="h-11 text-base"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-sm">Asignó (coordinó)</Label>
-              <Select
-                value={asignadoPorId || SIN_ASIGNAR}
-                onValueChange={(v) => setAsignadoPorId(v ?? SIN_ASIGNAR)}
-                items={ASIGNADO_ITEMS}
-              >
-                <SelectTrigger className="h-11 w-full text-base">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
-                  {usuarios.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Quien coordinó la visita es quien la cargó: se asigna solo al
+                crearla (ver crearVisita) y no se puede cambiar. */}
+            {isEdit && (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-sm">Cargada por</Label>
+                <p className="text-muted-foreground flex h-11 items-center text-base">
+                  {visitaInicial.asignado_por_nombre ?? "—"}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -395,14 +483,21 @@ export function VisitaDialog({
                 onChange={(e) => setContactoEmail(e.target.value)}
                 className="h-11 text-base"
               />
+              {emailInvalido && (
+                <p className="text-destructive text-xs">Email inválido.</p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm">Teléfono del contacto</Label>
               <Input
+                type="tel"
                 value={contactoTelefono}
                 onChange={(e) => setContactoTelefono(e.target.value)}
                 className="h-11 text-base"
               />
+              {telefonoInvalido && (
+                <p className="text-destructive text-xs">Teléfono inválido.</p>
+              )}
             </div>
           </div>
 
@@ -423,7 +518,13 @@ export function VisitaDialog({
               type="submit"
               size="lg"
               className="h-11 text-base"
-              disabled={isPending || !fecha || !colegioNombre.trim()}
+              disabled={
+                isPending ||
+                !fecha ||
+                !colegioNombre.trim() ||
+                emailInvalido ||
+                telefonoInvalido
+              }
             >
               {isPending
                 ? "Guardando..."
