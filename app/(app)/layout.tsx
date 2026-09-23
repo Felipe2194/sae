@@ -14,6 +14,7 @@ import { ThemeToggle } from "@/components/features/theme-toggle";
 import { AppSidebar } from "@/components/features/app-sidebar";
 import { MusicPlayer } from "@/components/features/music-player";
 import { fondoVars } from "@/lib/fondos";
+import type { SeccionOpcionalKey } from "@/lib/secciones";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -67,6 +68,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         visitas_habilitado: boolean;
         tablero_habilitado: boolean;
         viajes_habilitado: boolean;
+        secciones_solo_admin: string[];
         musica_mobile_habilitada: boolean;
       }[]>`
         select
@@ -76,7 +78,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           u.fondo_tipo, u.fondo_valor,
           o.calendario_habilitado, o.cronograma_habilitado,
           o.proyectos_habilitado, o.visitas_habilitado, o.tablero_habilitado,
-          o.viajes_habilitado, u.musica_mobile_habilitada
+          o.viajes_habilitado, o.secciones_solo_admin, u.musica_mobile_habilitada
         from usuario u
         join organizacion o on o.id = u.organizacion_id
         where u.id = mi_usuario_id()
@@ -105,6 +107,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // el sistema tiene un color por defecto pero cada quien puede usar el suyo.
   const colorPrincipal = fila?.color_principal_usuario ?? fila?.color_principal_org ?? null;
   const rol = (session.user as { rol: string }).rol;
+  // Secciones "solo administradores" (ver 046_secciones_solo_admin.sql): el
+  // equipo no las ve en el menú; quien administra sí, marcadas con un candado.
+  const soloAdmin = (fila?.secciones_solo_admin ?? []) as SeccionOpcionalKey[];
+  const visible = (clave: SeccionOpcionalKey, habilitado: boolean | undefined) =>
+    (habilitado ?? true) && (rol === "administrador" || !soloAdmin.includes(clave));
 
   return (
     <SidebarProvider
@@ -121,13 +128,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         puedeCambiarPerfil={session.user.puedeCambiarPerfil}
         esSuperadmin={session.user.esSuperadmin}
         secciones={{
-          tablero: fila?.tablero_habilitado ?? true,
-          calendario: fila?.calendario_habilitado ?? true,
-          cronograma: fila?.cronograma_habilitado ?? true,
-          proyectos: fila?.proyectos_habilitado ?? true,
-          visitas: fila?.visitas_habilitado ?? true,
-          viajes: fila?.viajes_habilitado ?? true,
+          tablero: visible("tablero", fila?.tablero_habilitado),
+          calendario: visible("calendario", fila?.calendario_habilitado),
+          cronograma: visible("cronograma", fila?.cronograma_habilitado),
+          proyectos: visible("proyectos", fila?.proyectos_habilitado),
+          visitas: visible("visitas", fila?.visitas_habilitado),
+          viajes: visible("viajes", fila?.viajes_habilitado),
         }}
+        soloAdmin={rol === "administrador" ? soloAdmin : []}
       />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/80 backdrop-blur-sm px-4">

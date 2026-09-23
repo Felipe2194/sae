@@ -50,7 +50,8 @@ export default async function TableroPage() {
     session.user.id,
     async (tx) => {
       const [org] = await tx<[{ tablero_habilitado: boolean }]>`
-        select tablero_habilitado from organizacion where id = mi_organizacion_id()
+        select seccion_visible(tablero_habilitado, secciones_solo_admin, 'tablero') as tablero_habilitado
+        from organizacion where id = mi_organizacion_id()
       `;
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
       if (!org) redirectSesionInvalida();

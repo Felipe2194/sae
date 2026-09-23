@@ -35,6 +35,7 @@ import { CrearUsuarioDialog } from "./crear-usuario-dialog";
 import { NuevaReunionDialog } from "./nueva-reunion-dialog";
 import { GoogleCalendarForm } from "./google-calendar-form";
 import { tieneServicioCalendar } from "@/lib/google/calendar";
+import type { SeccionOpcionalKey } from "@/lib/secciones";
 
 type UsuarioRow = UsuarioFila;
 
@@ -131,6 +132,7 @@ export default async function AdminPage() {
           visitas_habilitado: boolean;
           tablero_habilitado: boolean;
           viajes_habilitado: boolean;
+          secciones_solo_admin: string[];
           google_calendar_id: string | null;
         }[]
       >`
@@ -138,7 +140,7 @@ export default async function AdminPage() {
         nombre, logo_url, color_principal, zona_horaria,
         calendario_habilitado, cronograma_habilitado,
         proyectos_habilitado, visitas_habilitado, tablero_habilitado,
-        viajes_habilitado, google_calendar_id
+        viajes_habilitado, secciones_solo_admin, google_calendar_id
       from organizacion
       where id = mi_organizacion_id()
     `;
@@ -187,8 +189,10 @@ export default async function AdminPage() {
           <h2 className="font-semibold">Secciones</h2>
         </div>
         <p className="text-muted-foreground -mt-1 text-sm">
-          Elegí qué secciones ve el equipo en el menú lateral. Hoy siempre
-          está disponible.
+          Elegí qué secciones ve el equipo en el menú lateral. &ldquo;Solo
+          administradores&rdquo; la oculta para el equipo pero vos la seguís
+          viendo (con un candado), para prepararla antes de mostrarla. Hoy
+          siempre está disponible.
         </p>
         <Card>
           <CardContent className="pt-4">
@@ -201,6 +205,7 @@ export default async function AdminPage() {
                 visitas: organizacion.visitas_habilitado,
                 viajes: organizacion.viajes_habilitado,
               }}
+              soloAdmin={organizacion.secciones_solo_admin as SeccionOpcionalKey[]}
             />
           </CardContent>
         </Card>
