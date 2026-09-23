@@ -56,6 +56,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { fila, playlists } = await withUser(session.user.id, async (tx) => {
     const [[fila], playlists] = await Promise.all([
       tx<{
+        nombre: string;
         avatar_color: string | null;
         logo_url: string | null;
         color_principal_usuario: string | null;
@@ -72,7 +73,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         musica_mobile_habilitada: boolean;
       }[]>`
         select
-          u.avatar_color, o.logo_url,
+          u.nombre, u.avatar_color, o.logo_url,
           u.color_principal as color_principal_usuario,
           o.color_principal as color_principal_org,
           u.fondo_tipo, u.fondo_valor,
@@ -121,7 +122,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       } as React.CSSProperties}
     >
       <AppSidebar
-        user={{ name: session.user.name, email: session.user.email }}
+        // Nombre de la base, no de la sesión: si se cambió en /perfil, la
+        // sesión lo sigue teniendo viejo hasta que se revalide el token.
+        user={{ name: fila?.nombre ?? session.user.name, email: session.user.email }}
         rol={rol}
         avatarColor={fila?.avatar_color ?? null}
         logoUrl={fila?.logo_url ?? null}

@@ -127,7 +127,7 @@ type StatRow = {
   completadas_hoy: number;
 };
 
-type PersonaRow = { nombre: string };
+type PersonaRow = { nombre: string; avatar_color: string | null };
 
 type AccesoRow = { id: string; etiqueta: string; url: string };
 
@@ -179,9 +179,14 @@ export default async function HoyPage({
     prefillHecho,
     novedad,
     tableroHabilitado,
+    miNombre,
   } = await withUser(session.user.id, async (tx) => {
-    const [org] = await tx<[{ tablero_habilitado: boolean }]>`
-      select seccion_visible(tablero_habilitado, secciones_solo_admin, 'tablero') as tablero_habilitado
+    // mi_nombre de la base y no de la sesión: si se cambió en /perfil, la
+    // sesión lo sigue teniendo viejo por un rato.
+    const [org] = await tx<[{ tablero_habilitado: boolean; mi_nombre: string }]>`
+      select
+        seccion_visible(tablero_habilitado, secciones_solo_admin, 'tablero') as tablero_habilitado,
+        (select nombre from usuario where id = mi_usuario_id()) as mi_nombre
       from organizacion where id = mi_organizacion_id()
     `;
     // session.user.id no resuelve a ningún usuario/organización real (sesión
@@ -258,7 +263,7 @@ export default async function HoyPage({
             and t.vigente_desde <= current_date
             and (t.vigente_hasta is null or t.vigente_hasta >= current_date)
         )
-        select u.nombre
+        select u.nombre, u.avatar_color
         from turno_activo ta
         join usuario u on u.id = ta.usuario_id
         where u.estado = 'activo'
@@ -269,7 +274,7 @@ export default async function HoyPage({
             and e.fecha = current_date
         )
         union
-        select ur.nombre
+        select ur.nombre, ur.avatar_color
         from turno_activo ta
         join excepcion_turno e
           on e.usuario_id = ta.usuario_id and e.tipo = 'cambio' and e.fecha = current_date
@@ -389,6 +394,7 @@ export default async function HoyPage({
       prefillHecho: lineasHecho.join("\n"),
       novedad: novedad ?? null,
       tableroHabilitado: org.tablero_habilitado,
+      miNombre: org.mi_nombre,
     };
   });
 
@@ -426,7 +432,7 @@ export default async function HoyPage({
         <p className="text-muted-foreground text-sm">{fechaLarga()}</p>
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
           <SaludoIcono className="text-muted-foreground size-5" />
-          {saludo()}, {session.user.name.split(" ")[0]}
+          {saludo()}, {(miNombre ?? session.user.name).split(" ")[0]}
         </h1>
         <p
           className={`text-sm ${vencidas.length > 0 ? "text-destructive font-medium" : "text-muted-foreground"}`}
@@ -618,10 +624,11 @@ export default async function HoyPage({
                           <AvatarFallback
                             className="text-[11px] font-semibold text-white"
                             style={{
-                              backgroundColor: colorParaNombre(
-                                p.nombre,
-                                nombresPaleta,
-                              ),
+                              // El color que cada quien eligió en /perfil;
+                              // la paleta queda solo para quien no eligió.
+                              backgroundColor:
+                                p.avatar_color ??
+                                colorParaNombre(p.nombre, nombresPaleta),
                             }}
                           >
                             {iniciales(p.nombre)}

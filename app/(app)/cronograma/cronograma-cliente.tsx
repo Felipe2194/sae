@@ -45,9 +45,16 @@ const PALETTE = [
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
 
-function buildColorMap(turnos: TurnoData[]): Map<string, string> {
-  const nombres = [...new Set(turnos.map((t) => t.usuario_nombre))].sort();
-  return new Map(nombres.map((n, i) => [n, PALETTE[i % PALETTE.length]]));
+// Cada persona con el color que eligió en /perfil (el mismo de su avatar en
+// el resto del sistema); la paleta queda solo para quien no eligió ninguno.
+function buildColorMap(turnos: TurnoData[], usuarios: UsuarioOpt[]): Map<string, string> {
+  const elegido = new Map(
+    usuarios.filter((u) => u.avatar_color).map((u) => [u.nombre, u.avatar_color!]),
+  );
+  const nombres = [
+    ...new Set([...turnos.map((t) => t.usuario_nombre), ...usuarios.map((u) => u.nombre)]),
+  ].sort();
+  return new Map(nombres.map((n, i) => [n, elegido.get(n) ?? PALETTE[i % PALETTE.length]]));
 }
 
 function lunesDe(fecha: Date): Date {
@@ -207,7 +214,7 @@ export function CronogramaCliente({
   function handleEliminarExcepcion(excepcionId: string) {
     startDeleteTransition(() => eliminarExcepcion(excepcionId));
   }
-  const colorMap = buildColorMap(turnos);
+  const colorMap = buildColorMap(turnos, usuarios);
 
   // Excepciones de la semana visible (lunes a viernes)
   const diasSemanaISO = [0, 1, 2, 3, 4].map((i) =>

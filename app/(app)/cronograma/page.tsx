@@ -15,7 +15,7 @@ export type TurnoData = {
   vigente_hasta: string | null;
 };
 
-export type UsuarioOpt = { id: string; nombre: string };
+export type UsuarioOpt = { id: string; nombre: string; avatar_color: string | null };
 
 export type ExcepcionData = {
   id: string;
@@ -67,7 +67,7 @@ export default async function CronogramaPage() {
       // Se usa tanto para asignar turnos (administrador) como para que
       // cualquiera pueda marcar su propia ausencia — se trae siempre.
       const usuarios = await tx<UsuarioOpt[]>`
-      select id, nombre from usuario
+      select id, nombre, avatar_color from usuario
       where organizacion_id = mi_organizacion_id() and estado = 'activo'
       order by nombre asc
     `;
