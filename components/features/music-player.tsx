@@ -32,6 +32,13 @@ import {
 // cuePlaylist) no cambiaba nada. Se llama en cambio desde onStateChange,
 // cuando el player realmente ya llegó al estado "cued" (5).
 //
+// Spotify va aparte: un <iframe> estático de open.spotify.com/embed que se
+// monta solo mientras esa opción está elegida (cambiar a otra lo desmonta y
+// corta el audio, que es lo esperable). Sin sesión de Spotify en el
+// navegador reproduce fragmentos de 30 s — limitación de Spotify, no nuestra.
+// El player de YouTube sigue montado (oculto y en pausa) para no perder el
+// estado de la IFrame API al volver.
+//
 // Las APIs de YouTube no traen tipos oficiales; se cargan como script
 // global, no como paquete npm.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,6 +91,38 @@ function cuearOpcion(player: YTGlobal, embedId: string) {
   }
 }
 
+type Fuente = "youtube" | "spotify";
+type Embed = { fuente: Fuente; id: string };
+
+const ALTO_SPOTIFY = 152;
+const TIPOS_SPOTIFY = ["playlist", "album", "track", "artist", "episode", "show"];
+
+// Link de Spotify (open.spotify.com/playlist/…, con o sin /intl-xx/, o la
+// URI spotify:playlist:…) → "playlist/<id>", el tramo que va después de
+// /embed/ en la URL del iframe.
+function extraerSpotify(url: string): string | null {
+  const uri = url.match(/^spotify:([a-z]+):([A-Za-z0-9]+)$/);
+  if (uri) return TIPOS_SPOTIFY.includes(uri[1]) ? `${uri[1]}/${uri[2]}` : null;
+  try {
+    const u = new URL(url);
+    if (u.hostname !== "open.spotify.com") return null;
+    const partes = u.pathname.split("/").filter((p) => p && !p.startsWith("intl-"));
+    if (partes[0] === "embed") partes.shift();
+    const [tipo, id] = partes;
+    if (!tipo || !id || !TIPOS_SPOTIFY.includes(tipo) || !/^[A-Za-z0-9]+$/.test(id)) return null;
+    return `${tipo}/${id}`;
+  } catch {
+    return null;
+  }
+}
+
+function extraerEmbed(url: string): Embed | null {
+  const spotify = extraerSpotify(url);
+  if (spotify) return { fuente: "spotify", id: spotify };
+  const youtube = extraerEmbedId(url);
+  return youtube ? { fuente: "youtube", id: youtube } : null;
+}
+
 // Extrae el ID de video o playlist de una URL de YouTube / YouTube Music en
 // cualquiera de sus formatos habituales (watch?v=, playlist?list=, youtu.be/…).
 function extraerEmbedId(url: string): string | null {
@@ -112,18 +151,23 @@ export function MusicPlayer({ playlists, usuarioActualId, mostrarEnCelular }: Pr
   const opciones = useMemo(() => {
     const propias = playlists
       .map((p) => {
-        const id = extraerEmbedId(p.url);
-        if (!id) return null;
+        const embed = extraerEmbed(p.url);
+        if (!embed) return null;
         const esPropia = p.usuarioId === usuarioActualId;
+        const sufijo = embed.fuente === "spotify" ? " (Spotify)" : "";
         return {
           value: p.usuarioId,
-          label: esPropia ? "Tu playlist" : `Playlist de ${p.nombre.split(" ")[0]}`,
-          embedId: id,
+          label: (esPropia ? "Tu playlist" : `Playlist de ${p.nombre.split(" ")[0]}`) + sufijo,
+          fuente: embed.fuente,
+          embedId: embed.id,
         };
       })
       .filter((o): o is NonNullable<typeof o> => o !== null);
 
-    return [{ value: "_default", label: DEFAULT_NOMBRE, embedId: DEFAULT_ID }, ...propias];
+    return [
+      { value: "_default", label: DEFAULT_NOMBRE, fuente: "youtube" as Fuente, embedId: DEFAULT_ID },
+      ...propias,
+    ];
   }, [playlists, usuarioActualId]);
 
   const tienePlaylistPropia = playlists.some((p) => p.usuarioId === usuarioActualId);
@@ -151,6 +195,12 @@ export function MusicPlayer({ playlists, usuarioActualId, mostrarEnCelular }: Pr
 
   const [abierto, setAbierto] = useState(false);
 
+  // Último ID de YouTube elegido: con una opción de Spotify seleccionada, el
+  // player de YouTube (que sigue montado) no tiene nada que cuear — onReady
+  // usa esto en vez de actual.embedId, que ahí sería un ID de Spotify.
+  const esSpotify = actual.fuente === "spotify";
+  const youtubeIdRef = useRef(esSpotify ? DEFAULT_ID : actual.embedId);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTGlobal>(null);
   // Evita procesar como "primer cueo" el segundo evento CUED que dispara
@@ -171,7 +221,7 @@ export function MusicPlayer({ playlists, usuarioActualId, mostrarEnCelular }: Pr
         host: "https://www.youtube-nocookie.com",
         playerVars: { rel: 0 },
         events: {
-          onReady: (e: { target: YTGlobal }) => cuearOpcion(e.target, actual.embedId),
+          onReady: (e: { target: YTGlobal }) => cuearOpcion(e.target, youtubeIdRef.current),
           // No en onReady/cuePlaylist: ver comentario sobre setShuffle más
           // arriba. Se reafirma cada vez que se vuelve a este estado (cada
           // cuePlaylist nuevo, incluido un cambio de selección).
@@ -211,15 +261,17 @@ export function MusicPlayer({ playlists, usuarioActualId, mostrarEnCelular }: Pr
     };
     // Solo al montar: cambiar de playlist se maneja en el efecto de abajo
     // sobre el player ya creado, no recreándolo.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cambiar de selección: recarga el player existente en vez de recrearlo.
+  // Con Spotify elegido, YouTube solo se pausa (no se cuea nada).
   useEffect(() => {
+    if (!esSpotify) youtubeIdRef.current = actual.embedId;
     const player = playerRef.current;
     if (!player?.cuePlaylist) return; // todavía no está listo — onReady se ocupa
-    cuearOpcion(player, actual.embedId);
-  }, [actual.embedId]);
+    if (esSpotify) player.pauseVideo?.();
+    else cuearOpcion(player, actual.embedId);
+  }, [actual.embedId, esSpotify]);
 
   return (
     // Oculto por defecto debajo de md (ver mostrarEnCelular, configurable en
@@ -261,9 +313,21 @@ export function MusicPlayer({ playlists, usuarioActualId, mostrarEnCelular }: Pr
               que el selector, el iframe de 288px se desbordaría del
               contenedor de 264px de contenido y quedaría recortado y
               descentrado por el overflow-hidden del panel). */}
-          <div style={{ width: ANCHO, height: ALTO }}>
+          <div style={esSpotify ? { width: 0, height: 0, overflow: "hidden" } : { width: ANCHO, height: ALTO }}>
             <div ref={containerRef} />
           </div>
+          {esSpotify && (
+            <iframe
+              key={actual.embedId}
+              title="Spotify"
+              src={`https://open.spotify.com/embed/${actual.embedId}`}
+              width={ANCHO}
+              height={ALTO_SPOTIFY}
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+              className="block border-0"
+            />
+          )}
         </div>
       </div>
 

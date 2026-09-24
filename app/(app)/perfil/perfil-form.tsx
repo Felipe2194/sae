@@ -461,12 +461,14 @@ export function PerfilForm({
                 type="url"
                 value={playlistUrlValue}
                 onChange={(e) => setPlaylistUrlValue(e.target.value)}
-                placeholder="https://music.youtube.com/playlist?list=..."
+                placeholder="https://open.spotify.com/playlist/... o https://music.youtube.com/playlist?list=..."
                 className="h-11"
               />
               <p className="text-muted-foreground text-xs">
-                Un link de YouTube o YouTube Music. Va a aparecer como opción
-                para elegir en el widget de música de &ldquo;Hoy&rdquo;.
+                Un link de Spotify, YouTube o YouTube Music. Va a aparecer como
+                opción para elegir en el widget de música. Con Spotify, los
+                temas se escuchan completos solo si tenés la sesión de Spotify
+                iniciada en el navegador (si no, fragmentos de 30 segundos).
               </p>
             </div>
 
