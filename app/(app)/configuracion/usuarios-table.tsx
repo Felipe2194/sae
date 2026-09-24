@@ -28,6 +28,7 @@ import {
   eliminarUsuario,
   generarInvitacion,
   marcarCuentaGenerica,
+  rechazarSolicitud,
   resetearPassword,
 } from "./actions";
 import { QuitarDelEquipoDialog } from "./quitar-del-equipo-dialog";
@@ -95,9 +96,23 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
   const [inviteCopiado, setInviteCopiado] = useState(false);
   const [isPendingInvite, startInvite] = useTransition();
   const [quitarOpen, setQuitarOpen] = useState(false);
+  const [confirmRechazo, setConfirmRechazo] = useState(false);
 
   function aprobar() {
     startTransition(() => cambiarEstadoUsuario(usuario.id, "activo"));
+  }
+
+  function rechazar() {
+    if (!confirmRechazo) {
+      setConfirmRechazo(true);
+      return;
+    }
+    startTransition(async () => {
+      const { error } = await rechazarSolicitud(usuario.id);
+      if (error) toast.error(error);
+      else toast.success(`Solicitud de ${usuario.nombre} rechazada.`);
+      setConfirmRechazo(false);
+    });
   }
 
   function reactivar() {
@@ -212,6 +227,9 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
     setConfirmDelete,
     isPendingDelete,
     aprobar,
+    confirmRechazo,
+    setConfirmRechazo,
+    rechazar,
     quitarOpen,
     setQuitarOpen,
     reactivar,
@@ -389,14 +407,49 @@ function AccionesUsuario({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {usuario.estado === "pendiente" ? (
-        <Button
-          size="sm"
-          onClick={a.aprobar}
-          disabled={a.pending}
-          className="h-8 text-xs"
-        >
-          Aprobar
-        </Button>
+        a.confirmRechazo ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-destructive text-xs">¿Rechazar la solicitud?</span>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={a.rechazar}
+              disabled={a.pending}
+              className="h-8 text-xs"
+            >
+              Sí, rechazar
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => a.setConfirmRechazo(false)}
+              disabled={a.pending}
+              className="h-8 text-xs"
+            >
+              Cancelar
+            </Button>
+          </div>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              onClick={a.aprobar}
+              disabled={a.pending}
+              className="h-8 text-xs"
+            >
+              Aprobar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={a.rechazar}
+              disabled={a.pending}
+              className="text-destructive hover:text-destructive h-8 text-xs"
+            >
+              Rechazar
+            </Button>
+          </>
+        )
       ) : usuario.estado === "activo" ? (
         <Button
           size="sm"

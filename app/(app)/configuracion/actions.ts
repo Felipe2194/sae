@@ -99,6 +99,79 @@ export async function cambiarEstadoUsuario(
   revalidatePath("/configuracion");
 }
 
+// Rechazar una solicitud de acceso (alta automática vía Google o /registro):
+// se borra la cuenta en vez de pasarla a 'inactivo' para que no quede en la
+// lista de usuarios mezclada con quienes sí fueron parte del equipo. Una
+// cuenta 'pendiente' nunca entró al sistema, así que no tiene turnos, tareas
+// ni nada que dependa de ella. El email queda en solicitud_rechazada (ver
+// 049_solicitud_rechazada.sql): auth.ts y /registro no le vuelven a crear
+// una cuenta, hasta que un administrador lo desbloquee.
+export async function rechazarSolicitud(userId: string): Promise<{ error: string | null }> {
+  const session = await requireAdmin();
+  if (userId === session.user.id) return { error: "No podés rechazar tu propia cuenta." };
+
+  try {
+    const error = await withUser(session.user.id, async (tx) => {
+      const [usuario] = await tx<[{ nombre: string; email: string; estado: string } | undefined]>`
+        select nombre, email, estado from usuario
+        where id = ${userId} and organizacion_id = mi_organizacion_id()
+      `;
+      if (!usuario) return "La solicitud ya no existe.";
+      if (usuario.estado !== "pendiente") return "Solo se pueden rechazar solicitudes pendientes.";
+
+      await tx`
+        insert into solicitud_rechazada (organizacion_id, email, nombre, rechazada_por)
+        values (mi_organizacion_id(), ${usuario.email.trim().toLowerCase()}, ${usuario.nombre}, mi_usuario_id())
+        on conflict (organizacion_id, email) do nothing
+      `;
+      await tx`
+        delete from usuario
+        where id = ${userId} and organizacion_id = mi_organizacion_id() and estado = 'pendiente'
+      `;
+      await tx`
+        insert into auditoria (organizacion_id, usuario_id, entidad, entidad_id, entidad_nombre, campo, valor_antes, valor_despues)
+        values (mi_organizacion_id(), mi_usuario_id(), 'usuario', ${userId}, ${usuario.nombre}, '(solicitud rechazada)', ${usuario.email}, null)
+      `;
+      return null;
+    });
+    if (error) return { error };
+  } catch (e) {
+    logger.error("rechazarSolicitud falló", { userId, error: e instanceof Error ? e.message : String(e) });
+    return { error: "No se pudo rechazar la solicitud." };
+  }
+
+  revalidatePath("/configuracion");
+  return { error: null };
+}
+
+// Deshacer un rechazo: el email puede volver a pedir acceso (entra de nuevo
+// como solicitud pendiente, no directo como activo).
+export async function desbloquearSolicitud(id: string): Promise<{ error: string | null }> {
+  const session = await requireAdmin();
+
+  try {
+    await withUser(session.user.id, async (tx) => {
+      const [fila] = await tx<[{ email: string } | undefined]>`
+        delete from solicitud_rechazada
+        where id = ${id} and organizacion_id = mi_organizacion_id()
+        returning email
+      `;
+      if (fila) {
+        await tx`
+          insert into auditoria (organizacion_id, usuario_id, entidad, entidad_id, entidad_nombre, campo, valor_antes, valor_despues)
+          values (mi_organizacion_id(), mi_usuario_id(), 'usuario', null, ${fila.email}, '(rechazo deshecho)', null, ${fila.email})
+        `;
+      }
+    });
+  } catch (e) {
+    logger.error("desbloquearSolicitud falló", { id, error: e instanceof Error ? e.message : String(e) });
+    return { error: "No se pudo desbloquear." };
+  }
+
+  revalidatePath("/configuracion");
+  return { error: null };
+}
+
 // ── Quitar del equipo ─────────────────────────────────────────────────────────
 // Desactivar a secas dejaba todo lo pendiente a nombre de quien se va: sus
 // turnos seguían en el cronograma, figuraba en visitas y viajes futuros, y sus

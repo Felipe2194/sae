@@ -56,6 +56,16 @@ export async function registrar(
     return { error: 'No se encontró la organización. Contactá al administrador.' };
   }
 
+  // Email ya rechazado por un administrador (049_solicitud_rechazada.sql).
+  const [rechazada] = await sql`
+    select 1 from solicitud_rechazada
+    where organizacion_id = ${org.id} and email = ${email.trim().toLowerCase()}
+    limit 1
+  `;
+  if (rechazada) {
+    return { error: 'Este email no tiene acceso al sistema. Si creés que es un error, hablá con un administrador.' };
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
 
   await sql`
