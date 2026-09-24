@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { KeyRound, Link2, Monitor, Trash2, Eye, EyeOff } from "lucide-react";
+import { KeyRound, Link2, Monitor, Trash2, Eye, EyeOff, Mail, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -355,6 +355,32 @@ function PasswordDialog({
   );
 }
 
+// Mail de invitación armado acá para que quien administra lo mande desde su
+// propio Gmail (el sistema no tiene servicio de correo). Los integrantes
+// dados de alta con un email placeholder (@sae.test) no tienen un email real
+// cargado: el destinatario se completa a mano en Gmail.
+const ASUNTO_INVITACION = "Tu acceso al sistema de la SAE · UTN FRVM";
+
+function textoInvitacion(nombre: string, link: string): string {
+  const primerNombre = nombre.split(" ")[0];
+  return [
+    `¡Hola ${primerNombre}!`,
+    "",
+    "Te invitamos a sumarte al sistema de la Secretaría de Asuntos Estudiantiles (SAE · UTN FRVM), donde vamos a organizar tareas, turnos, visitas y viajes del equipo.",
+    "",
+    "Para activar tu cuenta, entrá a este link, cargá tu email y elegí una contraseña:",
+    link,
+    "",
+    "El link vale por 7 días y se puede usar una sola vez. Después vas a poder entrar con ese email y tu contraseña, o con \"Continuar con Google\" si cargaste tu Gmail.",
+    "",
+    "¡Cualquier duda, avisame!",
+  ].join("\n");
+}
+
+function destinatarioReal(email: string): string {
+  return email.toLowerCase().endsWith("@sae.test") ? "" : email;
+}
+
 function InvitacionDialog({
   usuario,
   a,
@@ -389,8 +415,74 @@ function InvitacionDialog({
             {a.inviteCopiado ? "Copiado" : "Copiar"}
           </Button>
         </div>
+        {a.inviteLink && <MailInvitacion usuario={usuario} link={a.inviteLink} />}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function MailInvitacion({ usuario, link }: { usuario: UsuarioFila; link: string }) {
+  const [copiado, setCopiado] = useState(false);
+  const texto = textoInvitacion(usuario.nombre, link);
+  const para = destinatarioReal(usuario.email);
+
+  // Redacción de Gmail web con asunto y cuerpo ya cargados (se abre en otra
+  // pestaña; el envío lo hace la persona desde su cuenta).
+  const gmailUrl =
+    "https://mail.google.com/mail/?view=cm&fs=1" +
+    `&to=${encodeURIComponent(para)}` +
+    `&su=${encodeURIComponent(ASUNTO_INVITACION)}` +
+    `&body=${encodeURIComponent(texto)}`;
+  const mailtoUrl =
+    `mailto:${encodeURIComponent(para)}` +
+    `?subject=${encodeURIComponent(ASUNTO_INVITACION)}` +
+    `&body=${encodeURIComponent(texto)}`;
+
+  function copiarMensaje() {
+    navigator.clipboard.writeText(texto);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 1500);
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t pt-3">
+      <p className="text-sm font-medium">Mail de invitación</p>
+      <pre className="bg-muted max-h-48 overflow-y-auto rounded-lg border p-3 font-sans text-xs whitespace-pre-wrap">
+        <span className="text-muted-foreground">Asunto: {ASUNTO_INVITACION}</span>
+        {"\n\n"}
+        {texto}
+      </pre>
+      {!para && (
+        <p className="text-muted-foreground text-xs">
+          {usuario.nombre} todavía no tiene un email real cargado: completá el
+          destinatario en Gmail.
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          className="h-9"
+          render={<a href={gmailUrl} target="_blank" rel="noopener noreferrer" />}
+          nativeButton={false}
+        >
+          <Mail className="size-4" />
+          Abrir en Gmail
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-9"
+          render={<a href={mailtoUrl} />}
+          nativeButton={false}
+        >
+          Otra app de correo
+        </Button>
+        <Button size="sm" variant="outline" className="h-9" onClick={copiarMensaje}>
+          <Copy className="size-4" />
+          {copiado ? "Copiado" : "Copiar mensaje"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
