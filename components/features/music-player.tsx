@@ -56,7 +56,8 @@ const DEFAULT_NOMBRE = process.env.NEXT_PUBLIC_YOUTUBE_EMBED_NOMBRE ?? "Playlist
 // Tamaño fijo del embed — el panel flotante no es responsive (siempre w-72),
 // así que le pasamos a la API el mismo tamaño en vez de dejar el default de
 // YouTube (640x390, que desbordaría el panel).
-const ANCHO = 288;
+// 272 = w-72 (288) del panel menos el p-2 de cada lado.
+const ANCHO = 272;
 const ALTO = Math.round((ANCHO * 9) / 16);
 
 let iframeApiPromise: Promise<void> | null = null;
@@ -282,20 +283,27 @@ export function MusicPlayer({ playlists, usuarioActualId, mostrarEnCelular }: Pr
     <div
       className={`fixed bottom-4 right-4 z-50 ${mostrarEnCelular ? "flex" : "hidden md:flex"} flex-col items-end gap-2`}
     >
+      {/* Estilo glass: fondo translúcido + backdrop-blur. Se ve bien sobre
+          el fondo con degradé de la app en claro y en oscuro; los iframes
+          van dentro de un marco redondeado propio para que las esquinas
+          del reproductor no queden en punta contra el panel. */}
       <div
-        className={`overflow-hidden rounded-xl border bg-card shadow-lg transition-all duration-200 ${
-          abierto ? "w-72 h-auto opacity-100" : "size-0 border-transparent opacity-0"
+        className={`overflow-hidden rounded-2xl border shadow-xl backdrop-blur-xl backdrop-saturate-150 transition-all duration-200 ${
+          abierto
+            ? "w-72 h-auto border-white/50 bg-white/55 opacity-100 shadow-black/10 dark:border-white/10 dark:bg-neutral-900/55 dark:shadow-black/40"
+            : "size-0 border-transparent opacity-0"
         }`}
       >
-        <div className="w-72">
+        <div className="flex w-72 flex-col gap-2 p-2">
           {opciones.length > 1 && (
-            <div className="p-3 pb-2">
+            <div className="flex items-center gap-2 pl-1">
+              <Music2 className="text-muted-foreground size-4 shrink-0" />
               <Select
                 value={seleccion}
                 onValueChange={(v) => setSeleccion(v ?? "_default")}
                 items={items}
               >
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-8 flex-1 border-white/40 bg-white/40 text-xs dark:border-white/10 dark:bg-white/5">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -308,16 +316,17 @@ export function MusicPlayer({ playlists, usuarioActualId, mostrarEnCelular }: Pr
               </Select>
             </div>
           )}
-          {/* Sin padding: el video va al ras de los bordes del panel (ANCHO
-              coincide con el w-72 del panel — si tuviera el mismo padding
-              que el selector, el iframe de 288px se desbordaría del
-              contenedor de 264px de contenido y quedaría recortado y
-              descentrado por el overflow-hidden del panel). */}
-          <div style={esSpotify ? { width: 0, height: 0, overflow: "hidden" } : { width: ANCHO, height: ALTO }}>
+          {/* ANCHO coincide con el ancho de contenido del panel (w-72 menos
+              el p-2): cambiar uno sin el otro recorta o descentra el video. */}
+          <div
+            className={esSpotify ? "" : "overflow-hidden rounded-xl"}
+            style={esSpotify ? { width: 0, height: 0, overflow: "hidden" } : { width: ANCHO, height: ALTO }}
+          >
             <div ref={containerRef} />
           </div>
           {esSpotify && (
             <iframe
+              style={{ borderRadius: 12 }}
               key={actual.embedId}
               title="Spotify"
               src={`https://open.spotify.com/embed/${actual.embedId}`}
@@ -334,7 +343,7 @@ export function MusicPlayer({ playlists, usuarioActualId, mostrarEnCelular }: Pr
       <Button
         variant="default"
         size="icon"
-        className="size-11 rounded-full shadow-lg"
+        className="size-11 rounded-full shadow-lg ring-1 ring-white/30"
         onClick={() => setAbierto((v) => !v)}
         aria-label={abierto ? "Minimizar música" : "Mostrar música"}
         title="Música"
