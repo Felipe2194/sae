@@ -2,8 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, CalendarCheck } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import {
+  Plus,
+  Pencil,
+  CalendarCheck,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Video,
+  Presentation,
+  CircleDot,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -26,13 +35,54 @@ import { labelTipoVisita, labelEstadoVisita } from "./tipos";
 import { cn } from "@/lib/utils";
 import type { ColegioFila, PresenciaFila, UsuarioOption, VisitaFila } from "./page";
 
-const ESTADO_BADGE: Record<VisitaFila["estado"], string> = {
-  pendiente: "bg-amber-200 text-amber-900 border-amber-400",
-  confirmado: "bg-blue-100 text-blue-800 border-blue-200",
-  realizado: "bg-green-200 text-green-900 border-green-400",
-  cancelado: "bg-red-200 text-red-900 border-red-400",
-  reprogramado: "bg-orange-100 text-orange-800 border-orange-200",
+// El estado queda en segundo plano (un punto de color + texto chico): lo
+// que se busca de un vistazo es la hora y si vamos nosotros o vienen ellos.
+const ESTADO_PUNTO: Record<VisitaFila["estado"], string> = {
+  pendiente: "bg-amber-500",
+  confirmado: "bg-blue-500",
+  realizado: "bg-green-500",
+  cancelado: "bg-red-500",
+  reprogramado: "bg-orange-500",
 };
+
+const CLASE_VAMOS =
+  "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30";
+const CLASE_VIENEN =
+  "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
+const CLASE_NEUTRA = "bg-muted text-foreground border-border";
+
+// Mismo criterio que Informes ("veces viajamos" vs "nos visitaron"):
+// visita a colegio y feria/expo = vamos; nos visitan = vienen.
+const TIPO_ESTILO: Record<VisitaFila["tipo"], { icono: LucideIcon; clase: string }> = {
+  visita_colegio: { icono: ArrowUpRight, clase: CLASE_VAMOS },
+  feria_expo: { icono: ArrowUpRight, clase: CLASE_VAMOS },
+  nos_visitan: { icono: ArrowDownLeft, clase: CLASE_VIENEN },
+  charla_taller: { icono: Presentation, clase: CLASE_NEUTRA },
+  virtual: { icono: Video, clase: CLASE_NEUTRA },
+  otro: { icono: CircleDot, clase: CLASE_NEUTRA },
+};
+
+function TipoVisitaChip({ tipo }: { tipo: VisitaFila["tipo"] }) {
+  const { icono: Icono, clase } = TIPO_ESTILO[tipo];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold whitespace-nowrap",
+        clase,
+      )}
+    >
+      <Icono className="size-3.5" />
+      {labelTipoVisita(tipo)}
+    </span>
+  );
+}
+
+const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+
+function diaSemana(iso: string): string {
+  const [a, m, d] = iso.split("-").map(Number);
+  return DIAS[new Date(a, m - 1, d).getDay()];
+}
 
 const PAGINA = 8;
 
@@ -208,53 +258,71 @@ export function VisitasCliente({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-muted-foreground border-b text-left text-xs">
-                    <th className="px-3 py-2 font-medium">Fecha</th>
-                    <th className="px-3 py-2 font-medium">Colegio</th>
-                    <th className="hidden px-3 py-2 font-medium sm:table-cell">Tipo</th>
-                    <th className="hidden px-3 py-2 font-medium sm:table-cell">Estado</th>
-                    <th className="hidden px-3 py-2 font-medium sm:table-cell">Integrantes</th>
-                    <th className="hidden px-3 py-2 font-medium sm:table-cell">Alumnos</th>
-                    <th className="px-3 py-2 font-medium"></th>
+                  <tr className="text-muted-foreground border-b text-xs">
+                    <th className="w-24 px-3 py-2 text-center font-medium">Hora</th>
+                    <th className="px-3 py-2 text-left font-medium">Colegio</th>
+                    <th className="hidden px-3 py-2 text-center font-medium sm:table-cell">Tipo</th>
+                    <th className="hidden px-3 py-2 text-center font-medium md:table-cell">Integrantes</th>
+                    <th className="hidden px-3 py-2 text-center font-medium md:table-cell">Alumnos</th>
+                    <th className="hidden px-3 py-2 text-center font-medium sm:table-cell">Estado</th>
+                    <th className="w-10 px-3 py-2 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {lista.map((v) => (
-                    <tr key={v.id} className="hover:bg-muted/40 border-b last:border-0">
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {formatFecha(v.fecha)}
-                        {v.hora_inicio && (
-                          <span className="text-muted-foreground ml-1 text-xs">
+                    <tr key={v.id} className="hover:bg-muted/40 border-b align-middle last:border-0">
+                      {/* Hora grande arriba, día chico abajo: lo primero que
+                          se busca es a qué hora es. */}
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
+                        {v.hora_inicio ? (
+                          <p className="text-lg leading-tight font-bold tabular-nums">
                             {formatHora(v.hora_inicio)}
-                          </span>
+                          </p>
+                        ) : (
+                          <p className="text-muted-foreground text-xs leading-tight">Sin hora</p>
                         )}
+                        <p className="text-muted-foreground text-xs capitalize tabular-nums">
+                          {diaSemana(v.fecha)} {formatFecha(v.fecha)}
+                        </p>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-3">
                         <p className="font-medium">{v.colegio_nombre}</p>
                         {v.ciudad && (
                           <p className="text-muted-foreground text-xs">{v.ciudad}</p>
                         )}
+                        {/* En celular no hay columna de tipo: va acá abajo. */}
+                        <div className="mt-1.5 sm:hidden">
+                          <TipoVisitaChip tipo={v.tipo} />
+                        </div>
                       </td>
-                      <td className="text-muted-foreground hidden px-3 py-2 sm:table-cell">
-                        {labelTipoVisita(v.tipo)}
+                      <td className="hidden px-3 py-3 text-center sm:table-cell">
+                        <TipoVisitaChip tipo={v.tipo} />
                       </td>
-                      <td className="hidden px-3 py-2 sm:table-cell">
-                        <Badge variant="outline" className={ESTADO_BADGE[v.estado]}>
+                      <td className="hidden px-3 py-3 md:table-cell">
+                        <div className="flex justify-center">
+                          {v.integrantes.length > 0 ? (
+                            <UserAvatarStack usuarios={v.integrantes} size="sm" max={4} />
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="hidden px-3 py-3 text-center tabular-nums md:table-cell">
+                        {v.cant_alumnos ?? "—"}
+                      </td>
+                      <td className="hidden px-3 py-3 sm:table-cell">
+                        <div className="text-muted-foreground flex items-center justify-center gap-1.5 text-xs whitespace-nowrap">
+                          <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_PUNTO[v.estado])} />
                           {labelEstadoVisita(v.estado)}
-                        </Badge>
-                        {v.google_event_id && (
-                          <CalendarCheck className="text-muted-foreground ml-1.5 inline size-3.5" />
-                        )}
+                          {v.google_event_id && (
+                            <CalendarCheck
+                              className="size-3.5"
+                              aria-label="Sincronizada con Google Calendar"
+                            />
+                          )}
+                        </div>
                       </td>
-                      <td className="hidden px-3 py-2 sm:table-cell">
-                        {v.integrantes.length > 0 ? (
-                          <UserAvatarStack usuarios={v.integrantes} size="sm" max={4} />
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="hidden px-3 py-2 sm:table-cell">{v.cant_alumnos ?? "—"}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                      <td className="px-3 py-3 text-right whitespace-nowrap">
                         <Button
                           size="icon"
                           variant="ghost"
