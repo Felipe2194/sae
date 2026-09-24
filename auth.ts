@@ -203,6 +203,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         `;
         if (!org) return false;
 
+        // Un administrador ya rechazó a este email (ver
+        // 049_solicitud_rechazada.sql): no se le vuelve a crear la solicitud.
+        const [rechazada] = await sql`
+          select 1 from solicitud_rechazada
+          where organizacion_id = ${org.id} and email = ${user.email.trim().toLowerCase()}
+          limit 1
+        `;
+        if (rechazada) {
+          logger.warn("login bloqueado: solicitud rechazada", { email: user.email });
+          return "/login?motivo=acceso-rechazado";
+        }
+
         // password_hash no se usa para cuentas de Google (no hay login por
         // Credentials con este email), pero la columna es NOT NULL: se guarda
         // un hash de un valor aleatorio, imposible de adivinar.

@@ -19,6 +19,11 @@ const MENSAJES = {
     titulo: "Tu sesión ya no es válida (401)",
     descripcion: "Iniciá sesión de nuevo para continuar.",
   },
+  // No viene de lib/redirects.ts sino del callback signIn de auth.ts.
+  "acceso-rechazado": {
+    titulo: "Tu solicitud de acceso fue rechazada",
+    descripcion: "Si creés que es un error, hablá con un administrador.",
+  },
 } as const;
 
 type Motivo = keyof typeof MENSAJES;

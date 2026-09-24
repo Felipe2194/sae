@@ -28,6 +28,10 @@ import { DriveIcon, esUrlDrive } from "@/components/features/drive-icon";
 import { AsignarSelect } from "./asignar-select";
 import { crearAcceso, eliminarAcceso } from "./actions";
 import { UsuariosTable, type UsuarioFila } from "./usuarios-table";
+import {
+  SolicitudesRechazadas,
+  type SolicitudRechazadaFila,
+} from "./solicitudes-rechazadas";
 import { AuditoriaTable, type AuditoriaFila } from "./auditoria-table";
 import { OrganizacionForm } from "./organizacion-form";
 import { SeccionesForm } from "./secciones-form";
@@ -71,7 +75,7 @@ export default async function AdminPage() {
   const rol = (session.user as { rol: string }).rol;
   if (rol !== "administrador") redirectSinPermiso();
 
-  const { tareas, usuarios, todosUsuarios, auditoria, accesos, organizacion } =
+  const { tareas, usuarios, todosUsuarios, rechazadas, auditoria, accesos, organizacion } =
     await withUser(session.user.id, async (tx) => {
       const tareas = await tx<TareaRow[]>`
       select
@@ -100,6 +104,12 @@ export default async function AdminPage() {
       order by
         case estado when 'pendiente' then 0 when 'activo' then 1 else 2 end,
         nombre asc
+    `;
+
+      const rechazadas = await tx<SolicitudRechazadaFila[]>`
+      select id, nombre, email, rechazada_en::text
+      from solicitud_rechazada
+      order by rechazada_en desc
     `;
 
       const auditoria = await tx<AuditoriaFila[]>`
@@ -145,7 +155,7 @@ export default async function AdminPage() {
       where id = mi_organizacion_id()
     `;
 
-      return { tareas, usuarios, todosUsuarios, auditoria, accesos, organizacion };
+      return { tareas, usuarios, todosUsuarios, rechazadas, auditoria, accesos, organizacion };
     });
 
   // El calendarId ahora vive por organización (ver 034_google_calendar_
@@ -234,6 +244,7 @@ export default async function AdminPage() {
             <UsuariosTable usuarios={todosUsuarios} selfId={session.user.id} />
           </CardContent>
         </Card>
+        <SolicitudesRechazadas filas={[...rechazadas]} />
       </section>
 
       {/* ── Asignación de tareas ─────────────────────────────────────────── */}
