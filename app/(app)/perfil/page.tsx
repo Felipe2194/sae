@@ -14,6 +14,7 @@ type UsuarioRow = {
   color_principal: string | null;
   color_principal_org: string | null;
   musica_mobile_habilitada: boolean;
+  musica_habilitada: boolean;
 };
 
 export default async function PerfilPage() {
@@ -25,7 +26,7 @@ export default async function PerfilPage() {
       select
         u.nombre, u.email, u.rol::text, u.playlist_url, u.avatar_color,
         u.fondo_tipo, u.fondo_valor, u.color_principal,
-        u.musica_mobile_habilitada,
+        u.musica_mobile_habilitada, u.musica_habilitada,
         o.color_principal as color_principal_org
       from usuario u
       join organizacion o on o.id = u.organizacion_id
@@ -45,6 +46,7 @@ export default async function PerfilPage() {
       colorPrincipal={usuario.color_principal}
       colorPrincipalOrg={usuario.color_principal_org}
       musicaMobileHabilitada={usuario.musica_mobile_habilitada}
+      musicaHabilitada={usuario.musica_habilitada}
     />
   );
 }

@@ -71,6 +71,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         viajes_habilitado: boolean;
         secciones_solo_admin: string[];
         musica_mobile_habilitada: boolean;
+        musica_habilitada: boolean;
       }[]>`
         select
           u.nombre, u.avatar_color, o.logo_url,
@@ -79,7 +80,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           u.fondo_tipo, u.fondo_valor,
           o.calendario_habilitado, o.cronograma_habilitado,
           o.proyectos_habilitado, o.visitas_habilitado, o.tablero_habilitado,
-          o.viajes_habilitado, o.secciones_solo_admin, u.musica_mobile_habilitada
+          o.viajes_habilitado, o.secciones_solo_admin, u.musica_mobile_habilitada,
+          u.musica_habilitada
         from usuario u
         join organizacion o on o.id = u.organizacion_id
         where u.id = mi_usuario_id()
@@ -163,11 +165,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </header>
         <div className="flex-1 p-4 md:p-6">{children}</div>
       </SidebarInset>
-      <MusicPlayer
-        playlists={playlists.map((p) => ({ usuarioId: p.usuario_id, nombre: p.nombre, url: p.url }))}
-        usuarioActualId={session.user.id}
-        mostrarEnCelular={fila?.musica_mobile_habilitada ?? false}
-      />
+      {/* Desactivado desde /perfil (050_musica_habilitada.sql): no se
+          monta, así tampoco se carga la API de YouTube ni el iframe. */}
+      {(fila?.musica_habilitada ?? true) && (
+        <MusicPlayer
+          playlists={playlists.map((p) => ({ usuarioId: p.usuario_id, nombre: p.nombre, url: p.url }))}
+          usuarioActualId={session.user.id}
+          mostrarEnCelular={fila?.musica_mobile_habilitada ?? false}
+        />
+      )}
     </SidebarProvider>
   );
 }
