@@ -729,6 +729,9 @@ export async function actualizarOrganizacion(data: {
   zona_horaria: string;
 }) {
   const session = await requireAdmin();
+  if (data.color_principal && !/^#[0-9a-fA-F]{6}$/.test(data.color_principal)) {
+    throw new Error("Color principal inválido");
+  }
   await withUser(session.user.id, async (tx) => {
     await tx`
       update organizacion

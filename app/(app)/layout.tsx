@@ -108,7 +108,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Color del sistema: el de la persona (elegido en /perfil) manda si lo
   // hay, si no se usa el default de la organización (/configuracion) — así
   // el sistema tiene un color por defecto pero cada quien puede usar el suyo.
-  const colorPrincipal = fila?.color_principal_usuario ?? fila?.color_principal_org ?? null;
+  const colorPrincipalCrudo = fila?.color_principal_usuario ?? fila?.color_principal_org ?? null;
+  // Solo un hex #rrggbb: el valor va dentro de un <style> (ver más abajo),
+  // así que cualquier otra cosa se descarta en vez de inyectarse como CSS.
+  const colorPrincipal =
+    colorPrincipalCrudo && /^#[0-9a-fA-F]{6}$/.test(colorPrincipalCrudo) ? colorPrincipalCrudo : null;
   const rol = (session.user as { rol: string }).rol;
   // Secciones "solo administradores" (ver 046_secciones_solo_admin.sql): el
   // equipo no las ve en el menú; quien administra sí, marcadas con un candado.
@@ -123,6 +127,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ...(fondo ? { "--fondo-light": fondo.light, "--fondo-dark": fondo.dark } : {}),
       } as React.CSSProperties}
     >
+      {/* El --primary del style de arriba solo llega a lo que vive dentro de
+          este wrapper; los diálogos, selects, popovers y toasts se portalean
+          a <body> y quedaban con el naranja por defecto. Esto lo fija en
+          <html> (html:root le gana en especificidad a .dark de globals.css),
+          junto con los tokens que derivan de él (foco y sidebar). */}
+      {colorPrincipal && (
+        <style>{`html:root{--primary:${colorPrincipal};--ring:color-mix(in oklab,${colorPrincipal} 40%,transparent);--sidebar-primary:${colorPrincipal}}`}</style>
+      )}
       <AppSidebar
         // Nombre de la base, no de la sesión: si se cambió en /perfil, la
         // sesión lo sigue teniendo viejo hasta que se revalide el token.
