@@ -529,11 +529,9 @@ export default async function AdminPage() {
                 <p className="text-muted-foreground">
                   Todavía no hay ninguna integración de Google Calendar
                   configurada en esta plataforma. Quien administra el
-                  despliegue tiene que agregar estas variables en{" "}
-                  <code className="bg-muted rounded px-1 text-xs">
-                    .env.local
-                  </code>{" "}
-                  y reiniciar el servidor:
+                  despliegue tiene que agregar estas variables de entorno en
+                  el servidor (en Vercel: Settings → Environment Variables) y
+                  volver a desplegar:
                 </p>
                 <div className="bg-muted space-y-1 rounded-lg p-3 font-mono text-xs">
                   <p>
