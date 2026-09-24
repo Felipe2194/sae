@@ -192,12 +192,8 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
       {modoDemo && (
         <div className="bg-muted/60 rounded-lg border border-dashed px-4 py-3 text-sm">
           <span className="font-medium">Modo demo</span> — eventos de ejemplo.
-          Para conectar Google Calendar configurá{" "}
-          <code className="bg-background rounded px-1 font-mono text-xs">GOOGLE_CALENDAR_API_KEY</code>{" "}
-          y{" "}
-          <code className="bg-background rounded px-1 font-mono text-xs">GOOGLE_CALENDAR_ID</code>{" "}
-          en{" "}
-          <code className="bg-background rounded px-1 font-mono text-xs">.env.local</code>.
+          Para ver los eventos reales, vinculá el calendario en Configuración →
+          Google Calendar.
         </div>
       )}
 
