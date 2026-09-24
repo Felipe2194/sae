@@ -47,6 +47,7 @@ type Props = {
   colorPrincipal: string | null;
   colorPrincipalOrg: string | null;
   musicaMobileHabilitada: boolean;
+  musicaHabilitada: boolean;
 };
 
 export function PerfilForm({
@@ -60,12 +61,14 @@ export function PerfilForm({
   colorPrincipal: colorPrincipalInicial,
   colorPrincipalOrg,
   musicaMobileHabilitada: musicaMobileHabilitadaInicial,
+  musicaHabilitada: musicaHabilitadaInicial,
 }: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [playlistUrlValue, setPlaylistUrlValue] = useState(playlistUrl ?? "");
   const [musicaMobileHabilitada, setMusicaMobileHabilitada] = useState(
     musicaMobileHabilitadaInicial,
   );
+  const [musicaHabilitada, setMusicaHabilitada] = useState(musicaHabilitadaInicial);
   const [color, setColor] = useState(avatarColor ?? COLORES[0].hex);
   const [colorPrincipal, setColorPrincipal] = useState<string | null>(
     colorPrincipalInicial,
@@ -425,6 +428,11 @@ export function PerfilForm({
               name="musica_mobile_habilitada"
               value={musicaMobileHabilitada ? "true" : "false"}
             />
+            <input
+              type="hidden"
+              name="musica_habilitada"
+              value={musicaHabilitada ? "true" : "false"}
+            />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="nombre">Nombre completo</Label>
@@ -474,6 +482,28 @@ export function PerfilForm({
 
             <label className="hover:bg-muted/50 -mx-2 flex cursor-pointer items-start gap-3 rounded-md p-2">
               <Checkbox
+                checked={musicaHabilitada}
+                onCheckedChange={(checked) => setMusicaHabilitada(checked === true)}
+                className="mt-0.5"
+              />
+              <div className="flex flex-col gap-0.5">
+                <Label className="cursor-pointer text-sm font-medium">
+                  Mostrar el reproductor de música
+                </Label>
+                <p className="text-muted-foreground text-xs">
+                  El botón flotante de música, abajo a la derecha. Desactivalo
+                  si no lo usás: desaparece en todas las pantallas.
+                </p>
+              </div>
+            </label>
+
+            <label
+              className={`-mx-2 flex items-start gap-3 rounded-md p-2 ${
+                musicaHabilitada ? "hover:bg-muted/50 cursor-pointer" : "cursor-not-allowed opacity-50"
+              }`}
+            >
+              <Checkbox
+                disabled={!musicaHabilitada}
                 checked={musicaMobileHabilitada}
                 onCheckedChange={(checked) =>
                   setMusicaMobileHabilitada(checked === true)

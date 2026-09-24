@@ -67,6 +67,7 @@ export async function actualizarNombre(formData: FormData) {
   }
 
   const musicaMobileHabilitada = formData.get('musica_mobile_habilitada') === 'true';
+  const musicaHabilitada = formData.get('musica_habilitada') === 'true';
 
   await withUser(session.user.id, async (tx) => {
     await tx`
@@ -77,7 +78,8 @@ export async function actualizarNombre(formData: FormData) {
         fondo_tipo = ${fondoTipo},
         fondo_valor = ${fondoValor},
         color_principal = ${colorPrincipal},
-        musica_mobile_habilitada = ${musicaMobileHabilitada}
+        musica_mobile_habilitada = ${musicaMobileHabilitada},
+        musica_habilitada = ${musicaHabilitada}
       where id = mi_usuario_id()
     `;
   });
