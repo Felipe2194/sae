@@ -11,6 +11,7 @@ import {
   Video,
   Presentation,
   CircleDot,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,107 @@ function diaSemana(iso: string): string {
   return DIAS[new Date(a, m - 1, d).getDay()];
 }
 
+const DIAS_LARGOS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+function fechaLarga(iso: string): string {
+  const [a, m, d] = iso.split("-").map(Number);
+  return `${DIAS_LARGOS[new Date(a, m - 1, d).getDay()]} ${d} de ${MESES[m - 1]}`;
+}
+
+// Tarjeta "Hoy": lo primero que se ve al entrar (pensada sobre todo para el
+// celular, donde la tabla de abajo queda larga). Cada visita es un bloque
+// grande y tocable que abre la edición.
+function VisitasDeHoy({
+  visitas,
+  hoy,
+  proxima,
+  onAbrir,
+}: {
+  visitas: VisitaFila[];
+  hoy: string;
+  proxima: VisitaFila | undefined;
+  onAbrir: (v: VisitaFila) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <CalendarDays className="text-primary size-4" />
+          Hoy
+          <span className="text-muted-foreground text-sm font-normal">
+            · {fechaLarga(hoy)}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        {visitas.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No hay visitas para hoy.
+            {proxima && (
+              <>
+                {" "}La próxima:{" "}
+                <button
+                  type="button"
+                  onClick={() => onAbrir(proxima)}
+                  className="text-foreground font-medium underline-offset-2 hover:underline"
+                >
+                  {diaSemana(proxima.fecha)} {formatFecha(proxima.fecha)}
+                  {proxima.hora_inicio && ` ${formatHora(proxima.hora_inicio)}`} · {proxima.colegio_nombre}
+                </button>
+              </>
+            )}
+          </p>
+        ) : (
+          visitas.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => onAbrir(v)}
+              className={cn(
+                "hover:bg-muted/50 flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors",
+                v.estado === "cancelado" && "opacity-50",
+              )}
+            >
+              <div className="w-16 shrink-0 text-center">
+                <p className="text-2xl leading-none font-bold tabular-nums">
+                  {v.hora_inicio ? formatHora(v.hora_inicio) : "—"}
+                </p>
+                {v.hora_fin && (
+                  <p className="text-muted-foreground mt-1 text-xs tabular-nums">
+                    a {formatHora(v.hora_fin)}
+                  </p>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={cn("truncate font-semibold", v.estado === "cancelado" && "line-through")}>
+                  {v.colegio_nombre}
+                </p>
+                {v.ciudad && <p className="text-muted-foreground truncate text-xs">{v.ciudad}</p>}
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <TipoVisitaChip tipo={v.tipo} />
+                  <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                    <span className={cn("size-1.5 rounded-full", ESTADO_PUNTO[v.estado])} />
+                    {labelEstadoVisita(v.estado)}
+                  </span>
+                </div>
+              </div>
+              {v.integrantes.length > 0 && (
+                <div className="shrink-0">
+                  <UserAvatarStack usuarios={v.integrantes} size="sm" max={3} />
+                </div>
+              )}
+            </button>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 const PAGINA = 8;
 
 type Pestaña = "proximas" | "realizadas" | "todas";
@@ -106,6 +208,8 @@ function formatHora(hhmmss: string | null): string {
 
 type Props = {
   visitas: VisitaFila[];
+  visitasHoy: VisitaFila[];
+  hoy: string;
   colegios: ColegioFila[];
   usuarios: UsuarioOption[];
   presencia: PresenciaFila[];
@@ -115,6 +219,8 @@ type Props = {
 
 export function VisitasCliente({
   visitas,
+  visitasHoy,
+  hoy,
   colegios,
   usuarios,
   presencia,
@@ -167,6 +273,8 @@ export function VisitasCliente({
     [visitas],
   );
 
+  const proximaVisita = proximas.find((v) => v.fecha > hoy);
+
   const listaCompleta =
     pestaña === "proximas" ? proximas : pestaña === "realizadas" ? realizadas : todas;
   const lista = listaCompleta.slice(0, visibles);
@@ -204,6 +312,13 @@ export function VisitasCliente({
           </Button>
         </div>
       </div>
+
+      <VisitasDeHoy
+        visitas={visitasHoy}
+        hoy={hoy}
+        proxima={proximaVisita}
+        onAbrir={abrirEditar}
+      />
 
       <Card>
         <CardHeader className="pb-3">
