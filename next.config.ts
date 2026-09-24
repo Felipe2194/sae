@@ -8,7 +8,7 @@ const isDev = process.env.NODE_ENV === "development";
 // (colores de área/usuario calculados en runtime). Igual bloquea la carga de
 // scripts/objetos/frames de terceros, que es el riesgo real para una app
 // interna sin CDN de anuncios ni contenido de usuarios no confiable.
-// frame-src abre youtube-nocookie.com puntualmente para el embed de música
+// frame-src abre youtube-nocookie.com y open.spotify.com para el embed de música
 // (components/features/music-player.tsx), y drive/docs.google.com para el
 // selector y la vista previa de Drive (app/(app)/tablero/drive-picker-button.tsx,
 // tarea-modal.tsx) — frame-ancestors sigue en 'none' porque eso controla lo
@@ -23,7 +23,7 @@ const cspHeader = `
   style-src 'self' 'unsafe-inline';
   img-src 'self' blob: data:;
   font-src 'self';
-  frame-src https://www.youtube-nocookie.com https://drive.google.com https://docs.google.com;
+  frame-src https://www.youtube-nocookie.com https://open.spotify.com https://drive.google.com https://docs.google.com;
   connect-src 'self' https://www.googleapis.com https://content.googleapis.com;
   object-src 'none';
   base-uri 'self';
