@@ -321,15 +321,6 @@ export function VisitasCliente({
       />
 
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Presencia del equipo — {anio}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PresenciaEquipo presencia={presencia} />
-        </CardContent>
-      </Card>
-
-      <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
           <div className="bg-muted flex items-center gap-1 rounded-lg p-1">
             {PESTAÑAS.map((p) => {
@@ -482,6 +473,16 @@ export function VisitasCliente({
           </CollapsibleContent>
         </Card>
       </Collapsible>
+
+      {/* Al final: lo primero que se busca al entrar son las visitas. */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Presencia del equipo — {anio}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PresenciaEquipo presencia={presencia} />
+        </CardContent>
+      </Card>
 
       <VisitaDialog
         key={editando?.id ?? "nueva"}
