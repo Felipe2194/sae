@@ -69,7 +69,7 @@ export default async function VisitasPage({
   const anioActual = new Date().getFullYear();
   const anio = params.anio ? parseInt(params.anio, 10) : anioActual;
 
-  const { visitas, colegios, usuarios, presencia, anios, habilitado } = await withUser(
+  const { visitas, visitasHoy, hoy, colegios, usuarios, presencia, anios, habilitado } = await withUser(
     session.user.id,
     async (tx) => {
       const [org] = await tx<[{ visitas_habilitado: boolean }]>`
@@ -79,10 +79,11 @@ export default async function VisitasPage({
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
       if (!org) redirectSesionInvalida();
 
-      // Las cinco queries son independientes entre sí — Promise.all para que
-      // postgres.js las pipelinee en un solo round-trip en vez de cinco.
-      const [visitas, colegios, usuarios, presencia, aniosDisponibles] = await Promise.all([
-        tx<VisitaFila[]>`
+      // Misma selección para la lista del año y para la tarjeta "Hoy" (esta
+      // última no depende del año elegido en el selector). current_date
+      // respeta la zona horaria de la organización: withUser() la fija por
+      // transacción (ver lib/db.ts).
+      const selectVisitas = tx`
           select
             v.id, v.colegio_id, c.nombre as colegio_nombre, c.ciudad, c.zona,
             c.provincia,
@@ -107,9 +108,24 @@ export default async function VisitasPage({
           join colegio c on c.id = v.colegio_id
           left join usuario up on up.id = v.asignado_por_id
           where v.organizacion_id = mi_organizacion_id()
+      `;
+
+      // Las queries son independientes entre sí — Promise.all para que
+      // postgres.js las pipelinee en un solo round-trip.
+      const [visitas, visitasHoy, [{ hoy }], colegios, usuarios, presencia, aniosDisponibles] = await Promise.all([
+        tx<VisitaFila[]>`
+          ${selectVisitas}
             and extract(year from v.fecha) = ${anio}
           order by v.fecha asc, v.hora_inicio asc nulls last
         `,
+
+        tx<VisitaFila[]>`
+          ${selectVisitas}
+            and v.fecha = current_date
+          order by v.hora_inicio asc nulls last
+        `,
+
+        tx<[{ hoy: string }]>`select current_date::text as hoy`,
 
         tx<ColegioFila[]>`
           select
@@ -157,6 +173,8 @@ export default async function VisitasPage({
 
       return {
         visitas: [...visitas],
+        visitasHoy: [...visitasHoy],
+        hoy,
         colegios: [...colegios],
         usuarios: [...usuarios],
         presencia: [...presencia],
@@ -175,6 +193,8 @@ export default async function VisitasPage({
   return (
     <VisitasCliente
       visitas={visitas}
+      visitasHoy={visitasHoy}
+      hoy={hoy}
       colegios={colegios}
       usuarios={usuarios}
       presencia={presencia}
