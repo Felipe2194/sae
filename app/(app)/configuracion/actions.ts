@@ -13,6 +13,7 @@ import {
   type SeccionOpcionalKey,
 } from "@/lib/secciones";
 import { urlSegura } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 async function requireAdmin() {
   const session = await auth();
@@ -584,23 +585,31 @@ export async function resetearPassword(
 // contraseña temporal de crearUsuario/resetearPassword. Generar uno nuevo
 // pisa cualquier token anterior de esa persona — el link viejo deja de
 // funcionar solo, no hace falta invalidarlo aparte.
-export async function generarInvitacion(userId: string): Promise<{ token: string }> {
+// Devuelve { error } en vez de tirar: en producción Next oculta el mensaje de
+// un throw en una server action (llega como "Minified React error #441").
+export async function generarInvitacion(
+  userId: string,
+): Promise<{ token: string; error?: never } | { token?: never; error: string }> {
   const session = await requireAdmin();
-  if (userId === session.user.id)
-    throw new Error("No podés invitarte a vos mismo");
+  if (userId === session.user.id) return { error: "No podés invitarte a vos mismo." };
 
   const { token, hash } = generarTokenInvitacion();
   const expira = new Date(Date.now() + DURACION_INVITACION_MS);
 
-  const filas = await withUser(session.user.id, async (tx) => {
-    return await tx`
-      update usuario
-      set token_invitacion_hash = ${hash}, token_invitacion_expira = ${expira}
-      where id = ${userId} and organizacion_id = mi_organizacion_id()
-      returning id
-    `;
-  });
-  if (filas.length === 0) throw new Error("El usuario no existe.");
+  try {
+    const filas = await withUser(session.user.id, async (tx) => {
+      return await tx`
+        update usuario
+        set token_invitacion_hash = ${hash}, token_invitacion_expira = ${expira}
+        where id = ${userId} and organizacion_id = mi_organizacion_id()
+        returning id
+      `;
+    });
+    if (filas.length === 0) return { error: "El usuario no existe." };
+  } catch (e) {
+    logger.error("generarInvitacion falló", { userId, error: e instanceof Error ? e.message : String(e) });
+    return { error: "No se pudo generar el link." };
+  }
 
   return { token };
 }

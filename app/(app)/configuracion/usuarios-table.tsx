@@ -176,8 +176,12 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
   function invitar() {
     startInvite(async () => {
       try {
-        const { token } = await generarInvitacion(usuario.id);
-        setInviteLink(`${window.location.origin}/invitacion/${token}`);
+        const r = await generarInvitacion(usuario.id);
+        if (r.error !== undefined) {
+          toast.error(r.error);
+          return;
+        }
+        setInviteLink(`${window.location.origin}/invitacion/${r.token}`);
       } catch (e) {
         toast.error(
           e instanceof Error ? e.message : "No se pudo generar el link.",
