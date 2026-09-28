@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Check, Camera, RotateCcw } from "lucide-react";
+import { Check, RotateCcw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -77,18 +77,18 @@ export function PerfilForm({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const [fondoTipo, setFondoTipo] = useState<
-    "ninguno" | "gradiente" | "imagen"
-  >(fondoTipoInicial ?? "ninguno");
+  // "Imagen propia" se sacó (la CSP solo deja cargar imágenes del propio
+  // sitio, así que una URL externa como fondo no se veía). Quien la tenía
+  // guardada arranca en "Ninguno".
+  const [fondoTipo, setFondoTipo] = useState<"ninguno" | "gradiente">(
+    fondoTipoInicial === "gradiente" ? "gradiente" : "ninguno",
+  );
   const [fondoGradiente, setFondoGradiente] =
     useState<GradienteFondoKey | null>(
       fondoTipoInicial === "gradiente"
         ? (fondoValorInicial as GradienteFondoKey)
         : null,
     );
-  const [fondoImagenUrl, setFondoImagenUrl] = useState(
-    fondoTipoInicial === "imagen" ? (fondoValorInicial ?? "") : "",
-  );
 
   // Vista previa en vivo del fondo (sin guardar): se pinta directo sobre el
   // wrapper del sidebar, el mismo nodo donde el layout aplica el fondo real
@@ -145,22 +145,6 @@ export function PerfilForm({
     }
   }, [colorPrincipal, colorPrincipalOrg]);
 
-  // Imagen aparte y con debounce: sin esto, cada tecla tipeada dispara una
-  // carga de imagen con la URL a medio escribir — además de inútil, algunos
-  // hosts (ej. Imgur) empiezan a devolver 429/503 si les llegan demasiados
-  // pedidos fallidos seguidos por el mismo recurso.
-  useEffect(() => {
-    if (fondoTipo !== "imagen") return;
-    const el = fondoWrapperRef.current;
-    if (!el || !fondoImagenUrl.trim()) return;
-    const id = setTimeout(() => {
-      el.style.removeProperty("--fondo-light");
-      el.style.removeProperty("--fondo-dark");
-      el.style.background = `url("${fondoImagenUrl.trim()}") center / cover no-repeat fixed`;
-    }, 600);
-    return () => clearTimeout(id);
-  }, [fondoTipo, fondoImagenUrl]);
-
   const iniciales = nombre
     .trim()
     .split(/\s+/)
@@ -197,30 +181,18 @@ export function PerfilForm({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Avatar</CardTitle>
-          <CardDescription>
-            Elegí un color para tu avatar. La foto de perfil estará disponible
-            próximamente.
-          </CardDescription>
+          <CardDescription>Elegí un color para tu avatar.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <div className="flex items-center gap-5">
-            <div className="relative">
-              <Avatar className="size-20" style={{ backgroundColor: color }}>
-                <AvatarFallback
-                  className="text-2xl font-bold text-white"
-                  style={{ backgroundColor: color }}
-                >
-                  {iniciales}
-                </AvatarFallback>
-              </Avatar>
-              <button
-                type="button"
-                className="bg-card border-border hover:bg-muted absolute -right-1 -bottom-1 flex size-7 items-center justify-center rounded-full border transition-colors"
-                aria-label="Subir foto (próximamente)"
+            <Avatar className="size-20" style={{ backgroundColor: color }}>
+              <AvatarFallback
+                className="text-2xl font-bold text-white"
+                style={{ backgroundColor: color }}
               >
-                <Camera className="text-muted-foreground size-3.5" />
-              </button>
-            </div>
+                {iniciales}
+              </AvatarFallback>
+            </Avatar>
             <div className="flex flex-col gap-0.5">
               <p className="text-base font-semibold">{nombre.split(" ")[0]}</p>
               <p className="text-muted-foreground text-sm">{email}</p>
@@ -327,7 +299,6 @@ export function PerfilForm({
               [
                 { value: "ninguno", label: "Ninguno" },
                 { value: "gradiente", label: "Gradiente" },
-                { value: "imagen", label: "Imagen propia" },
               ] as const
             ).map((opt) => (
               <button
@@ -378,16 +349,6 @@ export function PerfilForm({
               ))}
             </div>
           )}
-
-          {fondoTipo === "imagen" && (
-            <Input
-              value={fondoImagenUrl}
-              onChange={(e) => setFondoImagenUrl(e.target.value)}
-              type="url"
-              placeholder="https://..."
-              className="h-9"
-            />
-          )}
         </CardContent>
       </Card>
 
@@ -415,13 +376,7 @@ export function PerfilForm({
             <input
               type="hidden"
               name="fondo_valor"
-              value={
-                fondoTipo === "gradiente"
-                  ? (fondoGradiente ?? "")
-                  : fondoTipo === "imagen"
-                    ? fondoImagenUrl
-                    : ""
-              }
+              value={fondoTipo === "gradiente" ? (fondoGradiente ?? "") : ""}
             />
             <input
               type="hidden"
