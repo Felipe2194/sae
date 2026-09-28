@@ -110,7 +110,17 @@ export type ReporteVisitas = {
 };
 
 export type LocalidadVisitas = { ciudad: string; visitas: number; alumnos: number };
-export type IntegranteVisitas = { nombre: string; visitas_realizadas: number };
+// Presencia de cada integrante en visitas realizadas. `viajes` son las de
+// tipo Visita a colegio y Feria/Expo (implican viajar, pesan doble en
+// `puntaje`); `otras` el resto (nos visitan, charlas, virtuales, otro).
+export type IntegranteVisitas = {
+  nombre: string;
+  avatar_color: string | null;
+  visitas_realizadas: number;
+  viajes: number;
+  otras: number;
+  puntaje: number;
+};
 
 export type ReporteViajes = {
   viajes_activos: number;

@@ -31,6 +31,7 @@ import {
   DoorOpen,
   Printer,
   ChevronDown,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchLogIntegrante } from "./actions";
@@ -111,6 +112,111 @@ function BarraDoble({ label, a, b }: { label: string; a: number; b: number }) {
         />
       </div>
     </div>
+  );
+}
+
+// Presencia de cada integrante en visitas realizadas — cada visita es
+// tiempo invertido por quien fue. Las que implican viajar (visita a colegio,
+// feria/expo) pesan doble: la barra y el orden salen del puntaje
+// (2 × viajes + otras), no del total crudo.
+function PresenciaEquipoVisitas({
+  integrantes,
+  anio,
+}: {
+  integrantes: IntegranteVisitas[];
+  anio: number;
+}) {
+  const maxPuntaje = Math.max(...integrantes.map((p) => p.puntaje), 1);
+  const puntajeTope = integrantes[0]?.puntaje ?? 0;
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <Trophy className="size-4 text-amber-500" />
+          <h2 className="font-semibold">Presencia del equipo en visitas</h2>
+        </div>
+        <p className="text-muted-foreground text-xs">
+          Cada visita realizada es tiempo invertido por quienes fueron. Las visitas a colegio y
+          las ferias/expos implican viajar y cuentan doble.
+        </p>
+      </div>
+      <Card className="border-amber-500/30">
+        <CardContent className="flex flex-col gap-4 p-4">
+          {integrantes.map((p, i) => {
+            const destacado = p.puntaje === puntajeTope && puntajeTope > 0;
+            return (
+              <div key={p.nombre} className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-muted-foreground w-5 text-right text-xs tabular-nums">
+                    {i + 1}
+                  </span>
+                  <span
+                    className="size-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: p.avatar_color ?? COLOR_CREADAS }}
+                  />
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate text-sm",
+                      destacado ? "font-semibold" : "font-medium",
+                    )}
+                  >
+                    {p.nombre}
+                  </span>
+                  {destacado && (
+                    <Badge className="border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                      Más presente
+                    </Badge>
+                  )}
+                  <span className="text-muted-foreground text-xs whitespace-nowrap tabular-nums">
+                    <span className="text-foreground font-semibold">{p.viajes}</span> con viaje ·{" "}
+                    {p.otras} otras
+                  </span>
+                </div>
+                <div className="bg-muted ml-[1.875rem] flex h-2.5 overflow-hidden rounded-full">
+                  <div
+                    style={{
+                      width: `${((2 * p.viajes) / maxPuntaje) * 100}%`,
+                      backgroundColor: COLOR_CREADAS,
+                    }}
+                    title={`Con viaje (visita a colegio, feria/expo): ${p.viajes}`}
+                  />
+                  <div
+                    style={{
+                      width: `${(p.otras / maxPuntaje) * 100}%`,
+                      backgroundColor: COLOR_CREADAS,
+                      opacity: 0.35,
+                    }}
+                    title={`Otras (nos visitan, charlas, virtuales): ${p.otras}`}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          {integrantes.length === 0 && (
+            <p className="text-muted-foreground py-2 text-center text-sm">
+              Nadie tiene visitas realizadas registradas
+              {anio !== 0 ? ` en ${anio}` : ""}.
+            </p>
+          )}
+          {integrantes.length > 0 && (
+            <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 text-[11px]">
+              <span className="flex items-center gap-1.5">
+                <span className="size-2.5 rounded-sm" style={{ backgroundColor: COLOR_CREADAS }} />
+                Visita a colegio / Feria-Expo (×2)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="size-2.5 rounded-sm"
+                  style={{ backgroundColor: COLOR_CREADAS, opacity: 0.35 }}
+                />
+                Otras visitas
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 
@@ -1039,6 +1145,8 @@ export function InformesCliente({
             </p>
           </section>
 
+          <PresenciaEquipoVisitas integrantes={integrantesVisitas} anio={anioVisitas} />
+
           <section className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <MapPin className="text-muted-foreground size-4" />
@@ -1077,31 +1185,6 @@ export function InformesCliente({
                       )}
                     </tbody>
                   </table>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          <section className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Users className="text-muted-foreground size-4" />
-              <h2 className="font-semibold">Visitas realizadas por integrante</h2>
-            </div>
-            <Card>
-              <CardContent className="p-0">
-                <div className="divide-y">
-                  {integrantesVisitas.map((p) => (
-                    <div key={p.nombre} className="flex items-center gap-3 px-4 py-2.5">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.nombre}</span>
-                      <Badge variant="secondary">{p.visitas_realizadas}</Badge>
-                    </div>
-                  ))}
-                  {integrantesVisitas.length === 0 && (
-                    <p className="text-muted-foreground px-4 py-6 text-center text-sm">
-                      Nadie tiene visitas realizadas registradas
-                      {anioVisitas !== 0 ? ` en ${anioVisitas}` : ""}.
-                    </p>
-                  )}
                 </div>
               </CardContent>
             </Card>

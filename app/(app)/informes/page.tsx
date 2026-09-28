@@ -61,11 +61,16 @@ export default async function InformesPage({
     viajesResumen,
     secciones,
   } = await withUser(session.user.id, async (tx) => {
-    const [org] = await tx<
-      [{ proyectos_habilitado: boolean; visitas_habilitado: boolean; viajes_habilitado: boolean }]
-    >`
-      select proyectos_habilitado, visitas_habilitado, viajes_habilitado from organizacion where id = mi_organizacion_id()
-    `;
+    // Antes de contar: las visitas cuyo día ya cerró sin confirmar pasan
+    // solas a Realizado (ver 051_visitas_auto_realizadas.sql).
+    const [, [org]] = await Promise.all([
+      tx`select marcar_visitas_realizadas()`,
+      tx<
+        [{ proyectos_habilitado: boolean; visitas_habilitado: boolean; viajes_habilitado: boolean }]
+      >`
+        select proyectos_habilitado, visitas_habilitado, viajes_habilitado from organizacion where id = mi_organizacion_id()
+      `,
+    ]);
     // Sesión vieja que ya no resuelve a ningún usuario/organización real.
     if (!org) redirectSesionInvalida();
 
@@ -367,8 +372,21 @@ export default async function InformesPage({
       order by visitas desc, c.ciudad asc
     `;
 
+    // Cada visita es tiempo invertido por quien fue — y las que implican
+    // viajar (visita a colegio, feria/expo) pesan doble en el puntaje.
+    // count(v.id) y no count(vi.usuario_id): con el left join filtrado,
+    // vi trae también las visitas de otros años o no realizadas (v queda
+    // null) y se contaban igual.
     const integrantesVisitas = await tx<IntegranteVisitas[]>`
-      select u.nombre, count(vi.usuario_id)::int as visitas_realizadas
+      select
+        u.nombre, u.avatar_color,
+        count(v.id)::int as visitas_realizadas,
+        count(v.id) filter (where v.tipo in ('visita_colegio', 'feria_expo'))::int as viajes,
+        count(v.id) filter (where v.tipo not in ('visita_colegio', 'feria_expo'))::int as otras,
+        (
+          2 * count(v.id) filter (where v.tipo in ('visita_colegio', 'feria_expo'))
+          + count(v.id) filter (where v.tipo not in ('visita_colegio', 'feria_expo'))
+        )::int as puntaje
       from usuario u
       left join visita_integrante vi on vi.usuario_id = u.id
       left join visita_colegio v on v.id = vi.visita_id
@@ -376,9 +394,9 @@ export default async function InformesPage({
         and v.estado = 'realizado'
         and (${anioVisitas} = 0 or extract(year from v.fecha) = ${anioVisitas})
       where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo' and not u.oculto
-      group by u.id, u.nombre
-      having count(vi.usuario_id) > 0
-      order by visitas_realizadas desc, u.nombre asc
+      group by u.id, u.nombre, u.avatar_color
+      having count(v.id) > 0
+      order by puntaje desc, viajes desc, u.nombre asc
     `;
 
     const aniosVisitasFilas = await tx<{ anio: number }[]>`
