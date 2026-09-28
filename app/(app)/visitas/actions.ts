@@ -69,6 +69,25 @@ async function sincronizarIntegrantes(tx: any, visitaId: string, usuarioIds: str
   }
 }
 
+// Firma de los campos de la visita que salen en el evento de Calendar (ver
+// armarEvento) — comparando la de antes y la de después de editar se sabe si
+// hace falta tocar el evento.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
+async function firmaEvento(tx: any, visitaId: string): Promise<string> {
+  const [fila] = await tx<[{ firma: string }]>`
+    select concat_ws('|',
+      v.colegio_id, c.ciudad, v.fecha, v.hora_inicio::text, v.hora_fin::text,
+      v.tipo::text, v.observaciones,
+      (select string_agg(vi.usuario_id::text, ',' order by vi.usuario_id)
+         from visita_integrante vi where vi.visita_id = v.id)
+    ) as firma
+    from visita_colegio v
+    join colegio c on c.id = v.colegio_id
+    where v.id = ${visitaId}
+  `;
+  return fila?.firma ?? "";
+}
+
 // Busca un colegio existente por nombre (case-insensitive, dentro de la org)
 // o lo crea — reemplaza el auto-registro por onEdit del Sheet. Si el colegio
 // ya existía pero le faltaba ciudad y/o provincia, y la visita trae esos
@@ -236,6 +255,7 @@ export async function crearVisita(
 
   revalidatePath("/visitas");
   revalidatePath("/informes");
+  revalidatePath("/hoy");
 
   let sincronizada = false;
   let error: string | null = null;
@@ -268,13 +288,21 @@ export async function actualizarVisita(
   const session = await requireAuth();
   validarVisitaInput(data);
 
-  const { colegioNombre, integrantesNombres, zonaHoraria, googleEventIdPrevio, calendarId } =
+  const {
+    colegioNombre,
+    integrantesNombres,
+    zonaHoraria,
+    googleEventIdPrevio,
+    calendarId,
+    eventoCambio,
+  } =
     await withUser(session.user.id, async (tx) => {
       const [previa] = await tx<[{ google_event_id: string | null; estado: string }]>`
         select google_event_id, estado::text from visita_colegio
         where id = ${visitaId} and organizacion_id = mi_organizacion_id()
       `;
       if (!previa) throw new Error("La visita no existe.");
+      const firmaPrevia = await firmaEvento(tx, visitaId);
 
       const colegioId = await resolverColegio(tx, {
         colegioId: data.colegioId,
@@ -300,6 +328,7 @@ export async function actualizarVisita(
         where id = ${visitaId} and organizacion_id = mi_organizacion_id()
       `;
       await sincronizarIntegrantes(tx, visitaId, data.integrantesIds);
+      const firmaNueva = await firmaEvento(tx, visitaId);
 
       const [colegio] = await tx<[{ nombre: string }]>`
         select nombre from colegio where id = ${colegioId}
@@ -327,11 +356,26 @@ export async function actualizarVisita(
         zonaHoraria: org?.zona_horaria ?? "UTC",
         googleEventIdPrevio: previa.google_event_id,
         calendarId: org?.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
+        eventoCambio:
+          firmaPrevia !== firmaNueva ||
+          ESTADOS_VISITA_SINCRONIZABLES.includes(previa.estado as EstadoVisita) !==
+            ESTADOS_VISITA_SINCRONIZABLES.includes(data.estado),
       };
     });
 
   revalidatePath("/visitas");
   revalidatePath("/informes");
+  revalidatePath("/hoy");
+
+  // Marcar una visita como realizada (o cambiarle solo el estado, el
+  // contacto o la cantidad de alumnos) no cambia nada de lo que muestra el
+  // evento de Calendar — no se lo toca. Antes se intentaba igual y, en las
+  // visitas importadas del Sheet (cuyo google_event_id es de eventos que la
+  // cuenta de servicio no puede editar), saltaba un error de sincronización
+  // al solo querer confirmar que la visita se hizo.
+  if (!eventoCambio || data.estado === "realizado") {
+    return { sincronizada: false, error: null };
+  }
 
   let sincronizada = false;
   let error: string | null = null;
