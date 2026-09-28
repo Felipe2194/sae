@@ -44,21 +44,12 @@ export async function actualizarNombre(formData: FormData) {
     colorPrincipal = colorPrincipalRaw;
   }
 
+  // Solo gradientes: el fondo con imagen propia se sacó (ver perfil-form.tsx).
   const fondoTipoRaw = (formData.get('fondo_tipo') as string | null) ?? '';
-  let fondoTipo: 'gradiente' | 'imagen' | null = null;
-  if (fondoTipoRaw === 'gradiente' || fondoTipoRaw === 'imagen') {
-    fondoTipo = fondoTipoRaw;
-  }
+  let fondoTipo: 'gradiente' | null = fondoTipoRaw === 'gradiente' ? 'gradiente' : null;
 
   const fondoValorRaw = ((formData.get('fondo_valor') as string | null) ?? '').trim();
   let fondoValor: string | null = fondoValorRaw || null;
-  if (fondoTipo === 'imagen' && fondoValor) {
-    // Solo http/https, mismo criterio que playlistUrl arriba.
-    fondoValor = urlSegura(fondoValor);
-    if (!fondoValor) {
-      throw new Error('La URL del fondo no es válida');
-    }
-  }
   // Sin tipo elegido, o sin valor cargado para ese tipo (ej. "Gradiente" sin
   // tocar ningún swatch todavía) -> sin fondo, no un tipo huérfano sin valor.
   if (!fondoTipo || !fondoValor) {

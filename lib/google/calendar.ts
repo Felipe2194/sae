@@ -211,6 +211,13 @@ export async function actualizarEventoCalendar(
     },
   );
 
+  // El evento ya no existe en este calendario (se borró a mano, o el id
+  // viene de otro calendario — p. ej. visitas importadas del Sheet viejo):
+  // se crea uno nuevo y el caller guarda el id nuevo.
+  if (res.status === 404 || res.status === 410) {
+    return crearEventoCalendar(calendarId, evento);
+  }
+
   if (!res.ok) {
     const detalle = await res.text().catch(() => "");
     throw new Error(

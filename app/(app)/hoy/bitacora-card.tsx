@@ -37,10 +37,10 @@ export function BitacoraCard({ bitacoraHoy, prefillHecho }: Props) {
   const [observaciones, setObservaciones] = useState(bitacoraHoy?.observaciones ?? "");
   const [guardada, setGuardada] = useState(yaCargada);
   const [isPending, startTransition] = useTransition();
-  // Si ya se cargó hoy, arranca colapsada — la mayor parte del espacio de
-  // la columna se lo llevaba este formulario incluso cuando ya no hacía
-  // falta tocarlo. Si todavía no se cargó, se deja abierta como recordatorio.
-  const [abierta, setAbierta] = useState(!yaCargada);
+  // Siempre arranca colapsada — el formulario se llevaba la mayor parte del
+  // espacio de la columna. Si todavía no se cargó, el aviso "Sin cargar" del
+  // encabezado queda como recordatorio.
+  const [abierta, setAbierta] = useState(false);
 
   function editar<T extends (v: string) => void>(setter: T) {
     return (value: string) => {

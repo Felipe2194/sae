@@ -2,18 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Plus,
-  Pencil,
-  CalendarCheck,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Video,
-  Presentation,
-  CircleDot,
-  CalendarDays,
-  type LucideIcon,
-} from "lucide-react";
+import { Plus, Pencil, CalendarCheck, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -32,51 +21,10 @@ import { UserAvatarStack } from "@/components/features/user-avatar";
 import { VisitaDialog } from "./visita-dialog";
 import { ColegiosCliente } from "./colegios-cliente";
 import { PresenciaEquipo } from "./presencia-equipo";
-import { labelTipoVisita, labelEstadoVisita } from "./tipos";
+import { labelEstadoVisita } from "./tipos";
+import { ESTADO_PUNTO, TipoVisitaChip, formatHora } from "./visita-estilos";
 import { cn } from "@/lib/utils";
 import type { ColegioFila, PresenciaFila, UsuarioOption, VisitaFila } from "./page";
-
-// El estado queda en segundo plano (un punto de color + texto chico): lo
-// que se busca de un vistazo es la hora y si vamos nosotros o vienen ellos.
-const ESTADO_PUNTO: Record<VisitaFila["estado"], string> = {
-  pendiente: "bg-amber-500",
-  confirmado: "bg-blue-500",
-  realizado: "bg-green-500",
-  cancelado: "bg-red-500",
-  reprogramado: "bg-orange-500",
-};
-
-const CLASE_VAMOS =
-  "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30";
-const CLASE_VIENEN =
-  "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
-const CLASE_NEUTRA = "bg-muted text-foreground border-border";
-
-// Mismo criterio que Informes ("veces viajamos" vs "nos visitaron"):
-// visita a colegio y feria/expo = vamos; nos visitan = vienen.
-const TIPO_ESTILO: Record<VisitaFila["tipo"], { icono: LucideIcon; clase: string }> = {
-  visita_colegio: { icono: ArrowUpRight, clase: CLASE_VAMOS },
-  feria_expo: { icono: ArrowUpRight, clase: CLASE_VAMOS },
-  nos_visitan: { icono: ArrowDownLeft, clase: CLASE_VIENEN },
-  charla_taller: { icono: Presentation, clase: CLASE_NEUTRA },
-  virtual: { icono: Video, clase: CLASE_NEUTRA },
-  otro: { icono: CircleDot, clase: CLASE_NEUTRA },
-};
-
-function TipoVisitaChip({ tipo }: { tipo: VisitaFila["tipo"] }) {
-  const { icono: Icono, clase } = TIPO_ESTILO[tipo];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold whitespace-nowrap",
-        clase,
-      )}
-    >
-      <Icono className="size-3.5" />
-      {labelTipoVisita(tipo)}
-    </span>
-  );
-}
 
 const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
@@ -201,11 +149,6 @@ function formatFecha(iso: string): string {
   return `${d}/${m}`;
 }
 
-function formatHora(hhmmss: string | null): string {
-  if (!hhmmss) return "";
-  return hhmmss.slice(0, 5);
-}
-
 type Props = {
   visitas: VisitaFila[];
   visitasHoy: VisitaFila[];
@@ -215,6 +158,8 @@ type Props = {
   presencia: PresenciaFila[];
   anio: number;
   anios: number[];
+  // Visita a abrir en edición al entrar (link desde la tarjeta de /hoy).
+  abrirVisitaId?: string;
 };
 
 export function VisitasCliente({
@@ -226,10 +171,17 @@ export function VisitasCliente({
   presencia,
   anio,
   anios,
+  abrirVisitaId,
 }: Props) {
   const router = useRouter();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editando, setEditando] = useState<VisitaFila | undefined>(undefined);
+  const [visitaInicial] = useState(() =>
+    abrirVisitaId
+      ? (visitasHoy.find((v) => v.id === abrirVisitaId) ??
+        visitas.find((v) => v.id === abrirVisitaId))
+      : undefined,
+  );
+  const [dialogOpen, setDialogOpen] = useState(visitaInicial !== undefined);
+  const [editando, setEditando] = useState<VisitaFila | undefined>(visitaInicial);
   const [pestaña, setPestaña] = useState<Pestaña>("proximas");
   const [visibles, setVisibles] = useState(PAGINA);
 

@@ -94,11 +94,9 @@ export function fondoVars(
   fondoTipo: 'gradiente' | 'imagen' | null,
   fondoValor: string | null,
 ): { light: string; dark: string } | null {
-  if (!fondoTipo || !fondoValor) return null;
-  if (fondoTipo === 'gradiente') {
-    const g = GRADIENTES_FONDO[fondoValor as GradienteFondoKey];
-    return g ? { light: g.light, dark: g.dark } : null;
-  }
-  const url = `url("${fondoValor}") center / cover no-repeat fixed`;
-  return { light: url, dark: url };
+  // 'imagen' ya no se ofrece en /perfil (una URL externa no pasa la CSP de
+  // img-src 'self'): si alguien la tenía guardada, queda sin fondo.
+  if (fondoTipo !== 'gradiente' || !fondoValor) return null;
+  const g = GRADIENTES_FONDO[fondoValor as GradienteFondoKey];
+  return g ? { light: g.light, dark: g.dark } : null;
 }

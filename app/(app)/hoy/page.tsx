@@ -27,6 +27,9 @@ import { AccesosCard } from "./accesos-card";
 import { BitacoraCard } from "./bitacora-card";
 import { BitacoraEquipoCard } from "./bitacora-equipo-card";
 import { MisTareasHoy } from "./mis-tareas-hoy";
+import { VisitasCard, type VisitaHoyRow } from "./visitas-card";
+import { AgendaCard } from "./agenda-card";
+import { listarEventosCalendar, type EventoLeido } from "@/lib/google/calendar";
 import { AvisoMotivo } from "@/components/features/aviso-motivo";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -180,12 +183,38 @@ export default async function HoyPage({
     novedad,
     tableroHabilitado,
     miNombre,
+    visitasHabilitado,
+    agenda,
+    visitas,
+    hoyVisitas,
+    mananaVisitas,
   } = await withUser(session.user.id, async (tx) => {
     // mi_nombre de la base y no de la sesión: si se cambió en /perfil, la
     // sesión lo sigue teniendo viejo por un rato.
-    const [org] = await tx<[{ tablero_habilitado: boolean; mi_nombre: string }]>`
+    const [org] = await tx<
+      [
+        {
+          tablero_habilitado: boolean;
+          visitas_habilitado: boolean;
+          calendario_habilitado: boolean;
+          google_calendar_id: string | null;
+          zona_horaria: string;
+          dia_desde: Date;
+          dia_hasta: Date;
+          mi_nombre: string;
+        },
+      ]
+    >`
       select
         seccion_visible(tablero_habilitado, secciones_solo_admin, 'tablero') as tablero_habilitado,
+        seccion_visible(visitas_habilitado, secciones_solo_admin, 'visitas') as visitas_habilitado,
+        seccion_visible(calendario_habilitado, secciones_solo_admin, 'calendario') as calendario_habilitado,
+        google_calendar_id, zona_horaria,
+        -- Medianoche de hoy y de mañana en la zona horaria de la
+        -- organización (withUser la fija por transacción): el rango de la
+        -- agenda del día, sin depender de la zona del servidor.
+        current_date::timestamptz as dia_desde,
+        (current_date + 1)::timestamptz as dia_hasta,
         (select nombre from usuario where id = mi_usuario_id()) as mi_nombre
       from organizacion where id = mi_organizacion_id()
     `;
@@ -194,6 +223,50 @@ export default async function HoyPage({
     // sesión) — es una sesión inválida, no un caso de "organización sin
     // configurar" como en app/(app)/layout.tsx.
     if (!org) redirectSesionInvalida();
+
+    // Visitas de hoy y mañana (solo si la sección está visible). Antes de
+    // leerlas, las que ya cerraron su día sin confirmar pasan solas a
+    // Realizado (ver 051_visitas_auto_realizadas.sql). Va aparte del
+    // Promise.all de abajo porque tiene que correr antes que el select.
+    let visitas: VisitaHoyRow[] = [];
+    let hoyVisitas = hoyISO;
+    let mananaVisitas = hoyISO;
+    if (org.visitas_habilitado) {
+      const [, filas, [dias]] = await Promise.all([
+        tx`select marcar_visitas_realizadas()`,
+        tx<VisitaHoyRow[]>`
+          select
+            v.id, v.fecha::text, c.nombre as colegio_nombre, c.ciudad,
+            v.hora_inicio::text, v.hora_fin::text,
+            v.tipo::text as tipo, v.estado::text as estado,
+            coalesce(
+              (
+                select json_agg(
+                  json_build_object('id', u.id, 'nombre', u.nombre, 'avatar_color', u.avatar_color)
+                  order by u.nombre
+                )
+                from visita_integrante vi
+                join usuario u on u.id = vi.usuario_id
+                where vi.visita_id = v.id
+              ),
+              '[]'
+            ) as integrantes
+          from visita_colegio v
+          join colegio c on c.id = v.colegio_id
+          where v.organizacion_id = mi_organizacion_id()
+            and v.fecha between current_date and current_date + 1
+          order by v.fecha asc, v.hora_inicio asc nulls last
+        `,
+        // current_date en la zona horaria de la organización (withUser), no
+        // la del servidor — la misma "hoy" que usa el filtro de arriba.
+        tx<[{ hoy: string; manana: string }]>`
+          select current_date::text as hoy, (current_date + 1)::text as manana
+        `,
+      ]);
+      visitas = [...filas];
+      hoyVisitas = dias.hoy;
+      mananaVisitas = dias.manana;
+    }
 
     // Ninguna de estas 9 queries depende del resultado de otra — van todas
     // juntas en Promise.all para que postgres.js las pipelinee en un solo
@@ -395,8 +468,34 @@ export default async function HoyPage({
       novedad: novedad ?? null,
       tableroHabilitado: org.tablero_habilitado,
       miNombre: org.mi_nombre,
+      visitasHabilitado: org.visitas_habilitado,
+      agenda: org.calendario_habilitado
+        ? {
+            calendarId: org.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
+            zonaHoraria: org.zona_horaria,
+            desde: org.dia_desde.toISOString(),
+            hasta: org.dia_hasta.toISOString(),
+          }
+        : null,
+      visitas,
+      hoyVisitas,
+      mananaVisitas,
     };
   });
+
+  // Agenda del día desde Google Calendar — fuera de withUser para no
+  // retener la conexión a la base mientras se espera a Google (la lectura
+  // se cachea 5 min, ver listarEventosCalendar). Si falla, /hoy se muestra
+  // igual y la tarjeta avisa; nunca rompe la página.
+  let eventosHoy: EventoLeido[] | null = null;
+  let errorAgenda: string | null = null;
+  if (agenda) {
+    try {
+      eventosHoy = await listarEventosCalendar(agenda.calendarId, agenda.desde, agenda.hasta);
+    } catch {
+      errorAgenda = "No se pudo leer el Google Calendar ahora.";
+    }
+  }
 
   // Clasificar tareas
   const vencidas = tareas.filter(
@@ -557,16 +656,20 @@ export default async function HoyPage({
             </CardContent>
           </Card>
 
-          {/* Pulso + En la oficina ahora + Accesos rápidos: fila horizontal
-              debajo de las tareas de hoy en vez de apiladas. La música ahora
-              vive en un reproductor global (ver components/features/music-player.tsx). */}
-          {/* items-start: por defecto un grid estira todas las celdas de la
-              fila a la altura de la más alta — con muchos accesos rápidos,
-              esa card crecía y arrastraba a Pulso/En la oficina con ella
-              aunque su propio contenido no necesitara ese alto. Cada card
-              ahora mide lo que su contenido pide (el tope de altura de
-              Accesos rápidos, con scroll propio, vive en accesos-card.tsx). */}
-          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-3">
+          {/* Visitas de hoy y mañana */}
+          {visitasHabilitado && (
+            <VisitasCard
+              visitas={visitas}
+              hoy={hoyVisitas}
+              manana={mananaVisitas}
+            />
+          )}
+
+          {/* Pulso + En la oficina ahora: fila horizontal debajo de las
+              tareas de hoy. Accesos rápidos vive en la columna derecha, donde
+              puede crecer a lo alto. La música vive en un reproductor global
+              (ver components/features/music-player.tsx). */}
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
             <Card>
               <CardHeader className="px-4 pt-4 pb-2">
                 <CardTitle className="text-sm font-semibold">Pulso</CardTitle>
@@ -643,8 +746,6 @@ export default async function HoyPage({
                 )}
               </CardContent>
             </Card>
-
-            <AccesosCard accesos={accesos} canManage={canManage} />
           </div>
 
           {/* Próximamente */}
@@ -693,6 +794,15 @@ export default async function HoyPage({
 
         {/* ── Columna derecha ───────────────────────────────────────────────── */}
         <div className="flex flex-col gap-4">
+          {/* Agenda de hoy (Google Calendar) — vistazo rápido del día */}
+          {agenda && (
+            <AgendaCard
+              eventos={eventosHoy}
+              zonaHoraria={agenda.zonaHoraria}
+              error={errorAgenda}
+            />
+          )}
+
           {/* Bitácora del día */}
           <div id="bitacora" className="scroll-mt-4">
             <BitacoraCard
@@ -700,6 +810,9 @@ export default async function HoyPage({
               prefillHecho={prefillHecho}
             />
           </div>
+
+          {/* Accesos rápidos: al costado para que la lista crezca a lo alto */}
+          <AccesosCard accesos={accesos} canManage={canManage} />
 
           {/* Bitácora del resto del equipo, hoy — para el handoff entre turnos */}
           <BitacoraEquipoCard entradas={bitacoraEquipo} />

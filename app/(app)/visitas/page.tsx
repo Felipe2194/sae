@@ -60,7 +60,7 @@ export type PresenciaFila = {
 export default async function VisitasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ anio?: string }>;
+  searchParams: Promise<{ anio?: string; visita?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -72,10 +72,15 @@ export default async function VisitasPage({
   const { visitas, visitasHoy, hoy, colegios, usuarios, presencia, anios, habilitado } = await withUser(
     session.user.id,
     async (tx) => {
-      const [org] = await tx<[{ visitas_habilitado: boolean }]>`
-        select seccion_visible(visitas_habilitado, secciones_solo_admin, 'visitas') as visitas_habilitado
-        from organizacion where id = mi_organizacion_id()
-      `;
+      // Antes de leer: las visitas cuyo día ya cerró sin confirmar pasan
+      // solas a Realizado (ver 051_visitas_auto_realizadas.sql).
+      const [, [org]] = await Promise.all([
+        tx`select marcar_visitas_realizadas()`,
+        tx<[{ visitas_habilitado: boolean }]>`
+          select seccion_visible(visitas_habilitado, secciones_solo_admin, 'visitas') as visitas_habilitado
+          from organizacion where id = mi_organizacion_id()
+        `,
+      ]);
       // Sesión vieja que ya no resuelve a ningún usuario/organización real.
       if (!org) redirectSesionInvalida();
 
@@ -200,6 +205,7 @@ export default async function VisitasPage({
       presencia={presencia}
       anio={anio}
       anios={aniosOpciones}
+      abrirVisitaId={params.visita}
     />
   );
 }

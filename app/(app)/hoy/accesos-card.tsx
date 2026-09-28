@@ -126,13 +126,10 @@ export function AccesosCard({ accesos: inicial, canManage }: Props) {
         )}
 
         {accesos.length > 0 && (
-          // Alto acotado + scroll propio: sin esto la lista crecía sin
-          // límite con cada acceso agregado, y al ser una celda más del
-          // grid de Pulso/En la oficina (ver comentario en items-start en
-          // hoy/page.tsx) terminaba estirando a las otras dos con ella.
-          // Cabe justo lo que ocupan Pulso/En la oficina; el resto scrollea
-          // adentro de la card, no de la página.
-          <div className="-mx-1 flex max-h-[210px] flex-col gap-1 overflow-y-auto px-1">
+          // Vive en la columna derecha de /hoy, así que puede crecer a lo
+          // alto; recién con muchos accesos (~12) scrollea adentro de la
+          // card en vez de alargar toda la página.
+          <div className="-mx-1 flex max-h-[520px] flex-col gap-0.5 overflow-y-auto px-1">
             {accesos.map((ar, i) => (
               <div key={ar.id} className="group flex items-center gap-1">
                 <a
