@@ -446,6 +446,58 @@ export async function actualizarVisita(
   return { sincronizada, error };
 }
 
+// Confirmación rápida de una visita (botón "Realizada" en las tarjetas y la
+// tabla, pensado para el celular) y su "Deshacer". Solo cambia el estado:
+// pasar a Realizado no toca el evento de Calendar (ver actualizarVisita), y
+// el deshacer solo vuelve a un estado que ya tenía el evento sincronizado.
+export async function cambiarEstadoVisita(
+  visitaId: string,
+  estado: "realizado" | "pendiente" | "confirmado",
+): Promise<{ estadoPrevio: EstadoVisita | null; error: string | null }> {
+  const session = await requireAuth();
+  if (!["realizado", "pendiente", "confirmado"].includes(estado)) {
+    return { estadoPrevio: null, error: "Estado no válido." };
+  }
+  try {
+    return await withUser(session.user.id, async (tx) => {
+      const [previa] = await tx<[{ estado: EstadoVisita; colegio: string } | undefined]>`
+        select v.estado::text as estado, c.nombre as colegio
+        from visita_colegio v
+        join colegio c on c.id = v.colegio_id
+        where v.id = ${visitaId} and v.organizacion_id = mi_organizacion_id()
+      `;
+      if (!previa) return { estadoPrevio: null, error: "La visita no existe." };
+      if (previa.estado === estado) return { estadoPrevio: previa.estado, error: null };
+
+      const actualizadas = await tx`
+        update visita_colegio set estado = ${estado}::estado_visita
+        where id = ${visitaId} and organizacion_id = mi_organizacion_id()
+      `;
+      if (actualizadas.count === 0) {
+        return {
+          estadoPrevio: null,
+          error: "Solo quien cargó la visita, quien participó o un administrador puede cambiarla.",
+        };
+      }
+      await tx`
+        insert into auditoria (organizacion_id, usuario_id, entidad, entidad_id, entidad_nombre, campo, valor_antes, valor_despues)
+        values (
+          mi_organizacion_id(), mi_usuario_id(), 'visita', ${visitaId}, ${previa.colegio},
+          'estado', ${previa.estado}, ${estado}
+        )
+      `;
+      return { estadoPrevio: previa.estado, error: null };
+    }).finally(() => {
+      revalidatePath("/visitas");
+      revalidatePath("/informes");
+      revalidatePath("/hoy");
+    });
+  } catch (e) {
+    console.error("cambiarEstadoVisita", e);
+    return { estadoPrevio: null, error: "No se pudo actualizar la visita. Probá de nuevo." };
+  }
+}
+
 // No hay acción para eliminar visitas a propósito: era demasiado fácil
 // borrar una por error desde la tabla y se perdía el historial. Una visita
 // que no va más se marca como Cancelada editándola.
