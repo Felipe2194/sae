@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import confetti from "canvas-confetti";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { TareaFila } from "./tarea-fila";
+
+// Cuántas tareas se ven a la vez; el resto se navega con las flechas.
+const POR_PAGINA = 4;
 
 type TareaRow = {
   id: string;
@@ -38,28 +43,75 @@ export function MisTareasHoy({ tareas }: { tareas: TareaRow[] }) {
       spread: 70,
       startVelocity: 35,
       origin: { y: 0.6 },
-      colors: ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6"],
+      colors: [
+        "#ef4444",
+        "#f97316",
+        "#eab308",
+        "#22c55e",
+        "#3b82f6",
+        "#8b5cf6",
+      ],
     });
   }, [tareas.length, prefiereMenosMovimiento]);
 
+  const [pagina, setPagina] = useState(0);
+  const totalPaginas = Math.max(1, Math.ceil(tareas.length / POR_PAGINA));
+  // Si al completar tareas la página actual queda vacía, se vuelve a la
+  // última que tenga algo (clamp en el render, sin efecto aparte).
+  const paginaActual = Math.min(pagina, totalPaginas - 1);
+  const desde = paginaActual * POR_PAGINA;
+  const visibles = tareas.slice(desde, desde + POR_PAGINA);
+
   return (
-    <AnimatePresence initial={false}>
-      {tareas.map((t) => (
-        <motion.div
-          key={t.id}
-          layout={!prefiereMenosMovimiento}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={
-            prefiereMenosMovimiento
-              ? { opacity: 0 }
-              : { opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }
-          }
-          transition={{ duration: 0.2 }}
-        >
-          <TareaFila {...t} vencida={false} soloLectura />
-        </motion.div>
-      ))}
-    </AnimatePresence>
+    <div className="flex flex-col">
+      <div className="divide-y overflow-x-hidden">
+        <AnimatePresence initial={false}>
+          {visibles.map((t) => (
+            <motion.div
+              key={t.id}
+              layout={!prefiereMenosMovimiento}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={
+                prefiereMenosMovimiento
+                  ? { opacity: 0 }
+                  : { opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }
+              }
+              transition={{ duration: 0.2 }}
+            >
+              <TareaFila {...t} vencida={false} soloLectura />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {totalPaginas > 1 && (
+        <div className="text-muted-foreground flex items-center justify-between border-t pt-2 text-xs">
+          <span className="tabular-nums">
+            {desde + 1}–{desde + visibles.length} de {tareas.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Tareas anteriores"
+              disabled={paginaActual === 0}
+              onClick={() => setPagina(paginaActual - 1)}
+            >
+              <ChevronLeft />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Tareas siguientes"
+              disabled={paginaActual >= totalPaginas - 1}
+              onClick={() => setPagina(paginaActual + 1)}
+            >
+              <ChevronRight />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
