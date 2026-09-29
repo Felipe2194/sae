@@ -382,12 +382,21 @@ export default async function HoyPage({
         order by b.creada_en asc
       `,
 
+      // Tareas que completé yo hoy (completada_por, ver
+      // 052_completada_por.sql) — incluye las "para todos" y las sin dueño.
+      // Si no se sabe quién la completó, cuenta para responsable/asignados.
       tx<{ titulo: string }[]>`
         select titulo
         from tarea t
         where (
-            t.responsable_id = mi_usuario_id()
-            or exists (select 1 from tarea_asignado ta where ta.tarea_id = t.id and ta.usuario_id = mi_usuario_id())
+            t.completada_por = mi_usuario_id()
+            or (
+              t.completada_por is null
+              and (
+                t.responsable_id = mi_usuario_id()
+                or exists (select 1 from tarea_asignado ta where ta.tarea_id = t.id and ta.usuario_id = mi_usuario_id())
+              )
+            )
           )
           and t.estado = 'hecha'
           and t.completada_en::date = current_date
@@ -402,8 +411,14 @@ export default async function HoyPage({
         from subtarea s
         join tarea t on t.id = s.tarea_id
         where (
-            t.responsable_id = mi_usuario_id()
-            or exists (select 1 from tarea_asignado ta where ta.tarea_id = t.id and ta.usuario_id = mi_usuario_id())
+            s.completada_por = mi_usuario_id()
+            or (
+              s.completada_por is null
+              and (
+                t.responsable_id = mi_usuario_id()
+                or exists (select 1 from tarea_asignado ta where ta.tarea_id = t.id and ta.usuario_id = mi_usuario_id())
+              )
+            )
           )
           and s.hecha = true
           and s.completada_en::date = current_date

@@ -16,15 +16,11 @@ export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
 
-  // '/' sirve la landing pública (app/page.tsx) a quien no tiene sesión;
-  // con sesión sigue mandando directo a /hoy. No se agrega '/' a
-  // RUTAS_PUBLICAS con startsWith porque CUALQUIER path empieza con '/' —
-  // eso volvería pública toda la app.
+  // Uso interno, sin landing pública: '/' va a /hoy con sesión y a /login
+  // sin ella. No se agrega '/' a RUTAS_PUBLICAS con startsWith porque
+  // CUALQUIER path empieza con '/' — eso volvería pública toda la app.
   if (pathname === '/') {
-    if (isLoggedIn) {
-      return NextResponse.redirect(new URL('/hoy', req.url));
-    }
-    return NextResponse.next();
+    return NextResponse.redirect(new URL(isLoggedIn ? '/hoy' : '/login', req.url));
   }
 
   const isPublica = RUTAS_PUBLICAS.some((r) => pathname.startsWith(r));
