@@ -136,9 +136,20 @@ export function VisitaDialog({
     [SIN_PROVINCIA]: "Sin definir",
     ...Object.fromEntries(PROVINCIAS_ARGENTINAS.map((p) => [p, p])),
   };
+  // Las visitas importadas pueden tener una hora fuera de franja (ej. 12:30):
+  // se la suma a las opciones para que se vea y se pueda conservar al editar.
+  const horariosOpciones = [
+    ...new Set([
+      ...HORARIOS_DISPONIBLES,
+      formatHora(visitaInicial?.hora_inicio ?? null),
+      formatHora(visitaInicial?.hora_fin ?? null),
+    ]),
+  ]
+    .filter(Boolean)
+    .sort();
   const HORA_ITEMS = {
     [SIN_HORA]: "Sin definir",
-    ...Object.fromEntries(HORARIOS_DISPONIBLES.map((h) => [h, h])),
+    ...Object.fromEntries(horariosOpciones.map((h) => [h, h])),
   };
   const colegioOptions: ColegioOption[] = colegios.map((c) => ({
     id: c.id,
@@ -208,9 +219,14 @@ export function VisitaDialog({
 
     startTransition(async () => {
       try {
-        const { sincronizada, error: syncError } = isEdit
+        const resultado = isEdit
           ? await actualizarVisita(visitaInicial.id, payload)
           : await crearVisita(payload);
+        if ("invalido" in resultado) {
+          setError(resultado.invalido);
+          return;
+        }
+        const { sincronizada, error: syncError } = resultado;
 
         if (syncError) {
           toast.warning("La visita se guardó, pero no se pudo sincronizar con Google Calendar.", {
@@ -317,7 +333,7 @@ export function VisitaDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={SIN_HORA}>Sin definir</SelectItem>
-                  {HORARIOS_DISPONIBLES.map((h) => (
+                  {horariosOpciones.map((h) => (
                     <SelectItem key={h} value={h}>
                       {h}
                     </SelectItem>
@@ -337,7 +353,7 @@ export function VisitaDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={SIN_HORA}>Sin definir</SelectItem>
-                  {HORARIOS_DISPONIBLES.map((h) => (
+                  {horariosOpciones.map((h) => (
                     <SelectItem key={h} value={h}>
                       {h}
                     </SelectItem>
