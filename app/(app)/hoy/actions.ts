@@ -24,27 +24,39 @@ export async function toggleTarea(tareaId: string, estadoActual: string) {
   revalidatePath('/hoy');
 }
 
+// Devuelve { error } en vez de tirar: en producción Next oculta el mensaje
+// de un throw en una server action ("Minified React error #441") y la card
+// no tendría cómo avisar que no se guardó.
 export async function guardarBitacora(input: {
   hecho: string;
   pendiente: string;
   observaciones: string;
-}) {
+}): Promise<{ error: string | null }> {
   const session = await auth();
-  if (!session?.user) throw new Error('No autenticado');
+  if (!session?.user) return { error: 'La sesión venció. Volvé a ingresar.' };
+  if (!input.hecho && !input.pendiente && !input.observaciones) {
+    return { error: 'Escribí al menos qué hiciste o qué quedó pendiente.' };
+  }
 
-  await withUser(session.user.id, async (tx) => {
-    await tx`
-      insert into bitacora_diaria (organizacion_id, usuario_id, fecha, hecho, pendiente, observaciones)
-      values (
-        mi_organizacion_id(), mi_usuario_id(), current_date,
-        ${input.hecho || null}, ${input.pendiente || null}, ${input.observaciones || null}
-      )
-      on conflict (usuario_id, fecha) do update
-      set hecho = excluded.hecho,
-          pendiente = excluded.pendiente,
-          observaciones = excluded.observaciones
-    `;
-  });
+  try {
+    await withUser(session.user.id, async (tx) => {
+      await tx`
+        insert into bitacora_diaria (organizacion_id, usuario_id, fecha, hecho, pendiente, observaciones)
+        values (
+          mi_organizacion_id(), mi_usuario_id(), current_date,
+          ${input.hecho || null}, ${input.pendiente || null}, ${input.observaciones || null}
+        )
+        on conflict (usuario_id, fecha) do update
+        set hecho = excluded.hecho,
+            pendiente = excluded.pendiente,
+            observaciones = excluded.observaciones
+      `;
+    });
+  } catch (e) {
+    console.error('guardarBitacora', e);
+    return { error: 'No se pudo guardar la bitácora. Probá de nuevo.' };
+  }
 
   revalidatePath('/hoy');
+  return { error: null };
 }

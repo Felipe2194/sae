@@ -38,8 +38,8 @@ export default async function AuthLayout({
               (public/LogoUTN-dark.png), igual que en el sidebar. Un logo
               subido por la organización mantiene siempre la caja blanca. */}
           <Link
-            href="/"
-            aria-label="Volver a la página principal"
+            href="/login"
+            aria-label="Volver al inicio de sesión"
             className={
               org?.logo_url
                 ? "rounded-2xl bg-white px-8 py-5 shadow-lg"
@@ -83,7 +83,7 @@ export default async function AuthLayout({
       <div className="flex flex-1 flex-col items-center justify-center p-6">
         {/* Logo visible solo en mobile */}
         <div className="mb-8 flex flex-col items-center gap-2 lg:hidden">
-          <Link href="/" aria-label="Volver a la página principal">
+          <Link href="/login" aria-label="Volver al inicio de sesión">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={logo}

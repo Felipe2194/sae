@@ -60,7 +60,7 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
             backgroundImage: `${brandGradient}, url('/login-fondo.jpg')`,
           }}
         >
-          <Link href="/" aria-label="Volver a la página principal" className="w-fit">
+          <div className="w-fit">
             {logoUrl ? (
               // Logo subido por la organización: caja blanca siempre, sea
               // cual sea el tema — no sabemos si el logo tiene texto oscuro.
@@ -84,7 +84,7 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
                 className="h-9 w-auto object-contain"
               />
             )}
-          </Link>
+          </div>
           <p className="text-sm font-medium text-white/70">
             Sistema de Administración Estudiantil
           </p>
@@ -94,7 +94,7 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
         <div className="flex flex-col justify-center gap-6 px-8 py-10 sm:px-12 sm:py-14">
           {/* Logo visible solo en mobile, donde el panel de marca está oculto */}
           <div className="flex justify-center md:hidden">
-            <Link href="/" aria-label="Volver a la página principal">
+            <div>
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -112,7 +112,7 @@ export function LoginScreen({ logoUrl, brandColor }: Props) {
                   className="h-9 w-auto object-contain"
                 />
               )}
-            </Link>
+            </div>
           </div>
 
           <div className="text-center md:text-left">

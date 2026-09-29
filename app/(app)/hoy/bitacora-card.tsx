@@ -37,6 +37,7 @@ export function BitacoraCard({ bitacoraHoy, prefillHecho }: Props) {
   const [observaciones, setObservaciones] = useState(bitacoraHoy?.observaciones ?? "");
   const [guardada, setGuardada] = useState(yaCargada);
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   // Siempre arranca colapsada — el formulario se llevaba la mayor parte del
   // espacio de la columna. Si todavía no se cargó, el aviso "Sin cargar" del
   // encabezado queda como recordatorio.
@@ -50,12 +51,17 @@ export function BitacoraCard({ bitacoraHoy, prefillHecho }: Props) {
   }
 
   function handleGuardar() {
+    setError(null);
     startTransition(async () => {
-      await guardarBitacora({
+      const resultado = await guardarBitacora({
         hecho: hecho.trim(),
         pendiente: pendiente.trim(),
         observaciones: observaciones.trim(),
-      });
+      }).catch(() => ({ error: "No se pudo guardar la bitácora. Probá de nuevo." }));
+      if (resultado.error) {
+        setError(resultado.error);
+        return;
+      }
       setGuardada(true);
     });
   }
@@ -117,6 +123,7 @@ export function BitacoraCard({ bitacoraHoy, prefillHecho }: Props) {
                 placeholder="Opcional..."
               />
             </div>
+            {error && <p className="text-destructive text-xs">{error}</p>}
             <Button
               size="sm"
               className="h-7 self-end text-xs"
