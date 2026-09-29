@@ -34,6 +34,9 @@ export function ConfirmarVisitaButton({
         return;
       }
       toast.success("Visita marcada como realizada.", {
+        // Los 4 s por defecto no alcanzan para reaccionar a un toque de más
+        // desde el celular.
+        duration: 10_000,
         action:
           estadoPrevio === "pendiente" || estadoPrevio === "confirmado"
             ? {
