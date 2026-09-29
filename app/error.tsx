@@ -5,6 +5,10 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { MascotaTigre } from "@/components/features/mascota-tigre";
+import {
+  EstiloColorPrincipal,
+  useColorPrincipalGuardado,
+} from "@/components/features/color-principal-guardado";
 
 // Blobs decorativos (círculos difuminados, no el mural completo de
 // lib/fondos.ts — ese trae una base sólida pensada para cubrir toda la
@@ -12,8 +16,10 @@ import { MascotaTigre } from "@/components/features/mascota-tigre";
 // temas "Atardecer", "Lavanda" y "Océano" de /perfil, como color puro. La
 // intensidad entre modo claro/oscuro la maneja el dark:opacity-* de cada
 // blob, no el color en sí.
-const BLOB_ATARDECER =
-  "radial-gradient(circle, rgba(255,141,120,0.9) 0%, rgba(168,88,199,0.55) 55%, transparent 75%)";
+// El primero sigue el color del sistema (--primary) en vez del salmón fijo
+// de "Atardecer", para que el fondo acompañe el color elegido en /perfil.
+const BLOB_PRINCIPAL =
+  "radial-gradient(circle, color-mix(in oklab, var(--primary) 90%, transparent) 0%, color-mix(in oklab, var(--primary) 45%, transparent) 55%, transparent 75%)";
 const BLOB_LAVANDA =
   "radial-gradient(circle, rgba(160,80,220,0.9) 0%, rgba(250,181,158,0.5) 55%, transparent 75%)";
 const BLOB_OCEANO =
@@ -70,6 +76,7 @@ export default function Error({
   }, [error]);
 
   const [isPending, startTransition] = useTransition();
+  const colorPrincipal = useColorPrincipalGuardado();
 
   // retry() (Next 16.3+) reemplaza al viejo hack de router.refresh() + reset():
   // vuelve a pedir los Server Components del segmento antes de re-renderizar,
@@ -114,13 +121,14 @@ export default function Error({
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      <EstiloColorPrincipal color={colorPrincipal} />
       {/* Fondo animado — mismos gradientes que el fondo "glass" personal de
           /perfil, para que la pantalla de error se sienta parte de la
           misma app y no un template genérico pegado encima. */}
       <div className="absolute inset-0 -z-10 bg-background">
         <motion.div
           className="absolute -top-32 -left-32 h-96 w-96 rounded-full opacity-40 blur-3xl dark:opacity-25"
-          style={{ background: BLOB_ATARDECER }}
+          style={{ background: BLOB_PRINCIPAL }}
           animate={{ x: [0, 40, -20, 0], y: [0, 30, -10, 0] }}
           transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -138,21 +146,21 @@ export default function Error({
         />
       </div>
 
-      <div className="border-border/60 bg-card/70 flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border px-8 py-10 text-center shadow-lg backdrop-blur-xl">
+      <div className="border-border/60 bg-card/70 flex w-full max-w-md flex-col items-center gap-5 rounded-2xl border px-8 py-12 text-center shadow-lg backdrop-blur-xl">
         <motion.div
           className="bg-primary/10 flex items-center justify-center rounded-full p-5"
           animate={{ y: [0, -6, 0], rotate: [0, -3, 3, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
-          <MascotaTigre className="h-auto w-32" />
+          <MascotaTigre className="h-auto w-36" />
         </motion.div>
 
-        <div className="flex flex-col gap-1.5">
-          <p className="text-primary text-sm font-medium">{sinConexion ? "Sin conexión" : "Ups"}</p>
+        <div className="flex flex-col gap-2">
+          <p className="text-primary text-base font-semibold">{sinConexion ? "Sin conexión" : "Ups"}</p>
           {sinConexion ? (
-            <div className="flex flex-col gap-1.5">
-              <h1 className="text-xl font-semibold text-balance">Parece que no tenés internet</h1>
-              <p className="text-muted-foreground max-w-xs text-sm text-balance">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-2xl font-semibold text-balance">Parece que no tenés internet</h1>
+              <p className="text-muted-foreground max-w-sm text-base text-balance">
                 Revisá tu conexión — en cuanto vuelva, vas a poder reintentar.
               </p>
             </div>
@@ -164,21 +172,26 @@ export default function Error({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.25 }}
-                className="flex flex-col gap-1.5"
+                className="flex flex-col gap-2"
               >
-                <h1 className="text-xl font-semibold text-balance">{quip.titulo}</h1>
-                <p className="text-muted-foreground max-w-xs text-sm text-balance">{quip.texto}</p>
+                <h1 className="text-2xl font-semibold text-balance">{quip.titulo}</h1>
+                <p className="text-muted-foreground max-w-sm text-base text-balance">{quip.texto}</p>
               </motion.div>
             </AnimatePresence>
           )}
         </div>
 
-        <div className="mt-2 flex items-center gap-2">
-          <Button onClick={reintentar} disabled={isPending || sinConexion}>
+        <div className="mt-2 flex items-center gap-3">
+          <Button
+            className="h-11 px-6 text-base"
+            onClick={reintentar}
+            disabled={isPending || sinConexion}
+          >
             Reintentar
           </Button>
           <Button
             variant="ghost"
+            className="h-11 px-6 text-base"
             nativeButton={false}
             render={<Link href="/hoy" />}
             disabled={sinConexion}
@@ -188,7 +201,7 @@ export default function Error({
         </div>
 
         {!sinConexion && (
-          <p className="text-muted-foreground mt-1 text-xs">
+          <p className="text-muted-foreground mt-1 text-sm">
             Código 500 · si el problema sigue, contactá al desarrollador
             {error.digest ? ` (código de referencia: ${error.digest})` : ""}.
           </p>
