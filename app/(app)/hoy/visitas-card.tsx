@@ -8,6 +8,10 @@ import {
   TipoVisitaChip,
   formatHora,
 } from "@/app/(app)/visitas/visita-estilos";
+import {
+  ConfirmarVisitaButton,
+  puedeConfirmarse,
+} from "@/app/(app)/visitas/confirmar-visita-button";
 import { cn } from "@/lib/utils";
 import type { EstadoVisita, TipoVisita } from "@/types/database";
 
@@ -67,50 +71,75 @@ export function VisitasCard({
               <p className="text-muted-foreground text-sm">Sin visitas.</p>
             ) : (
               d.visitas.map((v) => (
-                <Link
+                // El botón "Realizada" va al lado del link, no adentro (un
+                // <a> no puede contener un <button>).
+                <div
                   key={v.id}
-                  href={`/visitas?visita=${v.id}`}
                   className={cn(
-                    "hover:bg-muted/50 flex items-center gap-3 rounded-xl border p-2.5 transition-colors",
+                    "hover:bg-muted/50 flex items-center gap-2 rounded-xl border pr-2.5 transition-colors",
                     v.estado === "cancelado" && "opacity-50",
                   )}
                 >
-                  <div className="w-14 shrink-0 text-center">
-                    <p className="text-xl leading-none font-bold tabular-nums">
-                      {v.hora_inicio ? formatHora(v.hora_inicio) : "—"}
-                    </p>
-                    {v.hora_fin && (
-                      <p className="text-muted-foreground mt-1 text-[11px] tabular-nums">
-                        a {formatHora(v.hora_fin)}
+                  <Link
+                    href={`/visitas?visita=${v.id}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 p-2.5"
+                  >
+                    <div className="w-14 shrink-0 text-center">
+                      <p className="text-xl leading-none font-bold tabular-nums">
+                        {v.hora_inicio ? formatHora(v.hora_inicio) : "—"}
                       </p>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={cn(
-                        "truncate text-sm font-semibold",
-                        v.estado === "cancelado" && "line-through",
+                      {v.hora_fin && (
+                        <p className="text-muted-foreground mt-1 text-[11px] tabular-nums">
+                          a {formatHora(v.hora_fin)}
+                        </p>
                       )}
-                    >
-                      {v.colegio_nombre}
-                    </p>
-                    {v.ciudad && (
-                      <p className="text-muted-foreground truncate text-xs">{v.ciudad}</p>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={cn(
+                          "truncate text-sm font-semibold",
+                          v.estado === "cancelado" && "line-through",
+                        )}
+                      >
+                        {v.colegio_nombre}
+                      </p>
+                      {v.ciudad && (
+                        <p className="text-muted-foreground truncate text-xs">
+                          {v.ciudad}
+                        </p>
+                      )}
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <TipoVisitaChip tipo={v.tipo} />
+                        <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                          <span
+                            className={cn(
+                              "size-1.5 rounded-full",
+                              ESTADO_PUNTO[v.estado],
+                            )}
+                          />
+                          {labelEstadoVisita(v.estado)}
+                        </span>
+                      </div>
+                    </div>
+                    {v.integrantes.length > 0 && (
+                      <div
+                        className={cn(
+                          "shrink-0",
+                          puedeConfirmarse(v, hoy) && "hidden sm:block",
+                        )}
+                      >
+                        <UserAvatarStack
+                          usuarios={v.integrantes}
+                          size="sm"
+                          max={3}
+                        />
+                      </div>
                     )}
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <TipoVisitaChip tipo={v.tipo} />
-                      <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                        <span className={cn("size-1.5 rounded-full", ESTADO_PUNTO[v.estado])} />
-                        {labelEstadoVisita(v.estado)}
-                      </span>
-                    </div>
-                  </div>
-                  {v.integrantes.length > 0 && (
-                    <div className="shrink-0">
-                      <UserAvatarStack usuarios={v.integrantes} size="sm" max={3} />
-                    </div>
+                  </Link>
+                  {puedeConfirmarse(v, hoy) && (
+                    <ConfirmarVisitaButton visitaId={v.id} />
                   )}
-                </Link>
+                </div>
               ))
             )}
           </div>

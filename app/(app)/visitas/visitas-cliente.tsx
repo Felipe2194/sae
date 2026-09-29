@@ -21,6 +21,7 @@ import { UserAvatarStack } from "@/components/features/user-avatar";
 import { VisitaDialog } from "./visita-dialog";
 import { ColegiosCliente } from "./colegios-cliente";
 import { PresenciaEquipo } from "./presencia-equipo";
+import { ConfirmarVisitaButton, puedeConfirmarse } from "./confirmar-visita-button";
 import { labelEstadoVisita } from "./tipos";
 import { ESTADO_PUNTO, TipoVisitaChip, formatHora } from "./visita-estilos";
 import { cn } from "@/lib/utils";
@@ -89,12 +90,21 @@ function VisitasDeHoy({
           </p>
         ) : (
           visitas.map((v) => (
-            <button
+            // div con role=button (no <button>): adentro va el botón
+            // "Realizada", y un botón no puede contener otro.
+            <div
               key={v.id}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => onAbrir(v)}
+              onKeyDown={(e) => {
+                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  onAbrir(v);
+                }
+              }}
               className={cn(
-                "hover:bg-muted/50 flex w-full items-center gap-4 rounded-xl border p-3 text-left transition-colors",
+                "hover:bg-muted/50 flex w-full cursor-pointer items-center gap-4 rounded-xl border p-3 text-left transition-colors",
                 v.estado === "cancelado" && "opacity-50",
               )}
             >
@@ -122,11 +132,18 @@ function VisitasDeHoy({
                 </div>
               </div>
               {v.integrantes.length > 0 && (
-                <div className="shrink-0">
+                <div
+                  className={cn(
+                    "shrink-0",
+                    // En el celular no entran avatares y botón a la vez.
+                    puedeConfirmarse(v, hoy) && "hidden sm:block",
+                  )}
+                >
                   <UserAvatarStack usuarios={v.integrantes} size="sm" max={3} />
                 </div>
               )}
-            </button>
+              {puedeConfirmarse(v, hoy) && <ConfirmarVisitaButton visitaId={v.id} />}
+            </div>
           ))
         )}
       </CardContent>
@@ -384,6 +401,9 @@ export function VisitasCliente({
                         </div>
                       </td>
                       <td className="px-3 py-3 text-right whitespace-nowrap">
+                        {puedeConfirmarse(v, hoy) && (
+                          <ConfirmarVisitaButton visitaId={v.id} compacto className="mr-1" />
+                        )}
                         <Button
                           size="icon"
                           variant="ghost"
