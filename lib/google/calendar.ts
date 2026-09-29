@@ -33,10 +33,19 @@ function base64url(input: string | Buffer): string {
     .replace(/=+$/, "");
 }
 
+// El token dura una hora: se reusa mientras le quede más de un minuto. Sin
+// esto, cada carga de /hoy pedía uno nuevo a Google (firma RSA + POST,
+// ~0.8 s) aunque los eventos salieran del cache de fetch. Vive en memoria
+// de la instancia — Fluid Compute la reusa entre requests.
+const tokensCache = new Map<string, { token: string; vence: number }>();
+
 async function obtenerAccessToken(
   clientEmail: string,
   privateKey: string,
 ): Promise<string> {
+  const cacheado = tokensCache.get(clientEmail);
+  if (cacheado && cacheado.vence - Date.now() > 60_000) return cacheado.token;
+
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const claims = base64url(
@@ -67,7 +76,12 @@ async function obtenerAccessToken(
     );
   }
   const data = await res.json();
-  return data.access_token as string;
+  const token = data.access_token as string;
+  tokensCache.set(clientEmail, {
+    token,
+    vence: Date.now() + (Number(data.expires_in) || 3600) * 1000,
+  });
+  return token;
 }
 
 export type NuevoEventoCalendar = {
