@@ -156,6 +156,15 @@ export function labelTipoVisita(tipo: TipoVisita): string {
   return TIPOS_VISITA.find((t) => t.value === tipo)?.label ?? tipo;
 }
 
+// Vive acá y no en confirmar-visita-button.tsx: la tarjeta de visitas de
+// /hoy es un Server Component y no puede ejecutar una función exportada
+// desde un archivo "use client" (daba 500).
+// Solo tiene sentido en visitas de hoy o ya pasadas que siguen como
+// Pendiente/Confirmado — las futuras todavía no se pueden haber hecho.
+export function puedeConfirmarse(v: { estado: EstadoVisita; fecha: string }, hoy: string) {
+  return (v.estado === "pendiente" || v.estado === "confirmado") && v.fecha <= hoy;
+}
+
 export function labelEstadoVisita(estado: EstadoVisita): string {
   return ESTADOS_VISITA.find((e) => e.value === estado)?.label ?? estado;
 }
