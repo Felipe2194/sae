@@ -37,7 +37,10 @@ export function AgendaCard({
 }) {
   const ahora = new Date();
   const partes = (opciones: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat("es-AR", { timeZone: zonaHoraria, ...opciones }).format(ahora);
+    new Intl.DateTimeFormat("es-AR", {
+      timeZone: zonaHoraria,
+      ...opciones,
+    }).format(ahora);
   const diaNumero = partes({ day: "numeric" });
   const diaSemana = partes({ weekday: "long" });
   const mes = partes({ month: "long" });
@@ -71,12 +74,14 @@ export function AgendaCard({
       </CardHeader>
       <CardContent className="flex gap-3 px-4 pb-4">
         {/* Hoja de calendario */}
-        <div className="flex w-14 shrink-0 flex-col self-start overflow-hidden rounded-lg border text-center">
-          <span className="bg-primary text-primary-foreground py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+        <div className="flex size-[72px] shrink-0 flex-col self-start overflow-hidden rounded-lg border text-center">
+          <span className="bg-primary text-primary-foreground py-0.5 text-[11px] font-semibold tracking-wide uppercase">
             {mes.slice(0, 3)}
           </span>
-          <span className="py-1 text-2xl leading-none font-bold tabular-nums">{diaNumero}</span>
-          <span className="text-muted-foreground pb-1 text-[10px] capitalize">
+          <span className="flex flex-1 items-center justify-center text-3xl leading-none font-bold tabular-nums">
+            {diaNumero}
+          </span>
+          <span className="text-muted-foreground pb-1 text-[11px] leading-none capitalize">
             {diaSemana.slice(0, 3)}
           </span>
         </div>
@@ -84,10 +89,13 @@ export function AgendaCard({
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {eventos === null ? (
             <p className="text-muted-foreground text-xs">
-              {error ?? "No hay un Google Calendar vinculado a la organización."}
+              {error ??
+                "No hay un Google Calendar vinculado a la organización."}
             </p>
           ) : ordenados.length === 0 ? (
-            <p className="text-muted-foreground py-1 text-xs">Nada agendado para hoy.</p>
+            <p className="text-muted-foreground py-1 text-xs">
+              Nada agendado para hoy.
+            </p>
           ) : (
             <div className="flex max-h-[240px] flex-col gap-1 overflow-y-auto">
               {ordenados.map((e) => {
@@ -95,7 +103,9 @@ export function AgendaCard({
                 const fin = new Date(e.fin);
                 const terminado = !e.allDay && fin <= ahora;
                 const enCurso = !e.allDay && inicio <= ahora && ahora < fin;
-                const color = (e.colorId && COLORES_CALENDAR[e.colorId]) || "var(--primary)";
+                const color =
+                  (e.colorId && COLORES_CALENDAR[e.colorId]) ||
+                  "var(--primary)";
                 return (
                   <div
                     key={e.id}
@@ -113,7 +123,10 @@ export function AgendaCard({
                       {e.allDay ? "Día" : hora.format(inicio)}
                     </span>
                     <span
-                      className={cn("min-w-0 flex-1 truncate", terminado && "line-through")}
+                      className={cn(
+                        "min-w-0 flex-1 truncate",
+                        terminado && "line-through",
+                      )}
                       title={e.titulo}
                     >
                       {e.titulo}

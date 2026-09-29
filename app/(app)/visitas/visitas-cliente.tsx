@@ -247,10 +247,13 @@ export function VisitasCliente({
             onValueChange={(v) => router.push(`/visitas?anio=${v ?? anio}`)}
             items={ANIO_ITEMS}
           >
-            <SelectTrigger className="h-9 w-28">
+            {/* Fondo sólido: con el bg-transparent por defecto del trigger y
+                el popup translúcido, el selector de año se veía "hueco" al
+                lado del botón de Nueva visita. */}
+            <SelectTrigger className="bg-card dark:bg-card h-9 w-28 shadow-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-popover">
               {anios.map((a) => (
                 <SelectItem key={a} value={String(a)}>
                   {a}

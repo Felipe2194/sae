@@ -1,15 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  ListTodo,
-  Sunrise,
-  Sun,
-  Moon,
-  Megaphone,
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, Megaphone } from "lucide-react";
 import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { redirectSesionInvalida } from "@/lib/redirects";
@@ -34,11 +25,24 @@ import { AvisoMotivo } from "@/components/features/aviso-motivo";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function saludo(): string {
-  const h = new Date().getHours();
-  if (h < 12) return "Buenos días";
-  if (h < 20) return "Buenas tardes";
-  return "Buenas noches";
+// Hora actual en la zona horaria de la organización — el servidor (Vercel)
+// corre en UTC, así que new Date().getHours() saludaba con 3 h de desfase.
+function horaEn(zonaHoraria: string): number {
+  const h = new Intl.DateTimeFormat("es-AR", {
+    timeZone: zonaHoraria,
+    hour: "numeric",
+    hourCycle: "h23",
+  }).format(new Date());
+  return Number(h);
+}
+
+function saludo(h: number): { texto: string; emoji: string } {
+  if (h < 6) return { texto: "Buenas noches", emoji: "🌙" };
+  if (h < 9) return { texto: "Buenos días", emoji: "🌅" };
+  if (h < 12) return { texto: "Buenos días", emoji: "☀️" };
+  if (h < 17) return { texto: "Buenas tardes", emoji: "🌤️" };
+  if (h < 20) return { texto: "Buenas tardes", emoji: "🌇" };
+  return { texto: "Buenas noches", emoji: "🌙" };
 }
 
 function formatFechaRelativaCorta(iso: string): string {
@@ -52,15 +56,9 @@ function formatFechaRelativaCorta(iso: string): string {
   return `hace ${dias} d`;
 }
 
-function SaludoIcono({ className }: { className?: string }) {
-  const h = new Date().getHours();
-  if (h < 9) return <Sunrise className={className} />;
-  if (h < 20) return <Sun className={className} />;
-  return <Moon className={className} />;
-}
-
-function fechaLarga(): string {
+function fechaLarga(zonaHoraria: string): string {
   const s = new Intl.DateTimeFormat("es-AR", {
+    timeZone: zonaHoraria,
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -124,12 +122,6 @@ type TareaRow = {
   para_todos: boolean;
 };
 
-type StatRow = {
-  abiertas: number;
-  en_progreso: number;
-  completadas_hoy: number;
-};
-
 type PersonaRow = { nombre: string; avatar_color: string | null };
 
 type AccesoRow = { id: string; etiqueta: string; url: string };
@@ -174,7 +166,6 @@ export default async function HoyPage({
 
   const {
     tareas,
-    stats,
     enOficina,
     accesos,
     bitacoraHoy,
@@ -183,6 +174,7 @@ export default async function HoyPage({
     novedad,
     tableroHabilitado,
     miNombre,
+    zonaHoraria,
     visitasHabilitado,
     agenda,
     visitas,
@@ -268,13 +260,12 @@ export default async function HoyPage({
       mananaVisitas = dias.manana;
     }
 
-    // Ninguna de estas 9 queries depende del resultado de otra — van todas
+    // Ninguna de estas 8 queries depende del resultado de otra — van todas
     // juntas en Promise.all para que postgres.js las pipelinee en un solo
-    // round-trip de red en vez de nueve (esta página es la que más se
+    // round-trip de red en vez de ocho (esta página es la que más se
     // visita, y contra una base remota cada round-trip se nota al navegar).
     const [
       tareas,
-      [stats],
       enOficina,
       accesos,
       [novedad],
@@ -306,18 +297,6 @@ export default async function HoyPage({
           and t.archivada = false
           and t.activa = true
         order by t.fecha_vencimiento asc nulls last, t.orden asc
-      `,
-
-      tx<[StatRow]>`
-        select
-          count(*)         filter (where estado != 'hecha')::int                           as abiertas,
-          count(*)         filter (where estado = 'en_progreso')::int                      as en_progreso,
-          count(*)         filter (where estado = 'hecha'
-            and completada_en::date = current_date)::int                                   as completadas_hoy
-        from tarea
-        where organizacion_id = mi_organizacion_id()
-          and archivada = false
-          and activa = true
       `,
 
       // "En la oficina ahora": excluye a quien marcó ausencia o cambio de
@@ -459,7 +438,6 @@ export default async function HoyPage({
 
     return {
       tareas: [...tareas],
-      stats,
       enOficina: [...enOficina],
       accesos: [...accesos],
       bitacoraHoy: bitacoraHoy ?? null,
@@ -468,10 +446,12 @@ export default async function HoyPage({
       novedad: novedad ?? null,
       tableroHabilitado: org.tablero_habilitado,
       miNombre: org.mi_nombre,
+      zonaHoraria: org.zona_horaria,
       visitasHabilitado: org.visitas_habilitado,
       agenda: org.calendario_habilitado
         ? {
-            calendarId: org.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
+            calendarId:
+              org.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
             zonaHoraria: org.zona_horaria,
             desde: org.dia_desde.toISOString(),
             hasta: org.dia_hasta.toISOString(),
@@ -491,7 +471,11 @@ export default async function HoyPage({
   let errorAgenda: string | null = null;
   if (agenda) {
     try {
-      eventosHoy = await listarEventosCalendar(agenda.calendarId, agenda.desde, agenda.hasta);
+      eventosHoy = await listarEventosCalendar(
+        agenda.calendarId,
+        agenda.desde,
+        agenda.hasta,
+      );
     } catch {
       errorAgenda = "No se pudo leer el Google Calendar ahora.";
     }
@@ -523,15 +507,23 @@ export default async function HoyPage({
         ? `${vencidas.length} tarea${vencidas.length > 1 ? "s" : ""} vencida${vencidas.length > 1 ? "s" : ""} — revisalas.`
         : `${paraHoy.length} tarea${paraHoy.length > 1 ? "s" : ""} para completar hoy.`;
 
+  const { texto: textoSaludo, emoji: emojiSaludo } = saludo(
+    horaEn(zonaHoraria),
+  );
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <AvisoMotivo motivo={motivo} />
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1">
-        <p className="text-muted-foreground text-sm">{fechaLarga()}</p>
+        <p className="text-muted-foreground text-sm">
+          {fechaLarga(zonaHoraria)}
+        </p>
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <SaludoIcono className="text-muted-foreground size-5" />
-          {saludo()}, {(miNombre ?? session.user.name).split(" ")[0]}
+          <span aria-hidden className="text-2xl leading-none">
+            {emojiSaludo}
+          </span>
+          {textoSaludo}, {(miNombre ?? session.user.name).split(" ")[0]}
         </h1>
         <p
           className={`text-sm ${vencidas.length > 0 ? "text-destructive font-medium" : "text-muted-foreground"}`}
@@ -629,29 +621,25 @@ export default async function HoyPage({
                   )}
                 </div>
               ) : (
-                // Alto acotado + scroll propio: con muchas tareas para hoy
-                // esta card crecía sin límite y estiraba toda la columna
-                // izquierda de "Hoy" (mismo criterio que Accesos rápidos, ver
-                // accesos-card.tsx) — a partir de ~5 tareas se navega adentro
-                // de la card, no scrolleando toda la página.
-                <div className="max-h-[300px] divide-y overflow-x-hidden overflow-y-auto">
-                  <MisTareasHoy
-                    tareas={paraHoy.map((t) => ({
-                      id: t.id,
-                      titulo: t.titulo,
-                      estado: t.estado,
-                      prioridad: t.prioridad,
-                      tipo: t.tipo,
-                      areaColor: t.area_color,
-                      areaNombre: t.area_nombre,
-                      fecha: t.fecha_vencimiento,
-                      fechaRelativa: t.fecha_vencimiento
-                        ? fechaRelativa(t.fecha_vencimiento, hoyISO)
-                        : null,
-                      paraTodos: t.para_todos,
-                    }))}
-                  />
-                </div>
+                // Paginada de a pocas (ver MisTareasHoy): con muchas tareas
+                // para hoy esta card ocupaba casi toda la columna izquierda y
+                // tapaba al resto de las tarjetas.
+                <MisTareasHoy
+                  tareas={paraHoy.map((t) => ({
+                    id: t.id,
+                    titulo: t.titulo,
+                    estado: t.estado,
+                    prioridad: t.prioridad,
+                    tipo: t.tipo,
+                    areaColor: t.area_color,
+                    areaNombre: t.area_nombre,
+                    fecha: t.fecha_vencimiento,
+                    fechaRelativa: t.fecha_vencimiento
+                      ? fechaRelativa(t.fecha_vencimiento, hoyISO)
+                      : null,
+                    paraTodos: t.para_todos,
+                  }))}
+                />
               )}
             </CardContent>
           </Card>
@@ -665,88 +653,50 @@ export default async function HoyPage({
             />
           )}
 
-          {/* Pulso + En la oficina ahora: fila horizontal debajo de las
-              tareas de hoy. Accesos rápidos vive en la columna derecha, donde
-              puede crecer a lo alto. La música vive en un reproductor global
-              (ver components/features/music-player.tsx). */}
-          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
-            <Card>
-              <CardHeader className="px-4 pt-4 pb-2">
-                <CardTitle className="text-sm font-semibold">Pulso</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-1.5 px-4 pb-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
-                    <ListTodo className="size-3 shrink-0" />
-                    Abiertas
-                  </span>
-                  <span className="text-xs font-semibold tabular-nums">
-                    {stats.abiertas}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
-                    <Clock className="size-3 shrink-0" />
-                    En progreso
-                  </span>
-                  <span className="text-xs font-semibold text-blue-600 tabular-nums">
-                    {stats.en_progreso}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
-                    <CheckCircle2 className="size-3 shrink-0" />
-                    Hoy
-                  </span>
-                  <span className="text-xs font-semibold text-green-600 tabular-nums">
-                    {stats.completadas_hoy}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="px-4 pt-4 pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                  <span
-                    className={`size-2 rounded-full ${enOficina.length > 0 ? "bg-green-500" : "bg-muted-foreground/40"}`}
-                  />
-                  En la oficina
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                {enOficina.length === 0 ? (
-                  <p className="text-muted-foreground text-xs">
-                    Fuera del horario de oficina.
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap gap-1.5">
-                      {enOficina.map((p) => (
-                        <Avatar key={p.nombre} className="size-8">
-                          <AvatarFallback
-                            className="text-[11px] font-semibold text-white"
-                            style={{
-                              // El color que cada quien eligió en /perfil;
-                              // la paleta queda solo para quien no eligió.
-                              backgroundColor:
-                                p.avatar_color ??
-                                colorParaNombre(p.nombre, nombresPaleta),
-                            }}
-                          >
-                            {iniciales(p.nombre)}
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
-                    </div>
-                    <p className="text-muted-foreground text-xs">
-                      {enOficina.map((p) => p.nombre.split(" ")[0]).join(", ")}
-                    </p>
+          {/* En la oficina ahora. Accesos rápidos vive en la columna derecha,
+              donde puede crecer a lo alto. La música vive en un reproductor
+              global (ver components/features/music-player.tsx). */}
+          <Card>
+            <CardHeader className="px-4 pt-4 pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                <span
+                  className={`size-2 rounded-full ${enOficina.length > 0 ? "bg-green-500" : "bg-muted-foreground/40"}`}
+                />
+                En la oficina
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              {enOficina.length === 0 ? (
+                <p className="text-muted-foreground text-xs">
+                  Fuera del horario de oficina.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {enOficina.map((p) => (
+                      <Avatar key={p.nombre} className="size-8">
+                        <AvatarFallback
+                          className="text-[11px] font-semibold text-white"
+                          style={{
+                            // El color que cada quien eligió en /perfil;
+                            // la paleta queda solo para quien no eligió.
+                            backgroundColor:
+                              p.avatar_color ??
+                              colorParaNombre(p.nombre, nombresPaleta),
+                          }}
+                        >
+                          {iniciales(p.nombre)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  <p className="text-muted-foreground text-xs">
+                    {enOficina.map((p) => p.nombre.split(" ")[0]).join(", ")}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Próximamente */}
           {proximas.length > 0 && (
