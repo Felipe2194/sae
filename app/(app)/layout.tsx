@@ -13,6 +13,7 @@ import { PanelNotificaciones } from "@/components/features/panel-notificaciones"
 import { ThemeToggle } from "@/components/features/theme-toggle";
 import { AppSidebar } from "@/components/features/app-sidebar";
 import { MusicPlayer } from "@/components/features/music-player";
+import { RecordarColorPrincipal } from "@/components/features/color-principal-guardado";
 import { fondoVars } from "@/lib/fondos";
 import type { SeccionOpcionalKey } from "@/lib/secciones";
 
@@ -135,6 +136,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {colorPrincipal && (
         <style>{`html:root{--primary:${colorPrincipal};--ring:color-mix(in oklab,${colorPrincipal} 40%,transparent);--sidebar-primary:${colorPrincipal}}`}</style>
       )}
+      {/* Para que las pantallas de error, que reemplazan este layout,
+          también usen el color elegido. */}
+      <RecordarColorPrincipal color={colorPrincipal} />
       <AppSidebar
         // Nombre de la base, no de la sesión: si se cambió en /perfil, la
         // sesión lo sigue teniendo viejo hasta que se revalide el token.
