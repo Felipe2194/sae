@@ -5,14 +5,7 @@ import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { EstadoVisita } from "@/types/database";
 import { cambiarEstadoVisita } from "./actions";
-
-// Solo tiene sentido en visitas de hoy o ya pasadas que siguen como
-// Pendiente/Confirmado — las futuras todavía no se pueden haber hecho.
-export function puedeConfirmarse(v: { estado: EstadoVisita; fecha: string }, hoy: string) {
-  return (v.estado === "pendiente" || v.estado === "confirmado") && v.fecha <= hoy;
-}
 
 // Botón de un toque para marcar una visita como realizada, pensado sobre
 // todo para el celular (antes había que abrir la edición, cambiar el estado

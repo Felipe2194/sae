@@ -2,16 +2,13 @@ import Link from "next/link";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatarStack } from "@/components/features/user-avatar";
-import { labelEstadoVisita } from "@/app/(app)/visitas/tipos";
+import { labelEstadoVisita, puedeConfirmarse } from "@/app/(app)/visitas/tipos";
 import {
   ESTADO_PUNTO,
   TipoVisitaChip,
   formatHora,
 } from "@/app/(app)/visitas/visita-estilos";
-import {
-  ConfirmarVisitaButton,
-  puedeConfirmarse,
-} from "@/app/(app)/visitas/confirmar-visita-button";
+import { ConfirmarVisitaButton } from "@/app/(app)/visitas/confirmar-visita-button";
 import { cn } from "@/lib/utils";
 import type { EstadoVisita, TipoVisita } from "@/types/database";
 
