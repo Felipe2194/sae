@@ -184,25 +184,45 @@ function armarEvento(
   };
 }
 
-function validarVisitaInput(data: VisitaInput): void {
-  if (!horaDentroDeFranjaLaboral(data.horaInicio) || !horaDentroDeFranjaLaboral(data.horaFin)) {
-    throw new Error(
-      "El horario de la visita tiene que estar entre 08:00–12:00 o 14:00–21:00.",
-    );
+// Devuelve el motivo del rechazo (o null) en vez de tirar: en producción Next
+// oculta el mensaje de un throw en una server action y el usuario solo ve
+// "Minified React error #441".
+//
+// `horasPrevias` son las horas ya guardadas de la visita que se edita: las
+// visitas importadas del Excel pueden tener horarios fuera de franja (ej.
+// 08:00–12:30), y no se puede exigir corregirlos solo para cambiarles otro
+// campo. Se aceptan si no se tocaron; una hora nueva sí tiene que caer en
+// franja.
+function validarVisitaInput(
+  data: VisitaInput,
+  horasPrevias: (string | null)[] = [],
+): string | null {
+  const previas = new Set(
+    horasPrevias.filter((h): h is string => !!h).map((h) => h.slice(0, 5)),
+  );
+  const horaValida = (hora: string | null) =>
+    horaDentroDeFranjaLaboral(hora) || (!!hora && previas.has(hora.slice(0, 5)));
+  if (!horaValida(data.horaInicio) || !horaValida(data.horaFin)) {
+    return "El horario de la visita tiene que estar entre 08:00–12:00 o 14:00–21:00.";
   }
   if (!emailValido(data.contactoEmail)) {
-    throw new Error("El email del contacto no es válido.");
+    return "El email del contacto no es válido.";
   }
   if (!telefonoValido(data.contactoTelefono)) {
-    throw new Error("El teléfono del contacto no es válido.");
+    return "El teléfono del contacto no es válido.";
   }
+  return null;
 }
 
 export async function crearVisita(
   data: VisitaInput,
-): Promise<{ id: string; sincronizada: boolean; error: string | null }> {
+): Promise<
+  | { id: string; sincronizada: boolean; error: string | null }
+  | { invalido: string }
+> {
   const session = await requireAuth();
-  validarVisitaInput(data);
+  const invalido = validarVisitaInput(data);
+  if (invalido) return { invalido };
 
   const { visitaId, colegioNombre, integrantesNombres, zonaHoraria, calendarId } =
     await withUser(session.user.id, async (tx) => {
@@ -284,24 +304,25 @@ export async function crearVisita(
 export async function actualizarVisita(
   visitaId: string,
   data: VisitaInput,
-): Promise<{ sincronizada: boolean; error: string | null }> {
+): Promise<
+  | { sincronizada: boolean; error: string | null }
+  | { invalido: string }
+> {
   const session = await requireAuth();
-  validarVisitaInput(data);
 
-  const {
-    colegioNombre,
-    integrantesNombres,
-    zonaHoraria,
-    googleEventIdPrevio,
-    calendarId,
-    eventoCambio,
-  } =
+  const resultado =
     await withUser(session.user.id, async (tx) => {
-      const [previa] = await tx<[{ google_event_id: string | null; estado: string }]>`
-        select google_event_id, estado::text from visita_colegio
+      const [previa] = await tx<
+        [{ google_event_id: string | null; estado: string; hora_inicio: string | null; hora_fin: string | null }]
+      >`
+        select google_event_id, estado::text, hora_inicio::text, hora_fin::text
+        from visita_colegio
         where id = ${visitaId} and organizacion_id = mi_organizacion_id()
       `;
-      if (!previa) throw new Error("La visita no existe.");
+      if (!previa) return { invalido: "La visita no existe." };
+      const invalido = validarVisitaInput(data, [previa.hora_inicio, previa.hora_fin]);
+      if (invalido) return { invalido };
+
       const firmaPrevia = await firmaEvento(tx, visitaId);
 
       const colegioId = await resolverColegio(tx, {
@@ -362,6 +383,15 @@ export async function actualizarVisita(
             ESTADOS_VISITA_SINCRONIZABLES.includes(data.estado),
       };
     });
+  if (resultado.invalido !== undefined) return { invalido: resultado.invalido };
+  const {
+    colegioNombre,
+    integrantesNombres,
+    zonaHoraria,
+    googleEventIdPrevio,
+    calendarId,
+    eventoCambio,
+  } = resultado;
 
   revalidatePath("/visitas");
   revalidatePath("/informes");
