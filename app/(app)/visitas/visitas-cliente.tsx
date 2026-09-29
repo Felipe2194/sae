@@ -94,11 +94,11 @@ function VisitasDeHoy({
               type="button"
               onClick={() => onAbrir(v)}
               className={cn(
-                "hover:bg-muted/50 flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors",
+                "hover:bg-muted/50 flex w-full items-center gap-4 rounded-xl border p-3 text-left transition-colors",
                 v.estado === "cancelado" && "opacity-50",
               )}
             >
-              <div className="w-16 shrink-0 text-center">
+              <div className="w-20 shrink-0 border-r pr-3 text-center">
                 <p className="text-2xl leading-none font-bold tabular-nums">
                   {v.hora_inicio ? formatHora(v.hora_inicio) : "—"}
                 </p>
