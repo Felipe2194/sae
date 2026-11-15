@@ -5,7 +5,8 @@ import { useConfirmar } from "@/components/features/confirmar-dialog";
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ShieldOff, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cambiarEstadoIntegrante, actualizarIntegrante, eliminarIntegrante } from "./actions";
+import {
+  cambiarEstadoIntegrante,
+  actualizarIntegrante,
+  eliminarIntegrante,
+  borrarDatosPersonalesInscriptos,
+} from "./actions";
 import { ESTADOS_INTEGRANTE_VIAJE, labelEstadoIntegranteViaje } from "../tipos";
 import type { EstadoIntegranteViaje } from "@/types/database";
 import type { IntegranteViajeRow } from "./page";
@@ -38,11 +44,15 @@ export function InscriptosTab({
   viajeId,
   integrantesIniciales,
   canManage,
+  puedeBorrarDatos,
 }: {
   viajeId: string;
   integrantesIniciales: IntegranteViajeRow[];
   canManage: boolean;
+  puedeBorrarDatos: boolean;
 }) {
+  const router = useRouter();
+  const [borrando, setBorrando] = useState(false);
   const [integrantes, setIntegrantes] = useState(integrantesIniciales);
   const [filtro, setFiltro] = useState<EstadoIntegranteViaje | "todos">("todos");
   const [, startTransition] = useTransition();
@@ -92,6 +102,38 @@ export function InscriptosTab({
     });
   }
 
+  const conDatos = integrantes.filter((i) => !i.anonimizado_en).length;
+  const anonimizados = integrantes.length - conDatos;
+
+  async function handleBorrarDatos() {
+    const ok = await confirmar({
+      titulo: "¿Borrar los datos personales de los inscriptos?",
+      descripcion:
+        `Nombre, DNI, legajo, mail y teléfono de ${conDatos} ${conDatos === 1 ? "persona" : "personas"} se borran para siempre. ` +
+        "Quedan la carrera, el estado y los pagos, sin saber de quién son. " +
+        "Si todavía necesitás el reporte para la cooperadora, sacalo antes: no se puede deshacer.",
+      confirmar: "Borrar datos",
+      destructivo: true,
+    });
+    if (!ok) return;
+    setBorrando(true);
+    try {
+      const r = await borrarDatosPersonalesInscriptos(viajeId);
+      setIntegrantes(r.integrantes);
+      toast.success(
+        r.cantidad === 1
+          ? "Se borraron los datos personales de 1 inscripto."
+          : `Se borraron los datos personales de ${r.cantidad} inscriptos.`,
+      );
+      // Para que Pagos y el resto de las pestañas dejen de mostrar los nombres.
+      router.refresh();
+    } catch (err) {
+      toast.error(mensajeDeError(err, "No se pudieron borrar los datos personales."));
+    } finally {
+      setBorrando(false);
+    }
+  }
+
   return (
     <>
     <Card>
@@ -116,6 +158,30 @@ export function InscriptosTab({
             </Link>
           )}
         </div>
+
+        {(anonimizados > 0 || (puedeBorrarDatos && conDatos > 0)) && (
+          <div className="bg-muted/50 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
+            <p className="text-muted-foreground flex items-center gap-2 text-xs">
+              <ShieldOff className="size-3.5 shrink-0" />
+              {conDatos === 0
+                ? "Los datos personales de los inscriptos de este viaje ya se borraron."
+                : anonimizados > 0
+                  ? `Ya se borraron los datos personales de ${anonimizados}; ${conDatos === 1 ? "queda 1 persona" : `quedan ${conDatos} personas`} con sus datos.`
+                  : "El viaje ya terminó: podés borrar los datos personales de los inscriptos."}
+            </p>
+            {puedeBorrarDatos && conDatos > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                disabled={borrando}
+                onClick={handleBorrarDatos}
+              >
+                {borrando ? "Borrando…" : "Borrar datos personales"}
+              </Button>
+            )}
+          </div>
+        )}
 
         {lista.length === 0 ? (
           <p className="text-muted-foreground py-8 text-center text-sm">
@@ -142,7 +208,7 @@ export function InscriptosTab({
                       <p className="font-medium">{i.nombre} {i.apellido}</p>
                       {i.carrera && <p className="text-muted-foreground text-xs">{i.carrera}</p>}
                     </td>
-                    <td className="px-2 py-2 whitespace-nowrap">{i.dni}</td>
+                    <td className="px-2 py-2 whitespace-nowrap">{i.anonimizado_en ? "—" : i.dni}</td>
                     <td className="hidden px-2 py-2 sm:table-cell">{i.legajo ?? "—"}</td>
                     <td className="hidden px-2 py-2 md:table-cell">
                       <p className="text-xs">{i.email}</p>

@@ -63,6 +63,7 @@ type Props = {
   integrantes: IntegranteViajeRow[];
   pagos: PagoRow[];
   canManage: boolean;
+  esAdmin: boolean;
   currentUserId: string;
   currentUserName: string;
 };
@@ -77,6 +78,7 @@ export function ViajeDetalleCliente({
   integrantes,
   pagos,
   canManage,
+  esAdmin,
   currentUserId,
   currentUserName,
 }: Props) {
@@ -261,7 +263,14 @@ export function ViajeDetalleCliente({
       </div>
 
       {pestaña === "inscriptos" && (
-        <InscriptosTab viajeId={viaje.id} integrantesIniciales={integrantes} canManage={canManage} />
+        <InscriptosTab
+          viajeId={viaje.id}
+          integrantesIniciales={integrantes}
+          canManage={canManage}
+          // Borrar datos personales: solo administradores y solo con el viaje
+          // ya cerrado (misma regla que anonimizar_inscriptos_viaje, 054).
+          puedeBorrarDatos={esAdmin && (viaje.estado === "realizado" || viaje.estado === "cancelado")}
+        />
       )}
 
       {pestaña === "equipo" && (

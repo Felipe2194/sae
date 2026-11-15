@@ -1,11 +1,12 @@
 "use server";
 
 import { ErrorDeUsuario } from "@/lib/errores";
-import { requireSeccion } from "@/lib/sesion";
+import { requireAdminEnSeccion, requireSeccion } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
 import { withUser } from "@/lib/db";
 import { urlSegura } from "@/lib/utils";
 import type { EstadoIntegranteViaje } from "@/types/database";
+import type { IntegranteViajeRow } from "./page";
 
 // Mismo criterio que la policy viaje_update: creador, equipo asignado, o
 // administrador — repetido acá en vez de importado desde ../actions.ts,
@@ -198,6 +199,47 @@ export async function eliminarIntegrante(integranteId: string, viajeId: string) 
   });
   revalidatePath(`/viajes/${viajeId}`);
   revalidatePath("/informes");
+}
+
+// Retención de datos personales (migración 054): un administrador deja a los
+// inscriptos de un viaje ya realizado o cancelado como "Inscripto N", sin DNI,
+// legajo, mail ni teléfono. Se conservan carrera, estado, montos y pagos. No
+// se puede deshacer. Devuelve la lista ya anonimizada para que la pestaña la
+// muestre sin recargar.
+export async function borrarDatosPersonalesInscriptos(
+  viajeId: string,
+): Promise<{ cantidad: number; integrantes: IntegranteViajeRow[] }> {
+  const session = await requireAdminEnSeccion("viajes");
+  const resultado = await withUser(session.user.id, async (tx) => {
+    // Los mismos chequeos que hace la función SQL, repetidos acá para que el
+    // motivo le llegue a la persona (una excepción de Postgres llega oculta).
+    const [viaje] = await tx<[{ estado: string } | undefined]>`
+      select estado::text from viaje
+      where id = ${viajeId} and organizacion_id = mi_organizacion_id()
+    `;
+    if (!viaje) throw new ErrorDeUsuario("El viaje no existe.");
+    if (viaje.estado !== "realizado" && viaje.estado !== "cancelado") {
+      throw new ErrorDeUsuario(
+        "Los datos personales se pueden borrar recién cuando el viaje está realizado o cancelado.",
+      );
+    }
+    const [{ cantidad }] = await tx<[{ cantidad: number }]>`
+      select anonimizar_inscriptos_viaje(${viajeId}) as cantidad
+    `;
+    const integrantes = await tx<IntegranteViajeRow[]>`
+      select
+        id, nombre, apellido, dni, legajo, carrera, anio_cursada,
+        email, telefono, estado::text as estado, monto_a_pagar::float8,
+        notas_internas, creado_en::text, anonimizado_en::text
+      from viaje_integrante
+      where viaje_id = ${viajeId}
+      order by creado_en asc
+    `;
+    return { cantidad, integrantes: [...integrantes] };
+  });
+  revalidatePath(`/viajes/${viajeId}`);
+  revalidatePath(`/reporte-viajes/${viajeId}`);
+  return resultado;
 }
 
 // ── Pagos ──────────────────────────────────────────────────────────────────────

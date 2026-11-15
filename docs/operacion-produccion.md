@@ -155,13 +155,32 @@ desde Hoy, Proyectos y Viajes aunque el Tablero esté apagado.
   Un trigger impide que alguien se cambie su propio rol, estado o tipo de
   cuenta; la auditoría solo acepta registros a nombre de quien está logueado.
 
-## 7. Pendientes conocidos
+## 7. Datos personales de inscriptos a viajes
+
+La inscripción pública a un viaje guarda nombre, DNI, legajo, mail y teléfono
+de cada estudiante. Pasado el viaje ya no hacen falta, así que un
+**administrador** puede borrarlos desde *Viajes → el viaje → Inscriptos →
+Borrar datos personales*. El botón aparece solo cuando el viaje está
+**Realizado** o **Cancelado**, pide confirmación y deja registro en Auditoría.
+Nada se borra solo.
+
+No elimina a los inscriptos: los anonimiza (migración `054`, función
+`anonimizar_inscriptos_viaje`). Cada uno queda como "Inscripto N", sin DNI,
+legajo, mail, teléfono ni notas internas, y sus pagos pierden el link al
+comprobante. Se conservan carrera, año, estado, monto y pagos, así Informes y
+Costos siguen dando los mismos números.
+
+- **Es irreversible** (salvo restaurando un backup, sección 2).
+- **Sacar antes el reporte para la cooperadora** si todavía hace falta: es lo
+  único que usa DNI y legajo, y después de borrar sale con "Inscripto N".
+- Los volcados de `npm run db:backup` anteriores al borrado siguen teniendo
+  los datos: descartarlos cuando ya no se necesiten.
+
+## 8. Pendientes conocidos
 
 - **Multi-organización a medias:** el registro, el alta por Google y la
   pantalla de login asumen la organización `sae-frvm`, y Telegram usa un único
   chat global. Hay que resolverlo antes de sumar una segunda secretaría.
-- **Datos personales de inscriptos a viajes:** no hay una política de
-  retención ni un borrado automático una vez pasado el viaje.
 - **Login con Google:** requiere `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` en
   Vercel y autorizar el callback del dominio de producción en Google Cloud.
 - **Recuperación de contraseña por mail:** no existe (no hay servicio de

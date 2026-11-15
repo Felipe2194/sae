@@ -18,6 +18,7 @@ type ConfirmadoFila = {
   apellido: string;
   dni: string;
   legajo: string | null;
+  anonimizado: boolean;
   monto_a_pagar: number | null;
 };
 
@@ -53,10 +54,17 @@ export default async function ReporteViajePage({
     if (!viaje) return { viaje: undefined, confirmados: [] };
 
     const confirmados = await tx<ConfirmadoFila[]>`
-      select id, nombre, apellido, dni, legajo, monto_a_pagar::float8
+      select id, nombre, apellido, dni, legajo, monto_a_pagar::float8,
+        anonimizado_en is not null as anonimizado
       from viaje_integrante
       where viaje_id = ${viajeId} and estado = 'confirmado'
-      order by apellido asc, nombre asc
+      -- Los anonimizados (054) van al final, en orden de inscripción: su
+      -- "apellido" es un número y ordenado como texto quedaría 1, 10, 11, 2…
+      order by
+        anonimizado_en is not null,
+        case when anonimizado_en is null then apellido end asc,
+        case when anonimizado_en is null then nombre end asc,
+        creado_en asc
     `;
 
     return { viaje, confirmados: [...confirmados] };
@@ -107,8 +115,10 @@ export default async function ReporteViajePage({
             <tbody>
               {confirmados.map((c) => (
                 <tr key={c.id} className="break-inside-avoid border-b border-neutral-200">
-                  <td className="py-1.5 pr-2">{c.apellido}, {c.nombre}</td>
-                  <td className="py-1.5 pr-2">{c.dni}</td>
+                  <td className="py-1.5 pr-2">
+                    {c.anonimizado ? `${c.nombre} ${c.apellido}` : `${c.apellido}, ${c.nombre}`}
+                  </td>
+                  <td className="py-1.5 pr-2">{c.anonimizado ? "—" : c.dni}</td>
                   <td className="py-1.5 pr-2">{c.legajo ?? "—"}</td>
                   <td className="py-1.5 text-right">
                     {c.monto_a_pagar ? `$${c.monto_a_pagar.toLocaleString("es-AR")}` : "—"}

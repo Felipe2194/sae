@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { sql } from '@/lib/db';
+import { sql, withUser } from '@/lib/db';
 
 // Cada test usa su propia "IP" para no chocar con el rate limit de otro.
 let ipActual = '10.0.0.1';
@@ -23,6 +23,7 @@ vi.mock('next/cache', () => ({ revalidatePath: () => {}, refresh: () => {} }));
 const { inscribirseViaje } = await import('@/app/inscripcion-viaje/[codigo]/actions');
 const { cambiarPassword } = await import('@/app/(app)/perfil/actions');
 const { crearTurno } = await import('@/app/(app)/cronograma/actions');
+const { borrarDatosPersonalesInscriptos } = await import('@/app/(app)/viajes/[viajeId]/actions');
 
 type ConId = { id: string };
 
@@ -261,6 +262,149 @@ describe('Server Actions', () => {
       sesionActual = { user: { id: usuario.id, rol: 'miembro' } };
       await turno();
       expect(await turnos()).toBe(2);
+    });
+  });
+
+  // Retención de datos personales (migración 054). Usa los inscriptos que
+  // dejó el test de cupo de más arriba.
+  describe('borrar datos personales de inscriptos', () => {
+    type Fila = {
+      id: string;
+      nombre: string;
+      apellido: string;
+      dni: string;
+      legajo: string | null;
+      email: string | null;
+      telefono: string | null;
+      notas_internas: string | null;
+      carrera: string | null;
+      anonimizado_en: Date | null;
+    };
+    const filas = () => sql<Fila[]>`
+      select id, nombre, apellido, dni, legajo, email, telefono, notas_internas, carrera, anonimizado_en
+      from viaje_integrante where viaje_id = ${viaje.id} order by creado_en, id
+    `;
+    const comoAdmin = async () => {
+      await sql`update usuario set rol = 'administrador' where id = ${usuario.id}`;
+      sesionActual = { user: { id: usuario.id, rol: 'administrador' } };
+    };
+
+    beforeAll(async () => {
+      await sql`
+        update viaje_integrante
+        set email = 'alguien@test.local', telefono = '3534000000', legajo = '12345',
+            carrera = 'Ing. en Sistemas', notas_internas = 'celíaco'
+        where viaje_id = ${viaje.id}
+      `;
+      const [primero] = await filas();
+      await sql`
+        insert into viaje_pago (viaje_integrante_id, monto, medio_pago, comprobante_url, registrado_por)
+        values (${primero.id}, 1500, 'efectivo', 'https://ejemplo.invalid/comprobante.pdf', ${usuario.id})
+      `;
+      await sql`
+        insert into auditoria (organizacion_id, usuario_id, entidad, entidad_id, entidad_nombre, campo, valor_antes, valor_despues)
+        values (${org.id}, ${usuario.id}, 'viaje_integrante', ${primero.id}, ${primero.nombre + ' ' + primero.apellido}, 'estado', 'pendiente', 'confirmado')
+      `;
+    });
+
+    afterAll(async () => {
+      await sql`update usuario set rol = 'miembro' where id = ${usuario.id}`;
+    });
+
+    it('quien no administra no puede, ni por la acción ni llamando a la función', async () => {
+      await sql`update viaje set estado = 'realizado' where id = ${viaje.id}`;
+      sesionActual = { user: { id: usuario.id, rol: 'miembro' } };
+      await expect(borrarDatosPersonalesInscriptos(viaje.id)).rejects.toThrow(/administrador/);
+      await expect(
+        withUser(usuario.id, (tx) => tx`select anonimizar_inscriptos_viaje(${viaje.id})`),
+      ).rejects.toThrow(/administrador/);
+      expect((await filas()).every((f) => f.anonimizado_en === null && f.email !== null)).toBe(true);
+    });
+
+    it('con el viaje todavía abierto no borra nada', async () => {
+      await sql`update viaje set estado = 'inscripciones_abiertas' where id = ${viaje.id}`;
+      await comoAdmin();
+      await expect(borrarDatosPersonalesInscriptos(viaje.id)).rejects.toThrow(/realizado o cancelado/);
+      await expect(
+        withUser(usuario.id, (tx) => tx`select anonimizar_inscriptos_viaje(${viaje.id})`),
+      ).rejects.toThrow(/realizado o cancelado/);
+      expect((await filas()).every((f) => f.anonimizado_en === null)).toBe(true);
+    });
+
+    it('en un viaje realizado deja a cada inscripto sin nada que lo identifique', async () => {
+      await sql`update viaje set estado = 'realizado' where id = ${viaje.id}`;
+      await comoAdmin();
+      const antes = await filas();
+      const r = await borrarDatosPersonalesInscriptos(viaje.id);
+      expect(r.cantidad).toBe(antes.length);
+      expect(r.integrantes).toHaveLength(antes.length);
+
+      const despues = await filas();
+      despues.forEach((f, i) => {
+        expect(f.id).toBe(antes[i].id);
+        expect(f.nombre).toBe('Inscripto');
+        expect(f.apellido).toBe(String(i + 1));
+        expect(f.dni).toBe('borrado-' + (i + 1));
+        expect(f.legajo).toBeNull();
+        expect(f.email).toBeNull();
+        expect(f.telefono).toBeNull();
+        expect(f.notas_internas).toBeNull();
+        expect(f.carrera).toBe('Ing. en Sistemas');
+        expect(f.anonimizado_en).not.toBeNull();
+      });
+
+      // El pago queda (monto y medio), sin el comprobante.
+      const pagos = await sql`
+        select vp.monto::float8 as monto, vp.medio_pago, vp.comprobante_url
+        from viaje_pago vp join viaje_integrante vi on vi.id = vp.viaje_integrante_id
+        where vi.viaje_id = ${viaje.id}
+      `;
+      expect(pagos).toHaveLength(1);
+      expect(pagos[0]).toMatchObject({ monto: 1500, medio_pago: 'efectivo', comprobante_url: null });
+
+      // La auditoría vieja ya no nombra a la persona, y queda registro del borrado.
+      const rastros = await sql`
+        select entidad, entidad_nombre, campo, valor_despues from auditoria
+        where organizacion_id = ${org.id} and entidad in ('viaje_integrante', 'viaje')
+      `;
+      const deIntegrante = rastros.filter((a) => a.entidad === 'viaje_integrante');
+      expect(deIntegrante).toHaveLength(1);
+      expect(deIntegrante[0].entidad_nombre).toBe('Inscripto 1');
+      const delViaje = rastros.filter((a) => a.campo === '(datos personales de inscriptos borrados)');
+      expect(delViaje).toHaveLength(1);
+      expect(delViaje[0].valor_despues).toBe(String(antes.length));
+
+      // Ningún dato original sobrevive en la tabla.
+      const [{ n }] = await sql<[{ n: number }]>`
+        select count(*)::int as n from viaje_integrante
+        where viaje_id = ${viaje.id}
+          and (dni = any(${antes.map((f) => f.dni)}) or apellido = any(${antes.map((f) => f.apellido)}))
+      `;
+      expect(n).toBe(0);
+    });
+
+    it('correrlo de nuevo no toca nada ni duplica el registro', async () => {
+      await comoAdmin();
+      const r = await borrarDatosPersonalesInscriptos(viaje.id);
+      expect(r.cantidad).toBe(0);
+      const [{ n }] = await sql<[{ n: number }]>`
+        select count(*)::int as n from auditoria
+        where organizacion_id = ${org.id} and campo = '(datos personales de inscriptos borrados)'
+      `;
+      expect(n).toBe(1);
+    });
+
+    it('si después se suma alguien, solo se anonimiza a esa persona y no pisa números', async () => {
+      await sql`
+        insert into viaje_integrante (viaje_id, nombre, apellido, dni, email)
+        values (${viaje.id}, 'Tardía', 'Gómez', '40999888', 'tardia@test.local')
+      `;
+      await comoAdmin();
+      const r = await borrarDatosPersonalesInscriptos(viaje.id);
+      expect(r.cantidad).toBe(1);
+      const todas = await filas();
+      expect(new Set(todas.map((f) => f.dni)).size).toBe(todas.length);
+      expect(todas.every((f) => f.nombre === 'Inscripto' && f.email === null)).toBe(true);
     });
   });
 });
