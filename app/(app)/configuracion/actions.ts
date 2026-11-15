@@ -1,8 +1,9 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireAdmin } from "@/lib/sesion";
 import bcrypt from "bcryptjs";
 import { revalidatePath, updateTag, refresh } from "next/cache";
-import { auth } from "@/auth";
 import { withUser, sql } from "@/lib/db";
 import { generarPasswordTemporal } from "@/lib/passwords";
 import { generarTokenInvitacion, DURACION_INVITACION_MS } from "@/lib/invitaciones";
@@ -14,15 +15,7 @@ import {
 } from "@/lib/secciones";
 import { urlSegura } from "@/lib/utils";
 import { logger } from "@/lib/logger";
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  if ((session.user as { rol: string }).rol !== "administrador") {
-    throw new Error("Se requiere rol administrador");
-  }
-  return session;
-}
+import type { AuditoriaFila } from "./auditoria-table";
 
 // ── Usuarios ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +41,7 @@ export async function crearUsuario(data: {
 }): Promise<{ passwordTemporal: string | null }> {
   const session = await requireAdmin();
   if (data.password && data.password.length < 8) {
-    throw new Error("La contraseña debe tener al menos 8 caracteres.");
+    throw new ErrorDeUsuario("La contraseña debe tener al menos 8 caracteres.");
   }
   const passwordTemporal = data.password ? null : generarPasswordTemporal();
   const passwordHash = await bcrypt.hash(data.password || passwordTemporal!, 10);
@@ -63,7 +56,7 @@ export async function crearUsuario(data: {
     `;
   } catch (e) {
     if (e && typeof e === "object" && "code" in e && e.code === "23505") {
-      throw new Error("Ya existe una cuenta con ese email.");
+      throw new ErrorDeUsuario("Ya existe una cuenta con ese email.");
     }
     throw e;
   }
@@ -77,7 +70,7 @@ export async function cambiarEstadoUsuario(
 ) {
   const session = await requireAdmin();
   if (userId === session.user.id)
-    throw new Error("No podés cambiar tu propio estado");
+    throw new ErrorDeUsuario("No podés cambiar tu propio estado");
   await withUser(session.user.id, async (tx) => {
     const [antes] = await tx<[{ nombre: string; estado: string } | undefined]>`
       select nombre, estado::text from usuario
@@ -497,12 +490,12 @@ export async function quitarDelEquipo(
 export async function cambiarRolUsuario(userId: string, rol: string) {
   const session = await requireAdmin();
   if (userId === session.user.id)
-    throw new Error("No podés cambiar tu propio rol");
+    throw new ErrorDeUsuario("No podés cambiar tu propio rol");
   // Solo dos roles posibles — se valida acá además de en el check
   // constraint de la base (usuario_rol_sin_coordinador) para dar un error
   // claro en vez de que explote el ::rol_usuario de abajo.
   if (rol !== "miembro" && rol !== "administrador") {
-    throw new Error("Rol inválido");
+    throw new ErrorDeUsuario("Rol inválido");
   }
   await withUser(session.user.id, async (tx) => {
     const [antes] = await tx<[{ nombre: string; rol: string } | undefined]>`
@@ -528,7 +521,7 @@ export async function cambiarRolUsuario(userId: string, rol: string) {
 export async function marcarCuentaGenerica(userId: string, valor: boolean) {
   const session = await requireAdmin();
   if (userId === session.user.id)
-    throw new Error("No podés marcar tu propia cuenta como genérica");
+    throw new ErrorDeUsuario("No podés marcar tu propia cuenta como genérica");
   await withUser(session.user.id, async (tx) => {
     await tx`
       update usuario
@@ -630,9 +623,9 @@ export async function resetearPassword(
 ): Promise<{ passwordTemporal: string | null }> {
   const session = await requireAdmin();
   if (userId === session.user.id)
-    throw new Error("No podés resetear tu propia contraseña");
+    throw new ErrorDeUsuario("No podés resetear tu propia contraseña");
   if (password && password.length < 8) {
-    throw new Error("La contraseña debe tener al menos 8 caracteres.");
+    throw new ErrorDeUsuario("La contraseña debe tener al menos 8 caracteres.");
   }
 
   const passwordTemporal = password ? null : generarPasswordTemporal();
@@ -730,7 +723,7 @@ export async function actualizarOrganizacion(data: {
 }) {
   const session = await requireAdmin();
   if (data.color_principal && !/^#[0-9a-fA-F]{6}$/.test(data.color_principal)) {
-    throw new Error("Color principal inválido");
+    throw new ErrorDeUsuario("Color principal inválido");
   }
   await withUser(session.user.id, async (tx) => {
     await tx`
@@ -884,7 +877,7 @@ export async function crearReunion(
   const session = await requireAdmin();
 
   if (input.horaFin <= input.horaInicio) {
-    throw new Error("La hora de fin debe ser posterior a la hora de inicio.");
+    throw new ErrorDeUsuario("La hora de fin debe ser posterior a la hora de inicio.");
   }
   const [hIni, mIni] = input.horaInicio.split(":").map(Number);
   const [hFin, mFin] = input.horaFin.split(":").map(Number);
@@ -959,4 +952,31 @@ export async function crearReunion(
   }
 
   return { sincronizada, error };
+}
+
+// ── Auditoría (paginada) ─────────────────────────────────────────────────────
+// La primera página la trae page.tsx; esto trae las siguientes. Paginación
+// por cursor (fecha + id de la última fila vista), no por offset: la
+// auditoría recibe filas nuevas todo el tiempo y con offset se repetirían o
+// saltearían entradas entre una página y la otra.
+export async function fetchAuditoria(cursor: {
+  creadoEn: string;
+  id: string;
+}): Promise<{ entradas: AuditoriaFila[]; hayMas: boolean }> {
+  const session = await requireAdmin();
+  const POR_PAGINA = 50;
+  return withUser(session.user.id, async (tx) => {
+    const filas = await tx<AuditoriaFila[]>`
+      select
+        a.id, a.creado_en::text, u.nombre as autor_nombre,
+        a.entidad, a.entidad_nombre, a.campo, a.valor_antes, a.valor_despues
+      from auditoria a
+      left join usuario u on u.id = a.usuario_id
+      where a.organizacion_id = mi_organizacion_id()
+        and (a.creado_en, a.id) < (${cursor.creadoEn}::timestamptz, ${cursor.id}::uuid)
+      order by a.creado_en desc, a.id desc
+      limit ${POR_PAGINA + 1}
+    `;
+    return { entradas: filas.slice(0, POR_PAGINA), hayMas: filas.length > POR_PAGINA };
+  });
 }

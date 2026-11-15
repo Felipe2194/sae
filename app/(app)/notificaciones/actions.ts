@@ -1,14 +1,8 @@
 'use server';
 
+import { requireAuth } from "@/lib/sesion";
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
 import { withUser } from '@/lib/db';
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error('No autenticado');
-  return session;
-}
 
 export type NotificacionRow = {
   id: string;

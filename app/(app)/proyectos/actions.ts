@@ -1,25 +1,10 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireAuth, requireAdmin } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { urlSegura } from "@/lib/utils";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  const rol = (session.user as { rol: string }).rol;
-  if (rol !== "administrador") {
-    throw new Error("Se requiere rol administrador");
-  }
-  return session;
-}
 
 // Planificar/activar tareas y cargar/borrar fechas importantes: administrador
 // o responsable del proyecto (a diferencia del resto de acciones de esta
@@ -37,7 +22,7 @@ async function requirePlanificador(
     where id = ${areaId} and organizacion_id = mi_organizacion_id()
   `;
   if (!area || area.responsable_id !== session.user.id) {
-    throw new Error(
+    throw new ErrorDeUsuario(
       "Solo el administrador o el responsable del proyecto pueden hacer esto.",
     );
   }

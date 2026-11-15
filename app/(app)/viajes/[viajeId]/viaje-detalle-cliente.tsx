@@ -1,5 +1,7 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
+import { useConfirmar } from "@/components/features/confirmar-dialog";
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -108,7 +110,7 @@ export function ViajeDetalleCliente({
         toast.success("Se actualizó el link de inscripción.");
       })
       .catch((err) => {
-        toast.error(err instanceof Error ? err.message : "No se pudo guardar el código.");
+        toast.error(mensajeDeError(err, "No se pudo guardar el código."));
       })
       .finally(() => setGuardandoCodigo(false));
   }
@@ -119,14 +121,15 @@ export function ViajeDetalleCliente({
     toast.success("Link de inscripción copiado al portapapeles.");
   }
 
-  function handleRegenerarCodigo() {
-    if (
-      !confirm(
-        "El link anterior deja de funcionar. ¿Regenerar el código de inscripción?",
-      )
-    ) {
-      return;
-    }
+  const [confirmar, dialogoConfirmar] = useConfirmar();
+
+  async function handleRegenerarCodigo() {
+    const ok = await confirmar({
+      titulo: "¿Regenerar el código de inscripción?",
+      descripcion: "El link anterior deja de funcionar: quien lo tenga ya no va a poder anotarse.",
+      confirmar: "Regenerar",
+    });
+    if (!ok) return;
     setRegenerando(true);
     regenerarCodigoPublico(viaje.id)
       .then(({ codigo }) => {
@@ -134,7 +137,7 @@ export function ViajeDetalleCliente({
         toast.success("Se generó un nuevo link de inscripción.");
       })
       .catch((err) => {
-        toast.error(err instanceof Error ? err.message : "No se pudo regenerar el código.");
+        toast.error(mensajeDeError(err, "No se pudo regenerar el código."));
       })
       .finally(() => setRegenerando(false));
   }
@@ -330,6 +333,7 @@ export function ViajeDetalleCliente({
         viajeInicial={viaje}
         asignadosInicialesIds={asignados.map((a) => a.id)}
       />
+      {dialogoConfirmar}
     </div>
   );
 }

@@ -1,14 +1,9 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireAuth } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
 
 // Cualquiera puede cargar/editar/borrar su propio turno; administrador
 // puede hacerlo por cualquiera (mismo criterio que las excepciones de turno
@@ -20,7 +15,7 @@ function requierePropioOManage(
 ) {
   const rol = (session.user as { rol: string }).rol;
   if (usuarioId !== session.user.id && rol !== "administrador") {
-    throw new Error("Solo podés gestionar tu propio turno");
+    throw new ErrorDeUsuario("Solo podés gestionar tu propio turno");
   }
 }
 
@@ -112,14 +107,14 @@ export async function crearExcepcion(data: {
   const session = await requireAuth();
   const rol = (session.user as { rol: string }).rol;
   if (data.usuario_id !== session.user.id && rol !== "administrador") {
-    throw new Error("Solo podés marcar tu propia ausencia");
+    throw new ErrorDeUsuario("Solo podés marcar tu propia ausencia");
   }
   if (data.tipo === "cambio") {
     if (!data.usuario_reemplazo_id) {
-      throw new Error("Elegí quién cubre el turno ese día.");
+      throw new ErrorDeUsuario("Elegí quién cubre el turno ese día.");
     }
     if (data.usuario_reemplazo_id === data.usuario_id) {
-      throw new Error("El reemplazo tiene que ser otra persona.");
+      throw new ErrorDeUsuario("El reemplazo tiene que ser otra persona.");
     }
   }
   await withUser(session.user.id, async (tx) => {

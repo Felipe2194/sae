@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -122,7 +123,7 @@ export function ViajeDialog({
         }
         onOpenChange(false);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo guardar el viaje.");
+        setError(mensajeDeError(err, "No se pudo guardar el viaje."));
       }
     });
   }

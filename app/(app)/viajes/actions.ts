@@ -1,17 +1,12 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireAuth } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { generarCodigoPublico } from "@/lib/viajes/codigo";
 import { CAMPOS_FORMULARIO_DEFAULT, type CamposFormularioViaje } from "@/lib/viajes/campos-formulario";
 import type { EstadoViaje } from "@/types/database";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
 
 // Quién puede editar/administrar un viaje puntual: quien lo creó, el equipo
 // asignado, o administrador — mismo criterio que la policy viaje_update.
@@ -23,14 +18,14 @@ async function requireOrganizador(tx: any, viajeId: string, session: Awaited<Ret
     select creada_por from viaje
     where id = ${viajeId} and organizacion_id = mi_organizacion_id()
   `;
-  if (!viaje) throw new Error("El viaje no existe.");
+  if (!viaje) throw new ErrorDeUsuario("El viaje no existe.");
   if (viaje.creada_por === session.user.id) return;
   const [asignado] = await tx<[{ usuario_id: string } | undefined]>`
     select usuario_id from viaje_asignado
     where viaje_id = ${viajeId} and usuario_id = ${session.user.id}
   `;
   if (!asignado) {
-    throw new Error("Solo quien organiza este viaje (o administrador) puede hacer esto.");
+    throw new ErrorDeUsuario("Solo quien organiza este viaje (o administrador) puede hacer esto.");
   }
 }
 
@@ -90,7 +85,7 @@ export async function crearViaje(data: ViajeInput): Promise<{ id: string }> {
         throw e;
       }
     }
-    throw new Error("No se pudo generar un código único para el viaje.");
+    throw new ErrorDeUsuario("No se pudo generar un código único para el viaje.");
   });
   revalidatePath("/viajes");
   revalidatePath("/informes");
@@ -143,7 +138,7 @@ export async function eliminarViaje(viajeId: string) {
     `;
     if (!viaje) return;
     if (rol !== "administrador" && viaje.creada_por !== session.user.id) {
-      throw new Error("Solo quien creó el viaje (o administrador) puede eliminarlo.");
+      throw new ErrorDeUsuario("Solo quien creó el viaje (o administrador) puede eliminarlo.");
     }
     await tx`delete from viaje where id = ${viajeId} and organizacion_id = mi_organizacion_id()`;
   });
@@ -176,7 +171,7 @@ export async function actualizarCodigoPublico(
         update viaje set codigo_publico = ${codigo}
         where id = ${viajeId} and organizacion_id = mi_organizacion_id()
       `;
-      if (actualizadas.count === 0) throw new Error("El viaje no existe.");
+      if (actualizadas.count === 0) throw new ErrorDeUsuario("El viaje no existe.");
     });
   } catch (e) {
     const codigoError = (e as { code?: string }).code;
@@ -208,7 +203,7 @@ export async function regenerarCodigoPublico(viajeId: string): Promise<{ codigo:
         throw e;
       }
     }
-    throw new Error("No se pudo generar un código único para el viaje.");
+    throw new ErrorDeUsuario("No se pudo generar un código único para el viaje.");
   });
   revalidatePath(`/viajes/${viajeId}`);
   return { codigo };

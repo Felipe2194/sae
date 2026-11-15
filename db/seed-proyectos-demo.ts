@@ -9,6 +9,9 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
+import { exigirBaseLocal } from "./exigir-base-local";
+exigirBaseLocal("db/seed-proyectos-demo.ts");
+
 import postgres from "postgres";
 
 const d = (n: number) => {

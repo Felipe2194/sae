@@ -29,9 +29,13 @@ export async function inscribirseViaje(
   _prevState: InscripcionState,
   formData: FormData,
 ): Promise<InscripcionState> {
+  // 60 por hora, no 5: quienes se anotan desde el WiFi de la facultad salen
+  // todos por la misma IP pública, y con el límite anterior el sexto
+  // estudiante de la hora quedaba bloqueado. Sigue frenando un script que
+  // quiera llenar el cupo con inscripciones falsas.
   const ip = obtenerIp(await headers());
   const claveIp = `viaje-inscripcion:ip:${ip}`;
-  if (!(await verificarLimiteIntentos(claveIp, 5, 60 * 60 * 1000))) {
+  if (!(await verificarLimiteIntentos(claveIp, 60, 60 * 60 * 1000))) {
     return { error: "Demasiados intentos desde esta conexión. Probá de nuevo más tarde.", success: false };
   }
   await registrarIntento(claveIp);
@@ -51,8 +55,8 @@ export async function inscribirseViaje(
   if (!nombre || !apellido || !dni) {
     return { error: "Completá todos los campos.", success: false };
   }
-  if (!/^\d+$/.test(dni)) {
-    return { error: "El DNI debe contener solo números.", success: false };
+  if (!/^\d{6,9}$/.test(dni)) {
+    return { error: "El DNI debe tener entre 6 y 9 números, sin puntos.", success: false };
   }
   if (nombre.length > 20) {
     return { error: "El nombre no puede superar los 20 caracteres.", success: false };
@@ -123,33 +127,47 @@ export async function inscribirseViaje(
     if (campo === "anio_cursada" && !(ANIOS_CURSADA as readonly string[]).includes(valor)) {
       return { error: "Seleccioná un año de cursada válido.", success: false };
     }
+    if (campo === "telefono" && valor.length > 15) {
+      return { error: "El teléfono no puede superar los 15 dígitos.", success: false };
+    }
     if (campo === "email" && valor.length > 254) {
       return { error: "El email no puede superar los 254 caracteres.", success: false };
     }
+    if (campo === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)) {
+      return { error: "El email no parece válido.", success: false };
+    }
   }
 
-  const [{ count }] = await sql<[{ count: string }]>`
-    select count(*)::text as count from viaje_integrante
-    where viaje_id = ${viaje.id} and estado in ('pendiente', 'confirmado')
-  `;
-  const estadoFinal: EstadoIntegranteViaje =
-    viaje.cupo_maximo !== null && Number(count) >= viaje.cupo_maximo
-      ? "lista_espera"
-      : "pendiente";
-
+  // Contar el cupo e insertar tienen que ser una sola operación: dos
+  // personas que se anotaban al mismo tiempo veían ambas "queda 1 lugar" y
+  // entraban las dos. El advisory lock (por viaje; se suelta solo al terminar
+  // la transacción) las pone en fila.
+  let estadoFinal: EstadoIntegranteViaje = "pendiente";
   try {
-    await sql`
-      insert into viaje_integrante (
-        viaje_id, nombre, apellido, dni, legajo, carrera, anio_cursada,
-        email, telefono, estado, monto_a_pagar
-      )
-      values (
-        ${viaje.id}, ${nombre}, ${apellido}, ${dni},
-        ${valores.legajo || null}, ${valores.carrera || null}, ${valores.anio_cursada || null},
-        ${valores.email || null}, ${valores.telefono || null},
-        ${estadoFinal}::estado_integrante_viaje, ${viaje.precio}
-      )
-    `;
+    estadoFinal = await sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(hashtextextended(${viaje.id}, 0))`;
+      const [{ count }] = await tx<[{ count: string }]>`
+        select count(*)::text as count from viaje_integrante
+        where viaje_id = ${viaje.id} and estado in ('pendiente', 'confirmado')
+      `;
+      const estado: EstadoIntegranteViaje =
+        viaje.cupo_maximo !== null && Number(count) >= viaje.cupo_maximo
+          ? "lista_espera"
+          : "pendiente";
+      await tx`
+        insert into viaje_integrante (
+          viaje_id, nombre, apellido, dni, legajo, carrera, anio_cursada,
+          email, telefono, estado, monto_a_pagar
+        )
+        values (
+          ${viaje.id}, ${nombre}, ${apellido}, ${dni},
+          ${valores.legajo || null}, ${valores.carrera || null}, ${valores.anio_cursada || null},
+          ${valores.email || null}, ${valores.telefono || null},
+          ${estado}::estado_integrante_viaje, ${viaje.precio}
+        )
+      `;
+      return estado;
+    });
   } catch (e) {
     const codigoError = (e as { code?: string }).code;
     if (codigoError === "23505") {

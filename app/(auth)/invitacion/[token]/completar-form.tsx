@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import {
   Card,
@@ -22,7 +21,6 @@ export function CompletarInvitacionForm({
   token: string;
   nombre: string;
 }) {
-  const router = useRouter();
   const completarConToken = completarInvitacion.bind(null, token);
   const [state, action, isPending] = useActionState(completarConToken, null);
   const [verPassword, setVerPassword] = useState(false);

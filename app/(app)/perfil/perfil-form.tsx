@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Check, RotateCcw } from "lucide-react";
 import {
@@ -17,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GRADIENTES_FONDO, type GradienteFondoKey } from "@/lib/fondos";
 import { actualizarNombre } from "./actions";
+import { CambiarPasswordCard } from "./cambiar-password-card";
 
 const COLORES = [
   { hex: "#E05B22", label: "Naranja UTN" },
@@ -48,6 +50,7 @@ type Props = {
   colorPrincipalOrg: string | null;
   musicaMobileHabilitada: boolean;
   musicaHabilitada: boolean;
+  mostrarPassword: boolean;
 };
 
 export function PerfilForm({
@@ -62,6 +65,7 @@ export function PerfilForm({
   colorPrincipalOrg,
   musicaMobileHabilitada: musicaMobileHabilitadaInicial,
   musicaHabilitada: musicaHabilitadaInicial,
+  mostrarPassword,
 }: Props) {
   const [nombre, setNombre] = useState(nombreInicial);
   const [playlistUrlValue, setPlaylistUrlValue] = useState(playlistUrl ?? "");
@@ -163,7 +167,7 @@ export function PerfilForm({
         setGuardado(true);
         setTimeout(() => setGuardado(false), 2500);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo guardar");
+        setError(mensajeDeError(err, "No se pudo guardar"));
       }
     });
   }
@@ -502,6 +506,8 @@ export function PerfilForm({
           </form>
         </CardContent>
       </Card>
+
+      {mostrarPassword && <CambiarPasswordCard />}
     </div>
   );
 }

@@ -1,19 +1,14 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireAuth } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { notificarAsignacion, notificarComentario } from "@/lib/notificaciones";
 import { enviarTelegram } from "@/lib/telegram";
 import { urlSegura } from "@/lib/utils";
 import type { TareaCard } from "./page";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
 
 // Notificar (asignación o comentario) es un efecto secundario best-effort,
 // nunca debe poder tirar abajo la acción principal (guardar el comentario,
@@ -100,7 +95,7 @@ async function puedeGestionarArea(
     where id = ${areaId} and organizacion_id = mi_organizacion_id()
   `;
   if (!area || area.responsable_id !== session.user.id) {
-    throw new Error(
+    throw new ErrorDeUsuario(
       "Solo el administrador o el responsable del proyecto pueden crear o editar tareas de este proyecto.",
     );
   }
@@ -319,7 +314,7 @@ export async function actualizarTarea(
       where id = ${tareaId} and organizacion_id = mi_organizacion_id()
     `;
     if (!prevRow) {
-      throw new Error("La tarea no existe.");
+      throw new ErrorDeUsuario("La tarea no existe.");
     }
     const asignadosPrevios = (
       await tx<{ usuario_id: string }[]>`
@@ -332,7 +327,7 @@ export async function actualizarTarea(
       data.estado !== prev.estado &&
       !(await puedeMoverEstado(tx, tareaId, session))
     ) {
-      throw new Error(
+      throw new ErrorDeUsuario(
         "Solo quien está asignado a esta tarea (o administrador) puede cambiar su estado.",
       );
     }
@@ -382,7 +377,7 @@ export async function actualizarTarea(
     // Sin este chequeo, el resto de la función seguía de largo como si el
     // guardado hubiera funcionado (incluyendo el log de auditoría).
     if (actualizadas.count === 0) {
-      throw new Error(
+      throw new ErrorDeUsuario(
         "No se pudo guardar: no tenés permiso para editar esta tarea.",
       );
     }
@@ -453,7 +448,7 @@ export async function moverEstadoTarea(tareaId: string, estado: string) {
   const completada_en = estado === "hecha" ? new Date() : null;
   await withUser(session.user.id, async (tx) => {
     if (!(await puedeMoverEstado(tx, tareaId, session))) {
-      throw new Error(
+      throw new ErrorDeUsuario(
         "Solo quien está asignado a esta tarea (o administrador) puede cambiar su estado.",
       );
     }
@@ -469,7 +464,7 @@ export async function moverEstadoTarea(tareaId: string, estado: string) {
       for update
     `;
     if (!prevRow) {
-      throw new Error("La tarea no existe.");
+      throw new ErrorDeUsuario("La tarea no existe.");
     }
     const estadoPrevio = prevRow.estado;
 
@@ -481,7 +476,7 @@ export async function moverEstadoTarea(tareaId: string, estado: string) {
         and organizacion_id = mi_organizacion_id()
     `;
     if (actualizadas.count === 0) {
-      throw new Error("No se pudo mover la tarea: no tenés permiso.");
+      throw new ErrorDeUsuario("No se pudo mover la tarea: no tenés permiso.");
     }
     // Antes esto leía `estado` de `tarea` DESPUÉS del update de arriba, así
     // que valor_antes quedaba igual a valor_despues (perdía el estado
@@ -546,8 +541,17 @@ export async function restaurarTarea(tareaId: string) {
   revalidatePath("/informes");
 }
 
-export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
+// Paginadas: las archivadas solo crecen (cada tarea terminada termina acá),
+// así que traerlas todas de una se iba a poner cada vez más pesado. De la
+// más reciente a la más vieja, de a TAREAS_ARCHIVADAS_POR_PAGINA; `desde`
+// es cuántas ya tiene cargadas quien llama.
+const TAREAS_ARCHIVADAS_POR_PAGINA = 30;
+
+export async function fetchTareasArchivadas(
+  desde = 0,
+): Promise<{ tareas: TareaCard[]; hayMas: boolean }> {
   const session = await requireAuth();
+  const offset = Number.isInteger(desde) && desde > 0 ? desde : 0;
   return withUser(session.user.id, async (tx) => {
     const rows = await tx<TareaCard[]>`
       select
@@ -590,9 +594,15 @@ export async function fetchTareasArchivadas(): Promise<TareaCard[]> {
       left join viaje   v on v.id = t.viaje_id
       left join usuario u on u.id = t.responsable_id
       where t.organizacion_id = mi_organizacion_id() and t.archivada = true
-      order by t.titulo asc
+      order by t.archivada_en desc nulls last, t.id
+      limit ${TAREAS_ARCHIVADAS_POR_PAGINA + 1}
+      offset ${offset}
     `;
-    return [...rows];
+    // Se pide una de más solo para saber si queda otra página.
+    return {
+      tareas: rows.slice(0, TAREAS_ARCHIVADAS_POR_PAGINA),
+      hayMas: rows.length > TAREAS_ARCHIVADAS_POR_PAGINA,
+    };
   });
 }
 
@@ -790,7 +800,7 @@ export async function crearAdjunto(
   // manda URLs de Google, así que esto nunca lo frena en ese camino.
   const url = urlSegura(data.url);
   if (!url) {
-    throw new Error(
+    throw new ErrorDeUsuario(
       "El link no es una URL válida (tiene que empezar con http:// o https://).",
     );
   }

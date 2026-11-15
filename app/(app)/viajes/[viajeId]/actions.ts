@@ -1,16 +1,11 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireAuth } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { urlSegura } from "@/lib/utils";
 import type { EstadoIntegranteViaje } from "@/types/database";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
 
 // Mismo criterio que la policy viaje_update: creador, equipo asignado, o
 // administrador — repetido acá en vez de importado desde ../actions.ts,
@@ -28,14 +23,14 @@ async function requireOrganizadorViaje(
     select creada_por from viaje
     where id = ${viajeId} and organizacion_id = mi_organizacion_id()
   `;
-  if (!viaje) throw new Error("El viaje no existe.");
+  if (!viaje) throw new ErrorDeUsuario("El viaje no existe.");
   if (viaje.creada_por === session.user.id) return;
   const [asignado] = await tx<[{ usuario_id: string } | undefined]>`
     select usuario_id from viaje_asignado
     where viaje_id = ${viajeId} and usuario_id = ${session.user.id}
   `;
   if (!asignado) {
-    throw new Error("Solo quien organiza este viaje (o administrador) puede hacer esto.");
+    throw new ErrorDeUsuario("Solo quien organiza este viaje (o administrador) puede hacer esto.");
   }
 }
 

@@ -1,5 +1,6 @@
 'use server';
 
+import { ErrorDeUsuario } from "@/lib/errores";
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
@@ -12,8 +13,8 @@ import { generarPasswordTemporal } from '@/lib/passwords';
 // usuarios por Google en auth.ts — y se gatean a mano acá.
 async function requireSuperadmin() {
   const session = await auth();
-  if (!session?.user) throw new Error('No autenticado');
-  if (!session.user.esSuperadmin) throw new Error('Se requiere ser superadmin de plataforma');
+  if (!session?.user) throw new ErrorDeUsuario('No autenticado');
+  if (!session.user.esSuperadmin) throw new ErrorDeUsuario('Se requiere ser superadmin de plataforma');
   return session;
 }
 
@@ -30,14 +31,14 @@ export async function crearOrganizacion(data: {
   const adminNombre = data.adminNombre.trim();
   const adminEmail = data.adminEmail.trim().toLowerCase();
   if (!nombre || !slug || !adminNombre || !adminEmail) {
-    throw new Error('Faltan datos');
+    throw new ErrorDeUsuario('Faltan datos');
   }
 
   const [slugExistente] = await sql`select id from organizacion where slug = ${slug} limit 1`;
-  if (slugExistente) throw new Error(`Ya existe una organización con el slug "${slug}"`);
+  if (slugExistente) throw new ErrorDeUsuario(`Ya existe una organización con el slug "${slug}"`);
 
   const [emailExistente] = await sql`select id from usuario where email = ${adminEmail} limit 1`;
-  if (emailExistente) throw new Error(`Ya existe un usuario con el email "${adminEmail}"`);
+  if (emailExistente) throw new ErrorDeUsuario(`Ya existe un usuario con el email "${adminEmail}"`);
 
   const passwordTemporal = generarPasswordTemporal();
   const passwordHash = await bcrypt.hash(passwordTemporal, 10);
@@ -72,7 +73,7 @@ export async function resetearPasswordCuentaGenerica(
 ): Promise<{ passwordTemporal: string | null }> {
   await requireSuperadmin();
   if (password && password.length < 8) {
-    throw new Error('La contraseña debe tener al menos 8 caracteres.');
+    throw new ErrorDeUsuario('La contraseña debe tener al menos 8 caracteres.');
   }
 
   const passwordTemporal = password ? null : generarPasswordTemporal();
@@ -84,7 +85,7 @@ export async function resetearPasswordCuentaGenerica(
     where id = ${usuarioId} and es_cuenta_generica = true
     returning id
   `;
-  if (!usuario) throw new Error('No se encontró esa cuenta genérica.');
+  if (!usuario) throw new ErrorDeUsuario('No se encontró esa cuenta genérica.');
 
   return { passwordTemporal };
 }

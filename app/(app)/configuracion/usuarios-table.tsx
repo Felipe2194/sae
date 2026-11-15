@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { KeyRound, Link2, Monitor, Trash2, Eye, EyeOff, Mail, Copy } from "lucide-react";
@@ -131,7 +132,7 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
         else toast.success(`${usuario.nombre} eliminado.`);
       } catch (e) {
         toast.error(
-          e instanceof Error ? e.message : "No se pudo eliminar el usuario.",
+          mensajeDeError(e, "No se pudo eliminar el usuario."),
         );
       }
       setConfirmDelete(false);
@@ -175,7 +176,7 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
         }
       } catch (e) {
         setResetError(
-          e instanceof Error ? e.message : "No se pudo resetear la contraseña.",
+          mensajeDeError(e, "No se pudo resetear la contraseña."),
         );
       }
     });
@@ -199,7 +200,7 @@ function useUsuarioRowActions(usuario: UsuarioFila) {
         setInviteLink(`${window.location.origin}/invitacion/${r.token}`);
       } catch (e) {
         toast.error(
-          e instanceof Error ? e.message : "No se pudo generar el link.",
+          mensajeDeError(e, "No se pudo generar el link."),
         );
       }
     });

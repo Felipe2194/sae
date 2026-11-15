@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -63,7 +64,7 @@ export function TareaFila({
         await toggleTarea(id, estado);
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "No se pudo actualizar la tarea.",
+          mensajeDeError(err, "No se pudo actualizar la tarea."),
         );
       }
     });

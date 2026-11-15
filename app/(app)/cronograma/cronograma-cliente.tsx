@@ -440,11 +440,14 @@ export function CronogramaCliente({
       ) : (
         <>
           <Card className="hidden md:block">
-            <CardContent className="overflow-x-auto p-0">
+            {/* Alto acotado con scroll interno: con un rango horario amplio la
+                grilla empujaba toda la página y había que scrollear la
+                pantalla entera. La cabecera de días queda fija arriba. */}
+            <CardContent className="max-h-[calc(100svh-15rem)] min-h-64 overflow-auto p-0">
               <div className="min-w-[580px]">
                 {/* Cabecera días */}
                 <div
-                  className="grid border-b"
+                  className="bg-card sticky top-0 z-30 grid border-b"
                   style={{ gridTemplateColumns: "3.5rem repeat(5, 1fr)" }}
                 >
                   <div className="border-r" /> {/* espacio horas */}

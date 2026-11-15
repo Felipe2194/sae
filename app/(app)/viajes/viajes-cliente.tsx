@@ -1,5 +1,7 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
+import { useConfirmar } from "@/components/features/confirmar-dialog";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -50,17 +52,25 @@ export function ViajesCliente({ viajes, usuarios, currentUserId }: Props) {
     setDialogOpen(true);
   }
 
-  function handleEliminar(id: string, e: React.MouseEvent) {
+  const [confirmar, dialogoConfirmar] = useConfirmar();
+
+  async function handleEliminar(id: string, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm("¿Eliminar este viaje? Se borran también sus inscriptos, costos y pagos.")) return;
+    const ok = await confirmar({
+      titulo: "¿Eliminar este viaje?",
+      descripcion: "Se borran también sus inscriptos, costos y pagos. No se puede deshacer.",
+      confirmar: "Eliminar",
+      destructivo: true,
+    });
+    if (!ok) return;
     setBorrandoId(id);
     startTransition(async () => {
       try {
         await eliminarViaje(id);
         toast.success("Viaje eliminado.");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudo eliminar el viaje.");
+        toast.error(mensajeDeError(err, "No se pudo eliminar el viaje."));
       }
       setBorrandoId(null);
     });
@@ -157,6 +167,7 @@ export function ViajesCliente({ viajes, usuarios, currentUserId }: Props) {
         viajeInicial={editando}
         asignadosInicialesIds={editando?.asignados.map((a) => a.id)}
       />
+      {dialogoConfirmar}
     </div>
   );
 }

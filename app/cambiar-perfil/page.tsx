@@ -5,6 +5,7 @@ import { withUser } from "@/lib/db";
 import { redirectSinPermiso } from "@/lib/redirects";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cambiarPerfil } from "./actions";
+import { PerfilProtegido } from "./perfil-protegido";
 
 const AVATAR_COLOR_DEFAULT = "oklch(0.62 0.19 42)";
 
@@ -24,9 +25,10 @@ export default async function CambiarPerfilPage() {
     session.user.id,
     async (tx) => {
       const integrantes = await tx<
-        { id: string; nombre: string; avatar_color: string | null }[]
+        { id: string; nombre: string; avatar_color: string | null; protegido: boolean }[]
       >`
-      select id, nombre, avatar_color
+      select id, nombre, avatar_color,
+        (rol = 'administrador' or es_superadmin) as protegido
       from usuario
       where organizacion_id = mi_organizacion_id()
         and estado = 'activo' and not oculto
@@ -119,7 +121,16 @@ export default async function CambiarPerfilPage() {
         </p>
       ) : (
         <div className="grid w-full max-w-3xl grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-          {integrantes.map((u) => (
+          {integrantes.map((u) =>
+            u.protegido ? (
+              <PerfilProtegido
+                key={u.id}
+                usuarioId={u.id}
+                nombre={u.nombre}
+                iniciales={iniciales(u.nombre)}
+                color={u.avatar_color ?? AVATAR_COLOR_DEFAULT}
+              />
+            ) : (
             <form key={u.id} action={cambiarPerfil.bind(null, u.id)}>
               <button
                 type="submit"
@@ -140,7 +151,8 @@ export default async function CambiarPerfilPage() {
                 </span>
               </button>
             </form>
-          ))}
+            ),
+          )}
         </div>
       )}
     </div>

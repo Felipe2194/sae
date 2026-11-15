@@ -67,7 +67,9 @@ export default async function VisitasPage({
 
   const params = await searchParams;
   const anioActual = new Date().getFullYear();
-  const anio = params.anio ? parseInt(params.anio, 10) : anioActual;
+  const anioPedido = params.anio ? parseInt(params.anio, 10) : anioActual;
+  // Un ?anio= que no sea un año razonable cae al actual en vez de romper la consulta.
+  const anio = anioPedido >= 2000 && anioPedido <= 2100 ? anioPedido : anioActual;
 
   const { visitas, visitasHoy, hoy, colegios, usuarios, presencia, anios, habilitado } = await withUser(
     session.user.id,
@@ -120,7 +122,7 @@ export default async function VisitasPage({
       const [visitas, visitasHoy, [{ hoy }], colegios, usuarios, presencia, aniosDisponibles] = await Promise.all([
         tx<VisitaFila[]>`
           ${selectVisitas}
-            and extract(year from v.fecha) = ${anio}
+            and v.fecha >= make_date(${anio}::int, 1, 1) and v.fecha < make_date(${anio}::int + 1, 1, 1)
           order by v.fecha asc, v.hora_inicio asc nulls last
         `,
 
@@ -162,7 +164,7 @@ export default async function VisitasPage({
           left join visita_colegio v
             on v.id = vi.visita_id
             and v.organizacion_id = mi_organizacion_id()
-            and extract(year from v.fecha) = ${anio}
+            and v.fecha >= make_date(${anio}::int, 1, 1) and v.fecha < make_date(${anio}::int + 1, 1, 1)
           where u.organizacion_id = mi_organizacion_id() and u.estado = 'activo' and not u.oculto
           group by u.id, u.nombre, u.avatar_color
           order by visitas_registradas desc, u.nombre asc

@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,7 +64,7 @@ export function NuevaOrganizacionForm() {
         setResultado({ passwordTemporal, email: adminEmail.trim().toLowerCase() });
         resetForm();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo crear la organización");
+        setError(mensajeDeError(err, "No se pudo crear la organización"));
       }
     });
   }

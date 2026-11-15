@@ -143,19 +143,15 @@ organización real usando el sistema):
 
 ---
 
-## Checklist para producción (pendiente, en orden de prioridad)
+## Checklist para producción
 
-- [ ] Elegir proveedor de Postgres gestionado y confirmar deploy en Vercel
-      (M0.4 — ver arriba).
-- [ ] Validar aislamiento multi-organización con una segunda org de prueba.
-- [ ] Tests automatizados y CI (hoy no hay ni test runner ni `.github/`) — nada
-      impide que un commit con código roto llegue a `main`.
-- [ ] Observabilidad: no hay Sentry ni logging estructurado ni endpoint de
-      health-check.
-- [ ] Headers de seguridad (CSP, HSTS, X-Frame-Options) en `next.config.ts`.
-- [ ] `robots.txt` / sitemap (bajo impacto por ser app interna).
+El sistema está en producción desde septiembre de 2026 (Vercel + Neon). La
+revisión de noviembre de 2026 cerró lo que quedaba de esta lista — deploy,
+tests y CI, alertas de errores, headers de seguridad, `robots.txt`, backups —
+y el estado actual, con los pendientes que siguen abiertos, está en
+[`operacion-produccion.md`](operacion-produccion.md).
 
-Ya resueltos en la última revisión (2026-08-11): build roto en `main` (JSX mal
+Ya resueltos en la revisión de 2026-08-11: build roto en `main` (JSX mal
 cerrado en `tarea-sheet.tsx`), 16 errores de tipos por `onValueChange` de los
 `Select` de Base UI recibiendo `string | null`, errores de ESLint que
 bloqueaban el build, validación de `DATABASE_URL` al arrancar,

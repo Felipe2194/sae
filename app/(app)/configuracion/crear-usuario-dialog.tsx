@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { UserPlus, Eye, EyeOff } from "lucide-react";
@@ -73,7 +74,7 @@ export function CrearUsuarioDialog() {
         setOpen(false);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "No se pudo crear el usuario.",
+          mensajeDeError(err, "No se pudo crear el usuario."),
         );
       }
     });

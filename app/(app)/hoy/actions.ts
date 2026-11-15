@@ -1,12 +1,13 @@
 'use server';
 
+import { ErrorDeUsuario } from "@/lib/errores";
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { withUser } from '@/lib/db';
 
 export async function toggleTarea(tareaId: string, estadoActual: string) {
   const session = await auth();
-  if (!session?.user) throw new Error('No autenticado');
+  if (!session?.user) throw new ErrorDeUsuario('No autenticado');
 
   const nuevoEstado = estadoActual === 'hecha' ? 'por_hacer' : 'hecha';
   const completadaEn = nuevoEstado === 'hecha' ? new Date() : null;

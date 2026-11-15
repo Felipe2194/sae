@@ -1,5 +1,7 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
+import { useConfirmar } from "@/components/features/confirmar-dialog";
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -58,7 +60,7 @@ export function InscriptosTab({
       try {
         await cambiarEstadoIntegrante(id, viajeId, estado);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudo actualizar el estado.");
+        toast.error(mensajeDeError(err, "No se pudo actualizar el estado."));
       }
     });
   }
@@ -74,8 +76,16 @@ export function InscriptosTab({
     });
   }
 
-  function handleEliminar(id: string) {
-    if (!confirm("¿Quitar a esta persona de la lista de inscriptos?")) return;
+  const [confirmar, dialogoConfirmar] = useConfirmar();
+
+  async function handleEliminar(id: string) {
+    const ok = await confirmar({
+      titulo: "¿Quitar a esta persona de la lista de inscriptos?",
+      descripcion: "Se borran también los pagos que tenga registrados.",
+      confirmar: "Quitar",
+      destructivo: true,
+    });
+    if (!ok) return;
     setIntegrantes((prev) => prev.filter((i) => i.id !== id));
     startTransition(async () => {
       await eliminarIntegrante(id, viajeId);
@@ -83,6 +93,7 @@ export function InscriptosTab({
   }
 
   return (
+    <>
     <Card>
       <CardContent className="flex flex-col gap-3 pt-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -193,5 +204,7 @@ export function InscriptosTab({
         )}
       </CardContent>
     </Card>
+    {dialogoConfirmar}
+    </>
   );
 }

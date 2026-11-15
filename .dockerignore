@@ -4,3 +4,4 @@ node_modules
 .env.local
 docs/planes.zip
 docs/planes_extraidos
+backups

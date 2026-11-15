@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useState, useTransition, useEffect } from "react";
 import { toast } from "sonner";
 import {
@@ -270,7 +271,7 @@ export function TareaModal({
         setShowAdjForm(false);
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "No se pudo agregar el adjunto.",
+          mensajeDeError(err, "No se pudo agregar el adjunto."),
         );
       }
     });
@@ -322,7 +323,7 @@ export function TareaModal({
         onOpenChange(false);
       } catch (err) {
         setErrorGuardado(
-          err instanceof Error ? err.message : "No se pudo guardar el cambio.",
+          mensajeDeError(err, "No se pudo guardar el cambio."),
         );
       }
     });
@@ -378,7 +379,7 @@ export function TareaModal({
         onOpenChange(false);
       } catch (err) {
         setErrorGuardado(
-          err instanceof Error ? err.message : "No se pudo guardar el cambio.",
+          mensajeDeError(err, "No se pudo guardar el cambio."),
         );
       }
     });
@@ -395,7 +396,7 @@ export function TareaModal({
         onOpenChange(false);
       } catch (err) {
         setErrorArchivar(
-          err instanceof Error ? err.message : "No se pudo archivar la tarea.",
+          mensajeDeError(err, "No se pudo archivar la tarea."),
         );
         setConfirmDelete(false);
       }
@@ -409,7 +410,7 @@ export function TareaModal({
         onOpenChange(false);
       } catch (err) {
         setErrorArchivar(
-          err instanceof Error ? err.message : "No se pudo restaurar la tarea.",
+          mensajeDeError(err, "No se pudo restaurar la tarea."),
         );
       }
     });

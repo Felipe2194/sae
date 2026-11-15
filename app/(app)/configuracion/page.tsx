@@ -118,8 +118,9 @@ export default async function AdminPage() {
         a.entidad, a.entidad_nombre, a.campo, a.valor_antes, a.valor_despues
       from auditoria a
       left join usuario u on u.id = a.usuario_id
-      order by a.creado_en desc
-      limit 100
+      where a.organizacion_id = mi_organizacion_id()
+      order by a.creado_en desc, a.id desc
+      limit 51
     `;
 
       const accesos = await tx<AccesoRow[]>`
@@ -377,7 +378,10 @@ export default async function AdminPage() {
         </p>
         <Card>
           <CardContent className="p-0">
-            <AuditoriaTable entradas={auditoria} />
+            <AuditoriaTable
+              entradasIniciales={auditoria.slice(0, 50)}
+              hayMasInicial={auditoria.length > 50}
+            />
           </CardContent>
         </Card>
       </section>

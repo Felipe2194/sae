@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { CalendarPlus } from "lucide-react";
@@ -89,7 +90,7 @@ export function NuevaReunionDialog({ usuarios }: { usuarios: Usuario[] }) {
         setOpen(false);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "No se pudo crear la reunión.",
+          mensajeDeError(err, "No se pudo crear la reunión."),
         );
       }
     });

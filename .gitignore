@@ -56,3 +56,7 @@ next-env.d.ts
 # implementado en app/landing-screen.tsx; los assets usados quedaron
 # copiados aparte en /public/landing
 /landing
+
+# backups locales de la base (npm run db:backup) — datos personales reales,
+# nunca al repo
+/backups

@@ -14,6 +14,8 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "SAE · UTN FRVM",
   description: "Sistema de Administración Estudiantil — UTN Facultad Regional Villa María",
+  // Uso interno: fuera de los buscadores (ver también app/robots.ts).
+  robots: { index: false, follow: false },
 };
 
 // Debe coincidir con la resolución de tema de components/theme-provider.tsx.
