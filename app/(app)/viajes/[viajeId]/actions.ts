@@ -1,7 +1,7 @@
 "use server";
 
 import { ErrorDeUsuario } from "@/lib/errores";
-import { requireAuth } from "@/lib/sesion";
+import { requireSeccion } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
 import { withUser } from "@/lib/db";
 import { urlSegura } from "@/lib/utils";
@@ -15,7 +15,7 @@ async function requireOrganizadorViaje(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
   tx: any,
   viajeId: string,
-  session: Awaited<ReturnType<typeof requireAuth>>,
+  session: Awaited<ReturnType<typeof requireSeccion>>,
 ) {
   const rol = (session.user as { rol: string }).rol;
   if (rol === "administrador") return;
@@ -43,7 +43,7 @@ export async function crearAccesoViaje(
   etiqueta: string,
   url: string,
 ): Promise<{ id: string } | null> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const etiquetaLimpia = etiqueta.trim();
   // Solo http/https: ver comentario en crearAcceso, configuracion/actions.ts.
   const urlLimpia = urlSegura(url.trim());
@@ -65,7 +65,7 @@ export async function crearAccesoViaje(
 }
 
 export async function eliminarAccesoViaje(accesoId: string, viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`
@@ -86,7 +86,7 @@ export async function eliminarAccesoViaje(accesoId: string, viajeId: string) {
 // existiendo en el tablero, archivarla queda a criterio de quien la gestiona).
 
 export async function crearTareaCosteo(viajeId: string, titulo: string): Promise<{ id: string } | null> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const tituloLimpio = titulo.trim();
   if (!tituloLimpio) return null;
   const { id } = await withUser(session.user.id, async (tx) => {
@@ -112,7 +112,7 @@ export async function fijarCosto(
   viajeId: string,
   data: { concepto: string; monto: number; tareaId: string | null },
 ): Promise<{ id: string } | null> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const conceptoLimpio = data.concepto.trim();
   if (!conceptoLimpio || !(data.monto > 0)) return null;
   const { id } = await withUser(session.user.id, async (tx) => {
@@ -130,7 +130,7 @@ export async function fijarCosto(
 }
 
 export async function eliminarCosto(costoId: string, viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`delete from viaje_costo where id = ${costoId} and viaje_id = ${viajeId}`;
@@ -146,7 +146,7 @@ export async function cambiarEstadoIntegrante(
   viajeId: string,
   estado: EstadoIntegranteViaje,
 ) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     const [antes] = await tx<[{ nombre: string; apellido: string; estado: string } | undefined]>`
@@ -177,7 +177,7 @@ export async function actualizarIntegrante(
   viajeId: string,
   data: { montoAPagar: number | null; notasInternas: string | null },
 ) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`
@@ -191,7 +191,7 @@ export async function actualizarIntegrante(
 }
 
 export async function eliminarIntegrante(integranteId: string, viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`delete from viaje_integrante where id = ${integranteId} and viaje_id = ${viajeId}`;
@@ -209,7 +209,7 @@ export async function registrarPago(
   viajeId: string,
   data: { viajeIntegranteId: string; monto: number; medioPago: string | null; fechaPago: string },
 ): Promise<{ id: string } | null> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   if (!(data.monto > 0)) return null;
   const { id } = await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
@@ -226,7 +226,7 @@ export async function registrarPago(
 }
 
 export async function eliminarPago(pagoId: string, viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`

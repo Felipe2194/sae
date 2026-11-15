@@ -136,6 +136,8 @@ export function ViajesCliente({ viajes, usuarios, currentUserId }: Props) {
                         size="icon"
                         variant="ghost"
                         className="size-7"
+                        aria-label={`Editar ${v.nombre}`}
+                        title="Editar"
                         onClick={(e) => abrirEditar(v, e)}
                       >
                         <Pencil className="size-3.5" />
@@ -144,6 +146,8 @@ export function ViajesCliente({ viajes, usuarios, currentUserId }: Props) {
                         size="icon"
                         variant="ghost"
                         className="text-muted-foreground hover:text-destructive size-7"
+                        aria-label={`Eliminar ${v.nombre}`}
+                        title="Eliminar"
                         disabled={borrandoId === v.id}
                         onClick={(e) => handleEliminar(v.id, e)}
                       >

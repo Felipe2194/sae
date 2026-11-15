@@ -967,6 +967,7 @@ export function TareaModal({
                     type="submit"
                     variant="outline"
                     size="icon-sm"
+                    aria-label="Agregar subtarea"
                     disabled={!nuevaSubtarea.trim() || isPendingSubtarea}
                   >
                     <Plus className="size-3.5" />

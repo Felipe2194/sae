@@ -75,10 +75,9 @@ function formatDiaLargo(dateISO: string): string {
 
 type Props = {
   tareas: TareaConFecha[];
-  tieneCalendar: boolean;
 };
 
-export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
+export function CalendarioCliente({ tareas }: Props) {
   const hoy = new Date();
   const hoyISO = isoDate(hoy);
 

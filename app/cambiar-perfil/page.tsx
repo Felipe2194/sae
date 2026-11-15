@@ -134,7 +134,7 @@ export default async function CambiarPerfilPage() {
             <form key={u.id} action={cambiarPerfil.bind(null, u.id)}>
               <button
                 type="submit"
-                className="bg-card hover:border-primary hover:bg-accent focus-visible:ring-ring flex w-full flex-col items-center gap-3 rounded-xl border p-5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="bg-card hover:border-primary hover:bg-accent focus-visible:ring-ring flex h-full w-full flex-col items-center gap-3 rounded-xl border p-5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
               >
                 <Avatar size="lg" className="size-16">
                   <AvatarFallback

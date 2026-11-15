@@ -15,13 +15,14 @@ vi.mock('next/headers', () => ({
   headers: async () => new Headers({ 'x-forwarded-for': ipActual }),
 }));
 
-let sesionActual: { user: { id: string } } | null = null;
+let sesionActual: { user: { id: string; rol?: string } } | null = null;
 vi.mock('@/auth', () => ({ auth: async () => sesionActual }));
 
 vi.mock('next/cache', () => ({ revalidatePath: () => {}, refresh: () => {} }));
 
 const { inscribirseViaje } = await import('@/app/inscripcion-viaje/[codigo]/actions');
 const { cambiarPassword } = await import('@/app/(app)/perfil/actions');
+const { crearTurno } = await import('@/app/(app)/cronograma/actions');
 
 type ConId = { id: string };
 
@@ -71,6 +72,7 @@ describe('Server Actions', () => {
     await sql`delete from intento_auth where clave like 'viaje-inscripcion:ip:10.0.%' or clave = ${'password:usuario:' + usuario.id}`;
     await sql`delete from auditoria where organizacion_id = ${org.id}`;
     await sql`delete from viaje where id = ${viaje.id}`;
+    await sql`delete from turno where organizacion_id = ${org.id}`;
     await sql`delete from usuario where id = ${usuario.id}`;
     await sql`delete from organizacion where id = ${org.id}`;
     await sql.end();
@@ -200,6 +202,65 @@ describe('Server Actions', () => {
       expect(r.ok).toBe(false);
       expect(r.error).toMatch(/cuenta de oficina/);
       await sql`update usuario set es_cuenta_generica = false where id = ${usuario.id}`;
+    });
+  });
+
+  // Las páginas ya redirigen con la sección apagada; esto cubre la acción,
+  // que es un endpoint aparte (lib/sesion.ts → requireSeccion).
+  describe('acciones de una sección opcional', () => {
+    const turno = () =>
+      crearTurno({
+        usuario_id: usuario.id,
+        dia_semana: 1,
+        hora_inicio: '09:00',
+        hora_fin: '11:00',
+        vigente_desde: '2026-01-01',
+        vigente_hasta: null,
+      });
+    const turnos = async () => {
+      const [{ n }] = await sql<[{ n: number }]>`
+        select count(*)::int as n from turno where organizacion_id = ${org.id}
+      `;
+      return n;
+    };
+
+    afterAll(async () => {
+      await sql`delete from turno where organizacion_id = ${org.id}`;
+      await sql`
+        update organizacion set cronograma_habilitado = true, secciones_solo_admin = '{}'
+        where id = ${org.id}
+      `;
+      await sql`update usuario set rol = 'miembro' where id = ${usuario.id}`;
+    });
+
+    it('con la sección desactivada la acción no escribe', async () => {
+      sesionActual = { user: { id: usuario.id, rol: 'miembro' } };
+      await sql`update organizacion set cronograma_habilitado = false where id = ${org.id}`;
+      await expect(turno()).rejects.toThrow(/no está disponible/);
+      expect(await turnos()).toBe(0);
+    });
+
+    it('"solo administradores" frena al equipo y deja pasar a quien administra', async () => {
+      await sql`
+        update organizacion set cronograma_habilitado = true, secciones_solo_admin = '{cronograma}'
+        where id = ${org.id}
+      `;
+      sesionActual = { user: { id: usuario.id, rol: 'miembro' } };
+      await expect(turno()).rejects.toThrow(/no está disponible/);
+      expect(await turnos()).toBe(0);
+
+      await sql`update usuario set rol = 'administrador' where id = ${usuario.id}`;
+      sesionActual = { user: { id: usuario.id, rol: 'administrador' } };
+      await turno();
+      expect(await turnos()).toBe(1);
+    });
+
+    it('con la sección activa para todos, el equipo la usa normalmente', async () => {
+      await sql`update organizacion set secciones_solo_admin = '{}' where id = ${org.id}`;
+      await sql`update usuario set rol = 'miembro' where id = ${usuario.id}`;
+      sesionActual = { user: { id: usuario.id, rol: 'miembro' } };
+      await turno();
+      expect(await turnos()).toBe(2);
     });
   });
 });

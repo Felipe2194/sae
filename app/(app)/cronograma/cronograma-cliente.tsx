@@ -679,6 +679,7 @@ export function CronogramaCliente({
               <Button
                 variant="outline"
                 size="icon"
+                aria-label="Día anterior"
                 onClick={diaAnterior}
                 className="shrink-0"
               >
@@ -711,6 +712,7 @@ export function CronogramaCliente({
               <Button
                 variant="outline"
                 size="icon"
+                aria-label="Día siguiente"
                 onClick={diaSiguiente}
                 className="shrink-0"
               >

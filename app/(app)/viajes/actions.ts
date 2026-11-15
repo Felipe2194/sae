@@ -1,7 +1,7 @@
 "use server";
 
 import { ErrorDeUsuario } from "@/lib/errores";
-import { requireAuth } from "@/lib/sesion";
+import { requireSeccion } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
 import { withUser } from "@/lib/db";
 import { generarCodigoPublico } from "@/lib/viajes/codigo";
@@ -11,7 +11,7 @@ import type { EstadoViaje } from "@/types/database";
 // Quién puede editar/administrar un viaje puntual: quien lo creó, el equipo
 // asignado, o administrador — mismo criterio que la policy viaje_update.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
-async function requireOrganizador(tx: any, viajeId: string, session: Awaited<ReturnType<typeof requireAuth>>) {
+async function requireOrganizador(tx: any, viajeId: string, session: Awaited<ReturnType<typeof requireSeccion>>) {
   const rol = (session.user as { rol: string }).rol;
   if (rol === "administrador") return;
   const [viaje] = await tx<[{ creada_por: string } | undefined]>`
@@ -57,7 +57,7 @@ export type ViajeInput = {
 const MAX_INTENTOS_CODIGO = 5;
 
 export async function crearViaje(data: ViajeInput): Promise<{ id: string }> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const { id } = await withUser(session.user.id, async (tx) => {
     for (let intento = 0; intento < MAX_INTENTOS_CODIGO; intento++) {
       const codigo = generarCodigoPublico();
@@ -93,7 +93,7 @@ export async function crearViaje(data: ViajeInput): Promise<{ id: string }> {
 }
 
 export async function actualizarViaje(viajeId: string, data: ViajeInput) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizador(tx, viajeId, session);
     const [antes] = await tx<[{ nombre: string; estado: string } | undefined]>`
@@ -130,7 +130,7 @@ export async function actualizarViaje(viajeId: string, data: ViajeInput) {
 }
 
 export async function eliminarViaje(viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     const rol = (session.user as { rol: string }).rol;
     const [viaje] = await tx<[{ creada_por: string } | undefined]>`
@@ -157,7 +157,7 @@ export async function actualizarCodigoPublico(
   viajeId: string,
   nuevoCodigo: string,
 ): Promise<{ codigo: string } | { error: string }> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const codigo = nuevoCodigo.trim();
   if (!CODIGO_VALIDO.test(codigo)) {
     return {
@@ -186,7 +186,7 @@ export async function actualizarCodigoPublico(
 
 // Escape hatch para revocar un link que se filtró o se compartió por error.
 export async function regenerarCodigoPublico(viajeId: string): Promise<{ codigo: string }> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const codigo = await withUser(session.user.id, async (tx) => {
     await requireOrganizador(tx, viajeId, session);
     for (let intento = 0; intento < MAX_INTENTOS_CODIGO; intento++) {

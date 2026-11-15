@@ -119,6 +119,14 @@ externo: esos tienen que quedar ocultos y llegar por la alerta de la sección 3.
 Para las guardas de sesión, usar `requireAuth()` / `requireAdmin()` de
 `lib/sesion.ts`.
 
+Las acciones de una sección opcional (Cronograma, Proyectos, Visitas, Viajes)
+usan `requireSeccion("clave")` / `requireAdminEnSeccion("clave")`: además de
+la sesión, rechazan el pedido si la sección está desactivada o es "solo
+administradores" y quien llama no lo es — la misma regla que aplica la página.
+`/api/calendar/events` hace lo propio con Calendario. Las acciones de tareas
+(`tablero/actions.ts`) quedan afuera a propósito: las tareas se usan también
+desde Hoy, Proyectos y Viajes aunque el Tablero esté apagado.
+
 ## 5. Cuentas y accesos
 
 - **Cuenta de oficina (genérica):** permite elegir un perfil sin contraseña en
@@ -152,8 +160,6 @@ Para las guardas de sesión, usar `requireAuth()` / `requireAdmin()` de
 - **Multi-organización a medias:** el registro, el alta por Google y la
   pantalla de login asumen la organización `sae-frvm`, y Telegram usa un único
   chat global. Hay que resolverlo antes de sumar una segunda secretaría.
-- **Secciones deshabilitadas o "solo administradores":** se validan al entrar
-  a la página, no en cada acción.
 - **Datos personales de inscriptos a viajes:** no hay una política de
   retención ni un borrado automático una vez pasado el viaje.
 - **Login con Google:** requiere `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` en

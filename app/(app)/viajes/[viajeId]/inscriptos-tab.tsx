@@ -190,6 +190,8 @@ export function InscriptosTab({
                           size="icon"
                           variant="ghost"
                           className="text-muted-foreground hover:text-destructive size-7"
+                          aria-label={`Eliminar a ${i.nombre} ${i.apellido}`}
+                          title="Eliminar"
                           onClick={() => handleEliminar(i.id)}
                         >
                           <Trash2 className="size-3.5" />

@@ -19,10 +19,6 @@ export default async function CalendarioPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const tieneCalendar = !!(
-    process.env.GOOGLE_CALENDAR_API_KEY && process.env.GOOGLE_CALENDAR_ID
-  );
-
   // google_event_id is null: las reuniones que ya se sincronizaron con
   // Google Calendar (ver crearReunion en configuracion/actions.ts) se
   // excluyen acá porque ya se van a mostrar solas — via el fetch a la API de
@@ -64,6 +60,6 @@ export default async function CalendarioPage() {
   if (!habilitado) redirectSeccionDeshabilitada();
 
   return (
-    <CalendarioCliente tareas={[...tareas]} tieneCalendar={tieneCalendar} />
+    <CalendarioCliente tareas={[...tareas]} />
   );
 }

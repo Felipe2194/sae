@@ -1,7 +1,7 @@
 "use server";
 
 import { ErrorDeUsuario } from "@/lib/errores";
-import { requireAuth } from "@/lib/sesion";
+import { requireSeccion } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
 import { withUser } from "@/lib/db";
 
@@ -10,7 +10,7 @@ import { withUser } from "@/lib/db";
 // más abajo). RLS (turno_insert/update/delete) refuerza esto mismo del lado
 // de la base.
 function requierePropioOManage(
-  session: Awaited<ReturnType<typeof requireAuth>>,
+  session: Awaited<ReturnType<typeof requireSeccion>>,
   usuarioId: string,
 ) {
   const rol = (session.user as { rol: string }).rol;
@@ -27,7 +27,7 @@ export async function crearTurno(data: {
   vigente_desde: string;
   vigente_hasta: string | null;
 }) {
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   requierePropioOManage(session, data.usuario_id);
   await withUser(session.user.id, async (tx) => {
     await tx`
@@ -58,7 +58,7 @@ export async function actualizarTurno(
     vigente_hasta: string | null;
   },
 ) {
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   requierePropioOManage(session, data.usuario_id);
   await withUser(session.user.id, async (tx) => {
     await tx`
@@ -80,7 +80,7 @@ export async function actualizarTurno(
 export async function eliminarTurno(turnoId: string) {
   // Sin chequeo explícito de dueño acá: RLS (turno_delete) es quien decide
   // si esta fila se puede borrar (propio turno, o administrador).
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   await withUser(session.user.id, async (tx) => {
     await tx`
       delete from turno
@@ -104,7 +104,7 @@ export async function crearExcepcion(data: {
   nota: string | null;
   usuario_reemplazo_id: string | null;
 }) {
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   const rol = (session.user as { rol: string }).rol;
   if (data.usuario_id !== session.user.id && rol !== "administrador") {
     throw new ErrorDeUsuario("Solo podés marcar tu propia ausencia");
@@ -138,7 +138,7 @@ export async function crearExcepcion(data: {
 }
 
 export async function eliminarExcepcion(excepcionId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   await withUser(session.user.id, async (tx) => {
     await tx`delete from excepcion_turno where id = ${excepcionId}`;
   });

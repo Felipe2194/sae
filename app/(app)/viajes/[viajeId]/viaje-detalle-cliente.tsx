@@ -194,10 +194,10 @@ export function ViajeDetalleCliente({
                 autoFocus
                 className="h-8 w-40 text-xs"
               />
-              <Button size="icon" variant="ghost" className="size-8" disabled={guardandoCodigo} onClick={handleGuardarCodigo}>
+              <Button size="icon" variant="ghost" className="size-8" aria-label="Guardar código" title="Guardar" disabled={guardandoCodigo} onClick={handleGuardarCodigo}>
                 <Check className="size-3.5" />
               </Button>
-              <Button size="icon" variant="ghost" className="size-8" onClick={() => setEditandoCodigo(false)}>
+              <Button size="icon" variant="ghost" className="size-8" aria-label="Cancelar" title="Cancelar" onClick={() => setEditandoCodigo(false)}>
                 <X className="size-3.5" />
               </Button>
             </>
