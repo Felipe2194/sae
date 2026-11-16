@@ -54,6 +54,7 @@ export interface OrganizacionRow {
   tablero_habilitado: boolean;
   google_calendar_id: string | null;
   viajes_habilitado: boolean;
+  becas_habilitado: boolean;
 }
 
 export interface OrganizacionInsert {
@@ -70,6 +71,7 @@ export interface OrganizacionInsert {
   tablero_habilitado?: boolean;
   google_calendar_id?: string | null;
   viajes_habilitado?: boolean;
+  becas_habilitado?: boolean;
 }
 
 export type OrganizacionUpdate = Partial<OrganizacionInsert>;

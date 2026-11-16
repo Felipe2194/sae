@@ -143,6 +143,7 @@ export default async function AdminPage() {
           visitas_habilitado: boolean;
           tablero_habilitado: boolean;
           viajes_habilitado: boolean;
+          becas_habilitado: boolean;
           secciones_solo_admin: string[];
           google_calendar_id: string | null;
         }[]
@@ -151,7 +152,7 @@ export default async function AdminPage() {
         nombre, logo_url, color_principal, zona_horaria,
         calendario_habilitado, cronograma_habilitado,
         proyectos_habilitado, visitas_habilitado, tablero_habilitado,
-        viajes_habilitado, secciones_solo_admin, google_calendar_id
+        viajes_habilitado, becas_habilitado, secciones_solo_admin, google_calendar_id
       from organizacion
       where id = mi_organizacion_id()
     `;
@@ -215,6 +216,7 @@ export default async function AdminPage() {
                 proyectos: organizacion.proyectos_habilitado,
                 visitas: organizacion.visitas_habilitado,
                 viajes: organizacion.viajes_habilitado,
+                becas: organizacion.becas_habilitado,
               }}
               soloAdmin={organizacion.secciones_solo_admin as SeccionOpcionalKey[]}
             />

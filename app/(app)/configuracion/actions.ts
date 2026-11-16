@@ -780,6 +780,7 @@ export async function actualizarSecciones(
         proyectos_habilitado = ${data.proyectos},
         visitas_habilitado = ${data.visitas},
         viajes_habilitado = ${data.viajes},
+        becas_habilitado = ${data.becas},
         secciones_solo_admin = ${soloAdminValidas}::text[]
       where id = mi_organizacion_id()
     `;

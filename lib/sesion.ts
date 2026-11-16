@@ -45,7 +45,8 @@ export async function requireSeccion(clave: SeccionOpcionalKey) {
         seccion_visible(cronograma_habilitado, secciones_solo_admin, 'cronograma') as cronograma,
         seccion_visible(proyectos_habilitado, secciones_solo_admin, 'proyectos') as proyectos,
         seccion_visible(visitas_habilitado, secciones_solo_admin, 'visitas') as visitas,
-        seccion_visible(viajes_habilitado, secciones_solo_admin, 'viajes') as viajes
+        seccion_visible(viajes_habilitado, secciones_solo_admin, 'viajes') as viajes,
+        seccion_visible(becas_habilitado, secciones_solo_admin, 'becas') as becas
       from organizacion
       where id = mi_organizacion_id()
     `;

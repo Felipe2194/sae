@@ -17,6 +17,10 @@ const isDev = process.env.NODE_ENV === "development";
 // parámetro de URL que baraje una playlist) y los hosts de Google Identity
 // Services / Picker API, que también se cargan como <script> dinámico (no
 // npm) y hacen sus propios fetch a googleapis.com vía connect-src.
+// worker-src suma blob: para el importador de Excel de Becas
+// (app/(app)/becas/importar-dialog.tsx): read-excel-file descomprime y parsea
+// el .xlsx en Web Workers que crea desde un blob. Solo habilita workers
+// armados por el propio código de la app; no abre scripts de terceros.
 const cspHeader = `
   default-src 'self';
   script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://www.youtube.com${isDev ? " 'unsafe-eval'" : ""};
@@ -25,6 +29,7 @@ const cspHeader = `
   font-src 'self';
   frame-src https://www.youtube-nocookie.com https://open.spotify.com https://drive.google.com https://docs.google.com;
   connect-src 'self' https://www.googleapis.com https://content.googleapis.com;
+  worker-src 'self' blob:;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
