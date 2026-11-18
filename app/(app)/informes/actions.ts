@@ -1,20 +1,12 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/sesion";
 import { withUser } from "@/lib/db";
 import type { LogIntegranteItem } from "./tipos";
 
 // /informes ya redirige a los no-administradores en el server component,
 // pero esta action es invocable directamente — sin este chequeo, cualquier
 // usuario autenticado podría pedir el detalle de otro integrante.
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  const rol = (session.user as { rol: string }).rol;
-  if (rol !== "administrador") throw new Error("No autorizado");
-  return session;
-}
-
 // Detalle que se muestra al expandir un integrante en "Actividad por
 // integrante": tareas que creó + tareas que tiene asignadas, mezcladas en
 // una sola línea de tiempo (una persona puede aparecer en ambos roles para

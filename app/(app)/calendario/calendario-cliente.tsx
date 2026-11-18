@@ -75,10 +75,9 @@ function formatDiaLargo(dateISO: string): string {
 
 type Props = {
   tareas: TareaConFecha[];
-  tieneCalendar: boolean;
 };
 
-export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
+export function CalendarioCliente({ tareas }: Props) {
   const hoy = new Date();
   const hoyISO = isoDate(hoy);
 
@@ -154,7 +153,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
   );
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+    <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
 
       {/* ── Encabezado ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -197,7 +196,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_300px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
 
         {/* ── Grilla mensual ───────────────────────────────────────────────── */}
         <Card>
@@ -207,7 +206,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
               {DIAS_CABECERA.map((d) => (
                 <div
                   key={d}
-                  className="text-muted-foreground py-2 text-center text-xs font-medium"
+                  className="text-muted-foreground py-2 text-center text-xs font-medium xl:py-2.5 xl:text-sm"
                 >
                   {d}
                 </div>
@@ -238,7 +237,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
                       onClick={() => dateISO && setSelectedDay(dateISO)}
                       disabled={!dia}
                       className={[
-                        "min-h-[3.25rem] sm:min-h-[5.5rem] border-b border-r p-1 sm:p-1.5 text-left transition-colors",
+                        "min-h-[3.25rem] sm:min-h-[5.5rem] xl:min-h-[7.75rem] border-b border-r p-1 sm:p-1.5 text-left transition-colors",
                         !esMesActual ? "bg-muted/20 cursor-default" : "hover:bg-muted/40 cursor-pointer",
                         esSeleccionado ? "bg-accent/60" : "",
                         esFinDeSemana && esMesActual ? "bg-muted/10" : "",
@@ -250,7 +249,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
                           <div className="mb-1 flex justify-end">
                             <span
                               className={[
-                                "flex size-6 items-center justify-center rounded-full text-xs font-medium",
+                                "flex size-6 items-center justify-center rounded-full text-xs font-medium xl:size-7 xl:text-sm",
                                 esHoy
                                   ? "bg-primary text-primary-foreground"
                                   : esSeleccionado
@@ -295,7 +294,7 @@ export function CalendarioCliente({ tareas, tieneCalendar }: Props) {
                                 <div
                                   key={isGcal ? item.id : (item as TareaConFecha).id}
                                   title={titulo}
-                                  className="truncate rounded px-1 py-0.5 text-[11px] font-medium leading-tight"
+                                  className="truncate rounded px-1 py-0.5 text-[11px] font-medium leading-tight xl:px-1.5 xl:text-xs"
                                   style={{
                                     backgroundColor: `${color}22`,
                                     color: color,

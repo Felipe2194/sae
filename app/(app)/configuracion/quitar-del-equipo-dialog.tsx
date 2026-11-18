@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -85,7 +86,7 @@ export function QuitarDelEquipoDialog({
       })
       .catch((e) => {
         if (!cancelado)
-          setError(e instanceof Error ? e.message : "No se pudieron cargar los pendientes.");
+          setError(mensajeDeError(e, "No se pudieron cargar los pendientes."));
       });
     return () => {
       cancelado = true;
@@ -128,7 +129,7 @@ export function QuitarDelEquipoDialog({
         });
         onOpenChange(false);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "No se pudo quitar del equipo.");
+        setError(mensajeDeError(e, "No se pudo quitar del equipo."));
       }
     });
   }

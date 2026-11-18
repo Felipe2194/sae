@@ -1,3 +1,9 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { fetchAuditoria } from "./actions";
+
 const ENTIDAD_LABEL: Record<string, string> = {
   usuario: "Usuario",
   area: "Proyecto",
@@ -45,7 +51,43 @@ function Cambio({ antes, despues }: { antes: string | null; despues: string | nu
   return <span className="text-muted-foreground">—</span>;
 }
 
-export function AuditoriaTable({ entradas }: { entradas: AuditoriaFila[] }) {
+export function AuditoriaTable({
+  entradasIniciales,
+  hayMasInicial,
+}: {
+  entradasIniciales: AuditoriaFila[];
+  hayMasInicial: boolean;
+}) {
+  const [entradas, setEntradas] = useState(entradasIniciales);
+  const [hayMas, setHayMas] = useState(hayMasInicial);
+  const [cargando, startTransition] = useTransition();
+
+  function cargarMas() {
+    const ultima = entradas[entradas.length - 1];
+    if (!ultima) return;
+    startTransition(async () => {
+      try {
+        const pagina = await fetchAuditoria({ creadoEn: ultima.creado_en, id: ultima.id });
+        setEntradas((prev) => [...prev, ...pagina.entradas]);
+        setHayMas(pagina.hayMas);
+      } catch {
+        toast.error("No se pudo cargar más actividad.");
+      }
+    });
+  }
+
+  const botonMas = hayMas && (
+    <div className="border-t p-3 text-center">
+      <button
+        onClick={cargarMas}
+        disabled={cargando}
+        className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline disabled:opacity-50"
+      >
+        {cargando ? "Cargando…" : "Cargar actividad anterior"}
+      </button>
+    </div>
+  );
+
   if (entradas.length === 0) {
     return (
       <p className="text-muted-foreground px-4 py-6 text-center text-sm">
@@ -102,6 +144,7 @@ export function AuditoriaTable({ entradas }: { entradas: AuditoriaFila[] }) {
             ))}
           </tbody>
         </table>
+        {botonMas}
       </div>
 
       {/* Mobile: tarjetas */}
@@ -127,6 +170,7 @@ export function AuditoriaTable({ entradas }: { entradas: AuditoriaFila[] }) {
             </p>
           </div>
         ))}
+        {botonMas}
       </div>
     </>
   );

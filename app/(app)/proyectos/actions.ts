@@ -1,25 +1,10 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireSeccion, requireAdminEnSeccion } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { urlSegura } from "@/lib/utils";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  const rol = (session.user as { rol: string }).rol;
-  if (rol !== "administrador") {
-    throw new Error("Se requiere rol administrador");
-  }
-  return session;
-}
 
 // Planificar/activar tareas y cargar/borrar fechas importantes: administrador
 // o responsable del proyecto (a diferencia del resto de acciones de esta
@@ -28,7 +13,7 @@ async function requirePlanificador(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
   tx: any,
   areaId: string,
-  session: Awaited<ReturnType<typeof requireAuth>>,
+  session: Awaited<ReturnType<typeof requireSeccion>>,
 ) {
   const rol = (session.user as { rol: string }).rol;
   if (rol === "administrador") return;
@@ -37,7 +22,7 @@ async function requirePlanificador(
     where id = ${areaId} and organizacion_id = mi_organizacion_id()
   `;
   if (!area || area.responsable_id !== session.user.id) {
-    throw new Error(
+    throw new ErrorDeUsuario(
       "Solo el administrador o el responsable del proyecto pueden hacer esto.",
     );
   }
@@ -73,7 +58,7 @@ export async function crearArea(data: {
   responsable_id: string | null;
   asignados_ids?: string[];
 }) {
-  const session = await requireAdmin();
+  const session = await requireAdminEnSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     const [{ id }] = await tx<[{ id: string }]>`
       insert into area (
@@ -102,7 +87,7 @@ export async function crearNota(
   contenido: string,
   tipo: "nota" | "idea" | "actividad" | "progreso",
 ) {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   const texto = contenido.trim();
   if (!texto) return;
   await withUser(session.user.id, async (tx) => {
@@ -115,7 +100,7 @@ export async function crearNota(
 }
 
 export async function eliminarNota(notaId: string, areaId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     await tx`
       delete from nota_area
@@ -135,7 +120,7 @@ export async function crearAccesoArea(
   etiqueta: string,
   url: string,
 ): Promise<{ id: string } | null> {
-  const session = await requireAdmin();
+  const session = await requireAdminEnSeccion("proyectos");
   const etiquetaLimpia = etiqueta.trim();
   // Solo http/https: ver comentario en crearAcceso, configuracion/actions.ts.
   const urlLimpia = urlSegura(url.trim());
@@ -156,7 +141,7 @@ export async function crearAccesoArea(
 }
 
 export async function eliminarAccesoArea(accesoId: string, areaId: string) {
-  const session = await requireAdmin();
+  const session = await requireAdminEnSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     await tx`
       delete from acceso_rapido
@@ -183,7 +168,7 @@ export type AreaArchivadaRow = {
 // como sugerencia puntual de "esto se cerró la última vez" al reactivar
 // (ver fetchTareasCierre), sin mezclarlas con archivados de otro momento.
 export async function archivarArea(areaId: string) {
-  const session = await requireAdmin();
+  const session = await requireAdminEnSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     const [area] = await tx<[{ nombre: string } | undefined]>`
       select nombre from area where id = ${areaId} and organizacion_id = mi_organizacion_id()
@@ -223,7 +208,7 @@ export type TareaCierreRow = { id: string; titulo: string };
 export async function fetchTareasCierre(
   areaId: string,
 ): Promise<TareaCierreRow[]> {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   return withUser(session.user.id, async (tx) => {
     const rows = await tx<TareaCierreRow[]>`
       select t.id, t.titulo
@@ -247,7 +232,7 @@ export async function reactivarArea(
   areaId: string,
   titulosNuevos: string[] = [],
 ) {
-  const session = await requireAdmin();
+  const session = await requireAdminEnSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     const [area] = await tx<[{ nombre: string } | undefined]>`
       select nombre from area where id = ${areaId} and organizacion_id = mi_organizacion_id()
@@ -288,7 +273,7 @@ export type PlantillaRow = {
 };
 
 export async function fetchPlantillas(areaId: string): Promise<PlantillaRow[]> {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   return withUser(session.user.id, async (tx) => {
     const rows = await tx<PlantillaRow[]>`
       select
@@ -313,7 +298,7 @@ export async function crearPlantilla(
   nombre: string,
   items: string[],
 ): Promise<PlantillaRow | null> {
-  const session = await requireAdmin();
+  const session = await requireAdminEnSeccion("proyectos");
   const titulos = items.map((t) => t.trim()).filter(Boolean);
   if (!nombre.trim() || titulos.length === 0) return null;
 
@@ -336,7 +321,7 @@ export async function crearPlantilla(
 }
 
 export async function eliminarPlantilla(plantillaId: string, areaId: string) {
-  const session = await requireAdmin();
+  const session = await requireAdminEnSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     await tx`delete from plantilla_area where id = ${plantillaId}`;
   });
@@ -344,7 +329,7 @@ export async function eliminarPlantilla(plantillaId: string, areaId: string) {
 }
 
 export async function aplicarPlantilla(plantillaId: string, areaId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     const items = await tx<{ titulo: string }[]>`
       select titulo from plantilla_item
@@ -369,7 +354,7 @@ export async function aplicarPlantilla(plantillaId: string, areaId: string) {
 }
 
 export async function fetchAreasArchivadas(): Promise<AreaArchivadaRow[]> {
-  const session = await requireAdmin();
+  const session = await requireAdminEnSeccion("proyectos");
   return withUser(session.user.id, async (tx) => {
     const rows = await tx<AreaArchivadaRow[]>`
       select id, nombre, color, descripcion
@@ -395,7 +380,7 @@ export async function actualizarArea(
     asignados_ids?: string[];
   },
 ) {
-  const session = await requireAdmin();
+  const session = await requireAdminEnSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     const [antes] = await tx<[{ nombre: string; responsable_id: string | null } | undefined]>`
       select nombre, responsable_id from area
@@ -456,7 +441,7 @@ export async function crearTareaPlanificada(
   areaId: string,
   data: TareaPlanificadaInput,
 ): Promise<{ id: string }> {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   const resultado = await withUser(session.user.id, async (tx) => {
     await requirePlanificador(tx, areaId, session);
     const [{ id }] = await tx<[{ id: string }]>`
@@ -483,7 +468,7 @@ export async function actualizarTareaPlanificada(
   areaId: string,
   data: TareaPlanificadaInput,
 ) {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     await requirePlanificador(tx, areaId, session);
     await tx`
@@ -501,7 +486,7 @@ export async function actualizarTareaPlanificada(
 }
 
 export async function activarTarea(tareaId: string, areaId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     await requirePlanificador(tx, areaId, session);
     await tx`
@@ -521,7 +506,7 @@ export async function archivarTareaPlanificada(
   tareaId: string,
   areaId: string,
 ) {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     await requirePlanificador(tx, areaId, session);
     await tx`
@@ -544,7 +529,7 @@ export async function crearHitoArea(
   titulo: string,
   fecha: string,
 ): Promise<{ id: string } | null> {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   const tituloLimpio = titulo.trim();
   if (!tituloLimpio || !fecha) return null;
   const { id } = await withUser(session.user.id, async (tx) => {
@@ -561,7 +546,7 @@ export async function crearHitoArea(
 }
 
 export async function eliminarHitoArea(hitoId: string, areaId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("proyectos");
   await withUser(session.user.id, async (tx) => {
     await requirePlanificador(tx, areaId, session);
     await tx`delete from hito_area where id = ${hitoId} and area_id = ${areaId}`;

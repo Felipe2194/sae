@@ -1,16 +1,12 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireAdminEnSeccion, requireSeccion } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { urlSegura } from "@/lib/utils";
 import type { EstadoIntegranteViaje } from "@/types/database";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
+import type { IntegranteViajeRow } from "./page";
 
 // Mismo criterio que la policy viaje_update: creador, equipo asignado, o
 // administrador — repetido acá en vez de importado desde ../actions.ts,
@@ -20,7 +16,7 @@ async function requireOrganizadorViaje(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
   tx: any,
   viajeId: string,
-  session: Awaited<ReturnType<typeof requireAuth>>,
+  session: Awaited<ReturnType<typeof requireSeccion>>,
 ) {
   const rol = (session.user as { rol: string }).rol;
   if (rol === "administrador") return;
@@ -28,14 +24,14 @@ async function requireOrganizadorViaje(
     select creada_por from viaje
     where id = ${viajeId} and organizacion_id = mi_organizacion_id()
   `;
-  if (!viaje) throw new Error("El viaje no existe.");
+  if (!viaje) throw new ErrorDeUsuario("El viaje no existe.");
   if (viaje.creada_por === session.user.id) return;
   const [asignado] = await tx<[{ usuario_id: string } | undefined]>`
     select usuario_id from viaje_asignado
     where viaje_id = ${viajeId} and usuario_id = ${session.user.id}
   `;
   if (!asignado) {
-    throw new Error("Solo quien organiza este viaje (o administrador) puede hacer esto.");
+    throw new ErrorDeUsuario("Solo quien organiza este viaje (o administrador) puede hacer esto.");
   }
 }
 
@@ -48,7 +44,7 @@ export async function crearAccesoViaje(
   etiqueta: string,
   url: string,
 ): Promise<{ id: string } | null> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const etiquetaLimpia = etiqueta.trim();
   // Solo http/https: ver comentario en crearAcceso, configuracion/actions.ts.
   const urlLimpia = urlSegura(url.trim());
@@ -70,7 +66,7 @@ export async function crearAccesoViaje(
 }
 
 export async function eliminarAccesoViaje(accesoId: string, viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`
@@ -91,7 +87,7 @@ export async function eliminarAccesoViaje(accesoId: string, viajeId: string) {
 // existiendo en el tablero, archivarla queda a criterio de quien la gestiona).
 
 export async function crearTareaCosteo(viajeId: string, titulo: string): Promise<{ id: string } | null> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const tituloLimpio = titulo.trim();
   if (!tituloLimpio) return null;
   const { id } = await withUser(session.user.id, async (tx) => {
@@ -117,7 +113,7 @@ export async function fijarCosto(
   viajeId: string,
   data: { concepto: string; monto: number; tareaId: string | null },
 ): Promise<{ id: string } | null> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const conceptoLimpio = data.concepto.trim();
   if (!conceptoLimpio || !(data.monto > 0)) return null;
   const { id } = await withUser(session.user.id, async (tx) => {
@@ -135,7 +131,7 @@ export async function fijarCosto(
 }
 
 export async function eliminarCosto(costoId: string, viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`delete from viaje_costo where id = ${costoId} and viaje_id = ${viajeId}`;
@@ -151,7 +147,7 @@ export async function cambiarEstadoIntegrante(
   viajeId: string,
   estado: EstadoIntegranteViaje,
 ) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     const [antes] = await tx<[{ nombre: string; apellido: string; estado: string } | undefined]>`
@@ -182,7 +178,7 @@ export async function actualizarIntegrante(
   viajeId: string,
   data: { montoAPagar: number | null; notasInternas: string | null },
 ) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`
@@ -196,13 +192,54 @@ export async function actualizarIntegrante(
 }
 
 export async function eliminarIntegrante(integranteId: string, viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`delete from viaje_integrante where id = ${integranteId} and viaje_id = ${viajeId}`;
   });
   revalidatePath(`/viajes/${viajeId}`);
   revalidatePath("/informes");
+}
+
+// Retención de datos personales (migración 054): un administrador deja a los
+// inscriptos de un viaje ya realizado o cancelado como "Inscripto N", sin DNI,
+// legajo, mail ni teléfono. Se conservan carrera, estado, montos y pagos. No
+// se puede deshacer. Devuelve la lista ya anonimizada para que la pestaña la
+// muestre sin recargar.
+export async function borrarDatosPersonalesInscriptos(
+  viajeId: string,
+): Promise<{ cantidad: number; integrantes: IntegranteViajeRow[] }> {
+  const session = await requireAdminEnSeccion("viajes");
+  const resultado = await withUser(session.user.id, async (tx) => {
+    // Los mismos chequeos que hace la función SQL, repetidos acá para que el
+    // motivo le llegue a la persona (una excepción de Postgres llega oculta).
+    const [viaje] = await tx<[{ estado: string } | undefined]>`
+      select estado::text from viaje
+      where id = ${viajeId} and organizacion_id = mi_organizacion_id()
+    `;
+    if (!viaje) throw new ErrorDeUsuario("El viaje no existe.");
+    if (viaje.estado !== "realizado" && viaje.estado !== "cancelado") {
+      throw new ErrorDeUsuario(
+        "Los datos personales se pueden borrar recién cuando el viaje está realizado o cancelado.",
+      );
+    }
+    const [{ cantidad }] = await tx<[{ cantidad: number }]>`
+      select anonimizar_inscriptos_viaje(${viajeId}) as cantidad
+    `;
+    const integrantes = await tx<IntegranteViajeRow[]>`
+      select
+        id, nombre, apellido, dni, legajo, carrera, anio_cursada,
+        email, telefono, estado::text as estado, monto_a_pagar::float8,
+        notas_internas, creado_en::text, anonimizado_en::text
+      from viaje_integrante
+      where viaje_id = ${viajeId}
+      order by creado_en asc
+    `;
+    return { cantidad, integrantes: [...integrantes] };
+  });
+  revalidatePath(`/viajes/${viajeId}`);
+  revalidatePath(`/reporte-viajes/${viajeId}`);
+  return resultado;
 }
 
 // ── Pagos ──────────────────────────────────────────────────────────────────────
@@ -214,7 +251,7 @@ export async function registrarPago(
   viajeId: string,
   data: { viajeIntegranteId: string; monto: number; medioPago: string | null; fechaPago: string },
 ): Promise<{ id: string } | null> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   if (!(data.monto > 0)) return null;
   const { id } = await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
@@ -231,7 +268,7 @@ export async function registrarPago(
 }
 
 export async function eliminarPago(pagoId: string, viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizadorViaje(tx, viajeId, session);
     await tx`

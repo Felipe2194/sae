@@ -16,6 +16,7 @@ import {
   Globe,
   School,
   Plane,
+  GraduationCap,
   Lock,
 } from "lucide-react";
 import type { SeccionesHabilitadas, SeccionOpcionalKey } from "@/lib/secciones";
@@ -90,6 +91,13 @@ const ITEMS_BASE: {
     icon: Plane,
     roles: null,
     seccion: "viajes",
+  },
+  {
+    href: "/becas",
+    label: "Becas",
+    icon: GraduationCap,
+    roles: null,
+    seccion: "becas",
   },
   {
     href: "/informes",

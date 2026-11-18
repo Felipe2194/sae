@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import {
   useState,
   useMemo,
@@ -249,7 +250,8 @@ export function TableroCliente({
   const [, startTransition] = useTransition();
   const [showArchivadas, setShowArchivadas] = useState(false);
   const [archivadas, setArchivadas] = useState<TareaCard[] | null>(null);
-  const [, startArchivadasTransition] = useTransition();
+  const [hayMasArchivadas, setHayMasArchivadas] = useState(false);
+  const [cargandoArchivadas, startArchivadasTransition] = useTransition();
 
   // Preferencia personal de UI, no dato de la organización — se guarda en
   // localStorage, no en la base. Arranca vacío (igual en server y cliente,
@@ -379,10 +381,23 @@ export function TableroCliente({
     setShowArchivadas(next);
     if (next && archivadas === null) {
       startArchivadasTransition(async () => {
-        const rows = await fetchTareasArchivadas();
-        setArchivadas(rows);
+        const { tareas, hayMas } = await fetchTareasArchivadas();
+        setArchivadas(tareas);
+        setHayMasArchivadas(hayMas);
       });
     }
+  }
+
+  function cargarMasArchivadas() {
+    startArchivadasTransition(async () => {
+      const { tareas, hayMas } = await fetchTareasArchivadas(archivadas?.length ?? 0);
+      // Por si alguna se restauró o archivó entre una página y la otra.
+      setArchivadas((prev) => {
+        const vistas = new Set((prev ?? []).map((t) => t.id));
+        return [...(prev ?? []), ...tareas.filter((t) => !vistas.has(t.id))];
+      });
+      setHayMasArchivadas(hayMas);
+    });
   }
 
   function handleRestaurarArchivada(tareaId: string) {
@@ -402,7 +417,7 @@ export function TableroCliente({
         // asentarse la transición sin que tareasIniciales haya cambiado) —
         // esto solo avisa por qué no se movió.
         setDragError(
-          err instanceof Error ? err.message : "No se pudo mover la tarea.",
+          mensajeDeError(err, "No se pudo mover la tarea."),
         );
       }
     });
@@ -680,6 +695,15 @@ export function TableroCliente({
                   onRestaurar={() => handleRestaurarArchivada(t.id)}
                 />
               ))
+            )}
+            {archivadas !== null && hayMasArchivadas && (
+              <button
+                onClick={cargarMasArchivadas}
+                disabled={cargandoArchivadas}
+                className="text-muted-foreground hover:text-foreground mt-1 self-start text-xs underline-offset-2 hover:underline disabled:opacity-50"
+              >
+                {cargandoArchivadas ? "Cargando…" : "Cargar más"}
+              </button>
             )}
           </div>
         )}

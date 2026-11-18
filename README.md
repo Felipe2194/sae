@@ -204,9 +204,10 @@ npm run lint             # ESLint
 npm run format           # Prettier (escribe)
 npm run format:check     # Prettier (solo chequea)
 npx tsc --noEmit          # chequeo de tipos
-npm test                  # Vitest
+npm test                  # Vitest (solo contra una base local)
 npm run db:migrate        # aplicar migraciones pendientes
-npm run db:seed           # cargar datos de prueba
+npm run db:seed           # cargar datos de prueba (solo contra una base local)
+npm run db:backup         # volcado completo de la base a ./backups (requiere Docker)
 ```
 
 Para instalar una instancia nueva (otra secretaría/regional) o desplegar a producción, ver [`docs/guia-instalacion.md`](docs/guia-instalacion.md).
@@ -217,9 +218,11 @@ Para instalar una instancia nueva (otra secretaría/regional) o desplegar a prod
 
 El sistema está en uso activo para la SAE de FRVM. Lo que sigue pendiente, en orden de impacto:
 
-- **Despliegue a producción**: hoy todo corre local con Docker; falta elegir un proveedor de PostgreSQL gestionado y conectar el primer deploy real en Vercel.
+- **Multi-organización**: el registro y el login todavía asumen una sola organización; falta resolverlo antes de sumar otra secretaría.
 - **Adjuntos**: por ahora son solo enlaces (a mano o elegidos desde Drive), no hay carga real de archivos al sistema.
-- **Observabilidad**: hay un endpoint de salud (`/api/health`) y logging estructurado en los puntos sensibles de autenticación, pero falta una herramienta de trazas de errores (tipo Sentry).
+- **Recuperación de contraseña**: cada persona cambia la suya desde su perfil, pero si la olvida la resetea un administrador (no hay envío de mails).
+
+El sistema está en producción (Vercel + Neon). Cómo se despliega, se respalda y se vigila está en [`docs/operacion-produccion.md`](docs/operacion-produccion.md).
 
 El detalle completo, con todo lo ya resuelto y las decisiones de por qué, está en [`docs/documentacion-funcional.md`](docs/documentacion-funcional.md) (sección 6) y en [`docs/estado-del-proyecto.md`](docs/estado-del-proyecto.md).
 
@@ -233,6 +236,7 @@ El detalle completo, con todo lo ya resuelto y las decisiones de por qué, está
 - [`docs/manual-de-usuario.md`](docs/manual-de-usuario.md) — cómo usar cada pantalla, en detalle.
 - [`docs/documentacion-tecnica.md`](docs/documentacion-tecnica.md) — arquitectura, modelo de datos y convenciones, para entender el repo desde cero.
 - [`docs/guia-instalacion.md`](docs/guia-instalacion.md) — instalar una instancia nueva (otra regional/secretaría).
+- [`docs/operacion-produccion.md`](docs/operacion-produccion.md) — deploy, migraciones, backups, alertas de errores y pendientes conocidos.
 - [`docs/migracion-servidores-propios.md`](docs/migracion-servidores-propios.md) — mover la app a infraestructura propia.
 - [`docs/credenciales-pendientes.md`](docs/credenciales-pendientes.md) — qué credenciales opcionales faltan cargar y dónde conseguirlas.
 

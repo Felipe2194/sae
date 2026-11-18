@@ -591,7 +591,6 @@ export default async function HoyPage({
                     estado={t.estado}
                     prioridad={t.prioridad}
                     tipo={t.tipo}
-                    areaColor={t.area_color}
                     areaNombre={t.area_nombre}
                     fecha={t.fecha_vencimiento}
                     fechaRelativa={
@@ -646,7 +645,6 @@ export default async function HoyPage({
                     estado: t.estado,
                     prioridad: t.prioridad,
                     tipo: t.tipo,
-                    areaColor: t.area_color,
                     areaNombre: t.area_nombre,
                     fecha: t.fecha_vencimiento,
                     fechaRelativa: t.fecha_vencimiento
@@ -738,7 +736,6 @@ export default async function HoyPage({
                         estado={t.estado}
                         prioridad={t.prioridad}
                         tipo={t.tipo}
-                        areaColor={t.area_color}
                         areaNombre={t.area_nombre}
                         fecha={t.fecha_vencimiento}
                         fechaRelativa={

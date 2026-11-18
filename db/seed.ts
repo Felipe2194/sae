@@ -7,6 +7,9 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
+import { exigirBaseLocal } from "./exigir-base-local";
+exigirBaseLocal("db/seed.ts");
+
 import postgres from "postgres";
 import bcrypt from "bcryptjs";
 

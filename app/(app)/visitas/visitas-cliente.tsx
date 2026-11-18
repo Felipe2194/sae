@@ -408,6 +408,8 @@ export function VisitasCliente({
                           size="icon"
                           variant="ghost"
                           className="size-7"
+                          aria-label="Editar visita"
+                          title="Editar"
                           onClick={() => abrirEditar(v)}
                         >
                           <Pencil className="size-3.5" />

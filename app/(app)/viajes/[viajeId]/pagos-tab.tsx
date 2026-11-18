@@ -1,5 +1,7 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
+import { useConfirmar } from "@/components/features/confirmar-dialog";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
@@ -107,13 +109,20 @@ export function PagosTab({
         }
         setDialogOpen(false);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudo registrar el pago.");
+        toast.error(mensajeDeError(err, "No se pudo registrar el pago."));
       }
     });
   }
 
-  function handleEliminar(id: string) {
-    if (!confirm("¿Eliminar este pago?")) return;
+  const [confirmar, dialogoConfirmar] = useConfirmar();
+
+  async function handleEliminar(id: string) {
+    const ok = await confirmar({
+      titulo: "¿Eliminar este pago?",
+      confirmar: "Eliminar",
+      destructivo: true,
+    });
+    if (!ok) return;
     setPagos((prev) => prev.filter((p) => p.id !== id));
     startTransition(async () => {
       await eliminarPago(id, viajeId);
@@ -266,6 +275,7 @@ export function PagosTab({
           </form>
         </DialogContent>
       </Dialog>
+      {dialogoConfirmar}
     </div>
   );
 }

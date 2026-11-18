@@ -1,36 +1,31 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireSeccion } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import { generarCodigoPublico } from "@/lib/viajes/codigo";
 import { CAMPOS_FORMULARIO_DEFAULT, type CamposFormularioViaje } from "@/lib/viajes/campos-formulario";
 import type { EstadoViaje } from "@/types/database";
 
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
-
 // Quién puede editar/administrar un viaje puntual: quien lo creó, el equipo
 // asignado, o administrador — mismo criterio que la policy viaje_update.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transacción de postgres.js
-async function requireOrganizador(tx: any, viajeId: string, session: Awaited<ReturnType<typeof requireAuth>>) {
+async function requireOrganizador(tx: any, viajeId: string, session: Awaited<ReturnType<typeof requireSeccion>>) {
   const rol = (session.user as { rol: string }).rol;
   if (rol === "administrador") return;
   const [viaje] = await tx<[{ creada_por: string } | undefined]>`
     select creada_por from viaje
     where id = ${viajeId} and organizacion_id = mi_organizacion_id()
   `;
-  if (!viaje) throw new Error("El viaje no existe.");
+  if (!viaje) throw new ErrorDeUsuario("El viaje no existe.");
   if (viaje.creada_por === session.user.id) return;
   const [asignado] = await tx<[{ usuario_id: string } | undefined]>`
     select usuario_id from viaje_asignado
     where viaje_id = ${viajeId} and usuario_id = ${session.user.id}
   `;
   if (!asignado) {
-    throw new Error("Solo quien organiza este viaje (o administrador) puede hacer esto.");
+    throw new ErrorDeUsuario("Solo quien organiza este viaje (o administrador) puede hacer esto.");
   }
 }
 
@@ -62,7 +57,7 @@ export type ViajeInput = {
 const MAX_INTENTOS_CODIGO = 5;
 
 export async function crearViaje(data: ViajeInput): Promise<{ id: string }> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const { id } = await withUser(session.user.id, async (tx) => {
     for (let intento = 0; intento < MAX_INTENTOS_CODIGO; intento++) {
       const codigo = generarCodigoPublico();
@@ -90,7 +85,7 @@ export async function crearViaje(data: ViajeInput): Promise<{ id: string }> {
         throw e;
       }
     }
-    throw new Error("No se pudo generar un código único para el viaje.");
+    throw new ErrorDeUsuario("No se pudo generar un código único para el viaje.");
   });
   revalidatePath("/viajes");
   revalidatePath("/informes");
@@ -98,7 +93,7 @@ export async function crearViaje(data: ViajeInput): Promise<{ id: string }> {
 }
 
 export async function actualizarViaje(viajeId: string, data: ViajeInput) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     await requireOrganizador(tx, viajeId, session);
     const [antes] = await tx<[{ nombre: string; estado: string } | undefined]>`
@@ -135,7 +130,7 @@ export async function actualizarViaje(viajeId: string, data: ViajeInput) {
 }
 
 export async function eliminarViaje(viajeId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   await withUser(session.user.id, async (tx) => {
     const rol = (session.user as { rol: string }).rol;
     const [viaje] = await tx<[{ creada_por: string } | undefined]>`
@@ -143,7 +138,7 @@ export async function eliminarViaje(viajeId: string) {
     `;
     if (!viaje) return;
     if (rol !== "administrador" && viaje.creada_por !== session.user.id) {
-      throw new Error("Solo quien creó el viaje (o administrador) puede eliminarlo.");
+      throw new ErrorDeUsuario("Solo quien creó el viaje (o administrador) puede eliminarlo.");
     }
     await tx`delete from viaje where id = ${viajeId} and organizacion_id = mi_organizacion_id()`;
   });
@@ -162,7 +157,7 @@ export async function actualizarCodigoPublico(
   viajeId: string,
   nuevoCodigo: string,
 ): Promise<{ codigo: string } | { error: string }> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const codigo = nuevoCodigo.trim();
   if (!CODIGO_VALIDO.test(codigo)) {
     return {
@@ -176,7 +171,7 @@ export async function actualizarCodigoPublico(
         update viaje set codigo_publico = ${codigo}
         where id = ${viajeId} and organizacion_id = mi_organizacion_id()
       `;
-      if (actualizadas.count === 0) throw new Error("El viaje no existe.");
+      if (actualizadas.count === 0) throw new ErrorDeUsuario("El viaje no existe.");
     });
   } catch (e) {
     const codigoError = (e as { code?: string }).code;
@@ -191,7 +186,7 @@ export async function actualizarCodigoPublico(
 
 // Escape hatch para revocar un link que se filtró o se compartió por error.
 export async function regenerarCodigoPublico(viajeId: string): Promise<{ codigo: string }> {
-  const session = await requireAuth();
+  const session = await requireSeccion("viajes");
   const codigo = await withUser(session.user.id, async (tx) => {
     await requireOrganizador(tx, viajeId, session);
     for (let intento = 0; intento < MAX_INTENTOS_CODIGO; intento++) {
@@ -208,7 +203,7 @@ export async function regenerarCodigoPublico(viajeId: string): Promise<{ codigo:
         throw e;
       }
     }
-    throw new Error("No se pudo generar un código único para el viaje.");
+    throw new ErrorDeUsuario("No se pudo generar un código único para el viaje.");
   });
   revalidatePath(`/viajes/${viajeId}`);
   return { codigo };

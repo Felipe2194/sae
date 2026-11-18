@@ -56,6 +56,8 @@ export type IntegranteViajeRow = {
   monto_a_pagar: number | null;
   notas_internas: string | null;
   creado_en: string;
+  // Con fecha: sus datos personales ya se borraron (migración 054).
+  anonimizado_en: string | null;
 };
 
 export type PagoRow = {
@@ -167,7 +169,7 @@ export default async function ViajeDetallePage({
         select
           id, nombre, apellido, dni, legajo, carrera, anio_cursada,
           email, telefono, estado::text as estado, monto_a_pagar::float8,
-          notas_internas, creado_en::text
+          notas_internas, creado_en::text, anonimizado_en::text
         from viaje_integrante
         where viaje_id = ${viajeId}
         order by creado_en asc
@@ -219,6 +221,7 @@ export default async function ViajeDetallePage({
       integrantes={integrantes}
       pagos={pagos}
       canManage={canManage}
+      esAdmin={rol === "administrador"}
       currentUserId={session.user.id}
       currentUserName={session.user.name ?? ""}
     />

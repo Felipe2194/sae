@@ -1,5 +1,7 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
+import { useConfirmar } from "@/components/features/confirmar-dialog";
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -61,6 +63,7 @@ type Props = {
   integrantes: IntegranteViajeRow[];
   pagos: PagoRow[];
   canManage: boolean;
+  esAdmin: boolean;
   currentUserId: string;
   currentUserName: string;
 };
@@ -75,6 +78,7 @@ export function ViajeDetalleCliente({
   integrantes,
   pagos,
   canManage,
+  esAdmin,
   currentUserId,
   currentUserName,
 }: Props) {
@@ -108,7 +112,7 @@ export function ViajeDetalleCliente({
         toast.success("Se actualizó el link de inscripción.");
       })
       .catch((err) => {
-        toast.error(err instanceof Error ? err.message : "No se pudo guardar el código.");
+        toast.error(mensajeDeError(err, "No se pudo guardar el código."));
       })
       .finally(() => setGuardandoCodigo(false));
   }
@@ -119,14 +123,15 @@ export function ViajeDetalleCliente({
     toast.success("Link de inscripción copiado al portapapeles.");
   }
 
-  function handleRegenerarCodigo() {
-    if (
-      !confirm(
-        "El link anterior deja de funcionar. ¿Regenerar el código de inscripción?",
-      )
-    ) {
-      return;
-    }
+  const [confirmar, dialogoConfirmar] = useConfirmar();
+
+  async function handleRegenerarCodigo() {
+    const ok = await confirmar({
+      titulo: "¿Regenerar el código de inscripción?",
+      descripcion: "El link anterior deja de funcionar: quien lo tenga ya no va a poder anotarse.",
+      confirmar: "Regenerar",
+    });
+    if (!ok) return;
     setRegenerando(true);
     regenerarCodigoPublico(viaje.id)
       .then(({ codigo }) => {
@@ -134,7 +139,7 @@ export function ViajeDetalleCliente({
         toast.success("Se generó un nuevo link de inscripción.");
       })
       .catch((err) => {
-        toast.error(err instanceof Error ? err.message : "No se pudo regenerar el código.");
+        toast.error(mensajeDeError(err, "No se pudo regenerar el código."));
       })
       .finally(() => setRegenerando(false));
   }
@@ -191,10 +196,10 @@ export function ViajeDetalleCliente({
                 autoFocus
                 className="h-8 w-40 text-xs"
               />
-              <Button size="icon" variant="ghost" className="size-8" disabled={guardandoCodigo} onClick={handleGuardarCodigo}>
+              <Button size="icon" variant="ghost" className="size-8" aria-label="Guardar código" title="Guardar" disabled={guardandoCodigo} onClick={handleGuardarCodigo}>
                 <Check className="size-3.5" />
               </Button>
-              <Button size="icon" variant="ghost" className="size-8" onClick={() => setEditandoCodigo(false)}>
+              <Button size="icon" variant="ghost" className="size-8" aria-label="Cancelar" title="Cancelar" onClick={() => setEditandoCodigo(false)}>
                 <X className="size-3.5" />
               </Button>
             </>
@@ -258,7 +263,14 @@ export function ViajeDetalleCliente({
       </div>
 
       {pestaña === "inscriptos" && (
-        <InscriptosTab viajeId={viaje.id} integrantesIniciales={integrantes} canManage={canManage} />
+        <InscriptosTab
+          viajeId={viaje.id}
+          integrantesIniciales={integrantes}
+          canManage={canManage}
+          // Borrar datos personales: solo administradores y solo con el viaje
+          // ya cerrado (misma regla que anonimizar_inscriptos_viaje, 054).
+          puedeBorrarDatos={esAdmin && (viaje.estado === "realizado" || viaje.estado === "cancelado")}
+        />
       )}
 
       {pestaña === "equipo" && (
@@ -330,6 +342,7 @@ export function ViajeDetalleCliente({
         viajeInicial={viaje}
         asignadosInicialesIds={asignados.map((a) => a.id)}
       />
+      {dialogoConfirmar}
     </div>
   );
 }

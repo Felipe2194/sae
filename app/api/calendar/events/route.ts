@@ -30,12 +30,25 @@ export async function GET(req: NextRequest) {
   // configurado por variable de entorno antes de que cada una pudiera
   // vincular el suyo desde Configuración (ver 034_google_calendar_
   // organizacion.sql) siguen funcionando sin tener que repegar el ID.
-  const calendarId = await withUser(session.user.id, async (tx) => {
-    const [org] = await tx<[{ google_calendar_id: string | null }]>`
-      select google_calendar_id from organizacion where id = mi_organizacion_id()
+  //
+  // Misma regla que la página /calendario (única que consume esta ruta): con
+  // la sección desactivada o "solo administradores" no se entregan eventos.
+  const { visible, calendarId } = await withUser(session.user.id, async (tx) => {
+    const [org] = await tx<[{ google_calendar_id: string | null; visible: boolean }?]>`
+      select
+        google_calendar_id,
+        seccion_visible(calendario_habilitado, secciones_solo_admin, 'calendario') as visible
+      from organizacion where id = mi_organizacion_id()
     `;
-    return org?.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null;
+    return {
+      visible: org?.visible ?? false,
+      calendarId: org?.google_calendar_id ?? process.env.GOOGLE_CALENDAR_ID ?? null,
+    };
   });
+
+  if (!visible) {
+    return NextResponse.json({ error: "Sección no disponible" }, { status: 403 });
+  }
 
   if (!calendarId) {
     // Sin calendario vinculado: devolver eventos de ejemplo

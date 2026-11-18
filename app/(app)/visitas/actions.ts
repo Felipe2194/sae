@@ -1,7 +1,8 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireSeccion } from "@/lib/sesion";
 import { revalidatePath, updateTag } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
 import {
   crearEventoCalendar,
@@ -16,12 +17,6 @@ import {
   emailValido,
   telefonoValido,
 } from "./tipos";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
 
 export type VisitaDelDia = {
   id: string;
@@ -40,7 +35,7 @@ export async function obtenerVisitasDelDia(
   fecha: string,
   excluirId?: string,
 ): Promise<VisitaDelDia[]> {
-  const session = await requireAuth();
+  const session = await requireSeccion("visitas");
   return withUser(session.user.id, async (tx) => {
     const filas = await tx<VisitaDelDia[]>`
       select
@@ -116,7 +111,7 @@ async function resolverColegio(
     return input.colegioId;
   }
   const nombre = input.nombre.trim();
-  if (!nombre) throw new Error("Falta el nombre del colegio.");
+  if (!nombre) throw new ErrorDeUsuario("Falta el nombre del colegio.");
   const [existente] = await tx<[{ id: string } | undefined]>`
     select id from colegio
     where organizacion_id = mi_organizacion_id()
@@ -220,7 +215,7 @@ export async function crearVisita(
   | { id: string; sincronizada: boolean; error: string | null }
   | { invalido: string }
 > {
-  const session = await requireAuth();
+  const session = await requireSeccion("visitas");
   const invalido = validarVisitaInput(data);
   if (invalido) return { invalido };
 
@@ -308,7 +303,7 @@ export async function actualizarVisita(
   | { sincronizada: boolean; error: string | null }
   | { invalido: string }
 > {
-  const session = await requireAuth();
+  const session = await requireSeccion("visitas");
 
   const resultado =
     await withUser(session.user.id, async (tx) => {
@@ -454,7 +449,7 @@ export async function cambiarEstadoVisita(
   visitaId: string,
   estado: "realizado" | "pendiente" | "confirmado",
 ): Promise<{ estadoPrevio: EstadoVisita | null; error: string | null }> {
-  const session = await requireAuth();
+  const session = await requireSeccion("visitas");
   if (!["realizado", "pendiente", "confirmado"].includes(estado)) {
     return { estadoPrevio: null, error: "Estado no válido." };
   }
@@ -505,7 +500,7 @@ export async function cambiarEstadoVisita(
 // Copia el contacto de esta visita puntual al directorio de colegios —
 // equivalente a "📋 Guardar contacto de esta fila → Colegios" del Sheet.
 export async function guardarContactoColegio(visitaId: string): Promise<void> {
-  const session = await requireAuth();
+  const session = await requireSeccion("visitas");
   await withUser(session.user.id, async (tx) => {
     const [visita] = await tx<
       [
@@ -522,7 +517,7 @@ export async function guardarContactoColegio(visitaId: string): Promise<void> {
       from visita_colegio
       where id = ${visitaId} and organizacion_id = mi_organizacion_id()
     `;
-    if (!visita) throw new Error("La visita no existe.");
+    if (!visita) throw new ErrorDeUsuario("La visita no existe.");
     await tx`
       update colegio set
         contacto_nombre   = ${visita.contacto_nombre},
@@ -551,12 +546,12 @@ export async function actualizarColegio(
   colegioId: string,
   data: ColegioUpdateInput,
 ): Promise<void> {
-  const session = await requireAuth();
+  const session = await requireSeccion("visitas");
   if (!emailValido(data.contactoEmail)) {
-    throw new Error("El email del contacto no es válido.");
+    throw new ErrorDeUsuario("El email del contacto no es válido.");
   }
   if (!telefonoValido(data.contactoTelefono)) {
-    throw new Error("El teléfono del contacto no es válido.");
+    throw new ErrorDeUsuario("El teléfono del contacto no es válido.");
   }
   await withUser(session.user.id, async (tx) => {
     await tx`

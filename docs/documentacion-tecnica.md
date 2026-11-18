@@ -166,5 +166,7 @@ en la documentación pública de shadcn):
   `intento_auth`).
 - `/api/health`, sin autenticación, para monitoreo externo — confirma que
   el proceso responde y que la base es alcanzable.
-- Falta (documentado en `estado-del-proyecto.md`): Sentry o similar para
-  trazas de errores con stack completo.
+- Errores de servidor: `instrumentation.ts` los registra como JSON en los
+  logs y los avisa por Telegram (`TELEGRAM_ALERTAS_CHAT_ID`). Los mensajes
+  pensados para la persona viajan con `ErrorDeUsuario` (`lib/errores.ts`).
+  Detalle en `operacion-produccion.md`.

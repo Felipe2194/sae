@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Banknote, CheckCircle2, Plus, Trash2 } from "lucide-react";
@@ -68,7 +69,7 @@ export function CostosTab({
       try {
         await moverEstadoTarea(tareaId, "hecha");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudo marcar como hecha.");
+        toast.error(mensajeDeError(err, "No se pudo marcar como hecha."));
       }
     });
   }
@@ -100,7 +101,7 @@ export function CostosTab({
         }
         setFijando(null);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudo fijar el costo.");
+        toast.error(mensajeDeError(err, "No se pudo fijar el costo."));
       }
     });
   }

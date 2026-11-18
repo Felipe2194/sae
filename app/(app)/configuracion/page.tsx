@@ -118,8 +118,9 @@ export default async function AdminPage() {
         a.entidad, a.entidad_nombre, a.campo, a.valor_antes, a.valor_despues
       from auditoria a
       left join usuario u on u.id = a.usuario_id
-      order by a.creado_en desc
-      limit 100
+      where a.organizacion_id = mi_organizacion_id()
+      order by a.creado_en desc, a.id desc
+      limit 51
     `;
 
       const accesos = await tx<AccesoRow[]>`
@@ -142,6 +143,7 @@ export default async function AdminPage() {
           visitas_habilitado: boolean;
           tablero_habilitado: boolean;
           viajes_habilitado: boolean;
+          becas_habilitado: boolean;
           secciones_solo_admin: string[];
           google_calendar_id: string | null;
         }[]
@@ -150,7 +152,7 @@ export default async function AdminPage() {
         nombre, logo_url, color_principal, zona_horaria,
         calendario_habilitado, cronograma_habilitado,
         proyectos_habilitado, visitas_habilitado, tablero_habilitado,
-        viajes_habilitado, secciones_solo_admin, google_calendar_id
+        viajes_habilitado, becas_habilitado, secciones_solo_admin, google_calendar_id
       from organizacion
       where id = mi_organizacion_id()
     `;
@@ -214,6 +216,7 @@ export default async function AdminPage() {
                 proyectos: organizacion.proyectos_habilitado,
                 visitas: organizacion.visitas_habilitado,
                 viajes: organizacion.viajes_habilitado,
+                becas: organizacion.becas_habilitado,
               }}
               soloAdmin={organizacion.secciones_solo_admin as SeccionOpcionalKey[]}
             />
@@ -377,7 +380,10 @@ export default async function AdminPage() {
         </p>
         <Card>
           <CardContent className="p-0">
-            <AuditoriaTable entradas={auditoria} />
+            <AuditoriaTable
+              entradasIniciales={auditoria.slice(0, 50)}
+              hayMasInicial={auditoria.length > 50}
+            />
           </CardContent>
         </Card>
       </section>

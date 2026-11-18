@@ -16,7 +16,6 @@ type TareaRow = {
   estado: string;
   prioridad: string;
   tipo: string;
-  areaColor: string | null;
   areaNombre: string | null;
   fecha: string | null;
   fechaRelativa: string | null;

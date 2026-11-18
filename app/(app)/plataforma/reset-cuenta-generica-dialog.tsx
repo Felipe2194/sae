@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { KeyRound, Eye, EyeOff } from "lucide-react";
@@ -64,7 +65,7 @@ export function ResetCuentaGenericaDialog({
         }
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "No se pudo resetear la contraseña.",
+          mensajeDeError(err, "No se pudo resetear la contraseña."),
         );
       }
     });

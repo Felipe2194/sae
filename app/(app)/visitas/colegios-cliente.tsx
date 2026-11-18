@@ -362,6 +362,8 @@ export function ColegiosCliente({ colegios }: { colegios: ColegioFila[] }) {
                     size="icon"
                     variant="ghost"
                     className="size-7"
+                    aria-label={`Editar ${c.nombre}`}
+                    title="Editar"
                     onClick={() => setEditando(c)}
                   >
                     <Pencil className="size-3.5" />

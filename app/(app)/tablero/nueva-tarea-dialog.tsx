@@ -1,5 +1,6 @@
 "use client";
 
+import { mensajeDeError } from "@/lib/errores";
 import { useState, useTransition } from "react";
 import {
   Dialog,
@@ -119,7 +120,7 @@ export function NuevaTareaDialog({
         onOpenChange(false);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "No se pudo crear la tarea.",
+          mensajeDeError(err, "No se pudo crear la tarea."),
         );
       }
     });

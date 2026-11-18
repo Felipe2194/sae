@@ -111,10 +111,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       name: "Cambiar de perfil",
       credentials: {
         usuarioId: { label: "Usuario", type: "text" },
+        password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials, request) {
         const usuarioId = credentials?.usuarioId as string | undefined;
         if (!usuarioId) return null;
+        const password = (credentials?.password as string | undefined) || "";
 
         const tokenActual = await getToken({
           req: request,
@@ -148,17 +150,48 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             rol: RolUsuario;
             organizacion_id: string;
             es_superadmin: boolean;
+            password_hash: string;
           }[]
         >`
-          select id, nombre, email, rol, organizacion_id, es_superadmin
+          select id, nombre, email, rol, organizacion_id, es_superadmin, password_hash
           from usuario
           where id = ${usuarioId}
             and organizacion_id = ${origen.organizacion_id}
             and estado = 'activo'
-            and (es_cuenta_generica = false or id = ${origenGenericoId})
+            and (
+              (es_cuenta_generica = false and not oculto)
+              or id = ${origenGenericoId}
+            )
           limit 1
         `;
         if (!destino) return null;
+
+        // El cambio rápido sin contraseña es para integrantes comunes. Un
+        // perfil administrador (o superadmin de plataforma) pide SU
+        // contraseña: sin esto, cualquiera que conociera la clave de la
+        // cuenta de oficina podía actuar como un administrador con nombre y
+        // apellido — y heredar es_superadmin — sin autenticarse como esa
+        // persona. La propia cuenta genérica de origen queda exceptuada: ya
+        // se entró con su contraseña para llegar hasta acá. Las cuentas
+        // ocultas (047_usuario_oculto.sql) directamente no son destino.
+        const protegido =
+          destino.id !== origenGenericoId &&
+          (destino.rol === "administrador" || destino.es_superadmin);
+        if (protegido) {
+          const clave = `switch:usuario:${destino.id}`;
+          if (!(await verificarLimiteIntentos(clave, 6, VENTANA_RATE_LIMIT_LOGIN_MS))) {
+            return null;
+          }
+          const valido =
+            !!password && (await bcrypt.compare(password, destino.password_hash));
+          if (!valido) {
+            await registrarIntento(clave);
+            logger.warn("quick-switch: contraseña incorrecta para perfil protegido", {
+              destino: destino.id,
+            });
+            return null;
+          }
+        }
 
         await sql`update usuario set ultimo_login = now() where id = ${destino.id}`;
 

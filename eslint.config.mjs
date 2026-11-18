@@ -12,9 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Supabase CLI working dir and generated types, not our code.
-    "supabase/.temp/**",
-    "types/database.ts",
+    // Handoff de diseño (prototipos sueltos, fuera de git — ver .gitignore):
+    // no es código de la app y hacía fallar `npm run lint` en local.
+    "landing/**",
+    "backups/**",
   ]),
 ]);
 

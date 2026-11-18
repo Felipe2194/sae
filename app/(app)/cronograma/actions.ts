@@ -1,26 +1,21 @@
 "use server";
 
+import { ErrorDeUsuario } from "@/lib/errores";
+import { requireSeccion } from "@/lib/sesion";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
 import { withUser } from "@/lib/db";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) throw new Error("No autenticado");
-  return session;
-}
 
 // Cualquiera puede cargar/editar/borrar su propio turno; administrador
 // puede hacerlo por cualquiera (mismo criterio que las excepciones de turno
 // más abajo). RLS (turno_insert/update/delete) refuerza esto mismo del lado
 // de la base.
 function requierePropioOManage(
-  session: Awaited<ReturnType<typeof requireAuth>>,
+  session: Awaited<ReturnType<typeof requireSeccion>>,
   usuarioId: string,
 ) {
   const rol = (session.user as { rol: string }).rol;
   if (usuarioId !== session.user.id && rol !== "administrador") {
-    throw new Error("Solo podés gestionar tu propio turno");
+    throw new ErrorDeUsuario("Solo podés gestionar tu propio turno");
   }
 }
 
@@ -32,7 +27,7 @@ export async function crearTurno(data: {
   vigente_desde: string;
   vigente_hasta: string | null;
 }) {
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   requierePropioOManage(session, data.usuario_id);
   await withUser(session.user.id, async (tx) => {
     await tx`
@@ -63,7 +58,7 @@ export async function actualizarTurno(
     vigente_hasta: string | null;
   },
 ) {
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   requierePropioOManage(session, data.usuario_id);
   await withUser(session.user.id, async (tx) => {
     await tx`
@@ -85,7 +80,7 @@ export async function actualizarTurno(
 export async function eliminarTurno(turnoId: string) {
   // Sin chequeo explícito de dueño acá: RLS (turno_delete) es quien decide
   // si esta fila se puede borrar (propio turno, o administrador).
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   await withUser(session.user.id, async (tx) => {
     await tx`
       delete from turno
@@ -109,17 +104,17 @@ export async function crearExcepcion(data: {
   nota: string | null;
   usuario_reemplazo_id: string | null;
 }) {
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   const rol = (session.user as { rol: string }).rol;
   if (data.usuario_id !== session.user.id && rol !== "administrador") {
-    throw new Error("Solo podés marcar tu propia ausencia");
+    throw new ErrorDeUsuario("Solo podés marcar tu propia ausencia");
   }
   if (data.tipo === "cambio") {
     if (!data.usuario_reemplazo_id) {
-      throw new Error("Elegí quién cubre el turno ese día.");
+      throw new ErrorDeUsuario("Elegí quién cubre el turno ese día.");
     }
     if (data.usuario_reemplazo_id === data.usuario_id) {
-      throw new Error("El reemplazo tiene que ser otra persona.");
+      throw new ErrorDeUsuario("El reemplazo tiene que ser otra persona.");
     }
   }
   await withUser(session.user.id, async (tx) => {
@@ -143,7 +138,7 @@ export async function crearExcepcion(data: {
 }
 
 export async function eliminarExcepcion(excepcionId: string) {
-  const session = await requireAuth();
+  const session = await requireSeccion("cronograma");
   await withUser(session.user.id, async (tx) => {
     await tx`delete from excepcion_turno where id = ${excepcionId}`;
   });

@@ -47,6 +47,7 @@ export default async function PerfilPage() {
       colorPrincipalOrg={usuario.color_principal_org}
       musicaMobileHabilitada={usuario.musica_mobile_habilitada}
       musicaHabilitada={usuario.musica_habilitada}
+      mostrarPassword={!session.user.esCuentaGenerica}
     />
   );
 }

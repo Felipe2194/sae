@@ -70,6 +70,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         visitas_habilitado: boolean;
         tablero_habilitado: boolean;
         viajes_habilitado: boolean;
+        becas_habilitado: boolean;
         secciones_solo_admin: string[];
         musica_mobile_habilitada: boolean;
         musica_habilitada: boolean;
@@ -81,7 +82,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           u.fondo_tipo, u.fondo_valor,
           o.calendario_habilitado, o.cronograma_habilitado,
           o.proyectos_habilitado, o.visitas_habilitado, o.tablero_habilitado,
-          o.viajes_habilitado, o.secciones_solo_admin, u.musica_mobile_habilitada,
+          o.viajes_habilitado, o.becas_habilitado, o.secciones_solo_admin, u.musica_mobile_habilitada,
           u.musica_habilitada
         from usuario u
         join organizacion o on o.id = u.organizacion_id
@@ -155,6 +156,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           proyectos: visible("proyectos", fila?.proyectos_habilitado),
           visitas: visible("visitas", fila?.visitas_habilitado),
           viajes: visible("viajes", fila?.viajes_habilitado),
+          // Arranca desactivada (055_becas.sql): sin fila no se muestra.
+          becas: visible("becas", fila?.becas_habilitado ?? false),
         }}
         soloAdmin={rol === "administrador" ? soloAdmin : []}
       />
