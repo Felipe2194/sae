@@ -42,8 +42,11 @@ function readStoredTheme(): Theme {
 
 function applyTheme(resolved: ResolvedTheme) {
   const root = document.documentElement;
-  root.classList.toggle("dark", resolved === "dark");
-  root.style.colorScheme = resolved;
+  // Los estilos de preview (lib/estilos-preview.ts) pueden forzar un esquema.
+  const forzado = root.getAttribute("data-esquema");
+  const final = forzado === "light" || forzado === "dark" ? forzado : resolved;
+  root.classList.toggle("dark", final === "dark");
+  root.style.colorScheme = final;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
